@@ -9,6 +9,7 @@
   "entry": "plugin.py",
   "icon": "",
   "safe_mode": true,
+  "minimum_mediahub": "1.0.3",
   "minimum_mediahub_version": "1.0.3",
   "shared_runtime": "mediahub_web_core",
   "network_scope": "computer_only",
