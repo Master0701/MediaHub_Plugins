@@ -12,7 +12,7 @@ Eigenständiges Repository für die offizielle MediaHub-Produktfamilie.
 
 ## Aktueller Stand
 
-WebRemote **v0.5.2** basiert auf MediaHub **v1.0.5** und enthält Live-Dashboard, Kanalübersicht, Live-Downloads und Warteschlange.
+WebRemote **v0.5.3** basiert auf MediaHub **v1.0.5** und enthält Live-Dashboard, Kanalübersicht, Live-Downloads und Warteschlange.
 
 Jedes Plugin bleibt einzeln installierbar. Gemeinsame Bausteine liegen unter `shared/`.
 

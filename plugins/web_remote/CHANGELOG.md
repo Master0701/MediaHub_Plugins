@@ -1,5 +1,12 @@
 # WebRemote Changelog
 
+## 0.5.3
+
+- Live-Aktivitäten als eigener Bereich ergänzt.
+- Verbindungsänderungen, Downloadstart, Downloadende und erledigte Videos werden beobachtet.
+- Aktivitätsliste aktualisiert sich automatisch alle drei Sekunden.
+- Keine zusätzliche Änderung am MediaHub-Hauptprogramm erforderlich.
+
 ## 0.5.2
 
 - Basis auf MediaHub v1.0.5 angehoben.

@@ -1,9 +1,9 @@
 {
   "id": "mediahub.web_remote",
   "name": "MediaHub WebRemote",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "author": "Master0701",
-  "description": "Lokales MediaHub Control Center für MediaHub v1.0.5 mit Live-Dashboard, echter Kanalansicht sowie Live-Downloads und Warteschlange für Desktop, Tablet und Smartphone.",
+  "description": "Lokales MediaHub Control Center für MediaHub v1.0.5 mit Live-Dashboard, Kanalansicht, Downloads, Warteschlange und beobachteten Live-Aktivitäten.",
   "type": "web",
   "enabled": true,
   "entry": "plugin.py",
@@ -17,7 +17,8 @@
     "read_status",
     "read_counts",
     "read_channels",
-    "read_downloads"
+    "read_downloads",
+    "read_activities"
   ],
   "minimum_mediahub": "1.0.5"
 }

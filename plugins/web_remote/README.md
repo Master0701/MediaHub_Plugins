@@ -15,3 +15,8 @@ Der Server bleibt in dieser Version nur auf dem MediaHub-PC erreichbar.
 ## Live-Downloads
 
 Version 0.5.1 zeigt den aktuellen Download, beide Fortschrittswerte und die Warteschlange ausschließlich lesend an.
+
+
+## Live-Aktivitäten
+
+WebRemote protokolliert während seiner Laufzeit beobachtete Verbindungs- und Downloadänderungen. Die Liste ist flüchtig und wird beim Neustart neu begonnen.
