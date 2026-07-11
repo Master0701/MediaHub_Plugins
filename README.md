@@ -1,33 +1,66 @@
 # MediaHub Plugins
 
-Eigenständiges Repository für die offizielle MediaHub-Produktfamilie.
-
-## Produkte
-
-- `web_remote` – lokales MediaHub Control Center im Browser
-- `mobile_dashboard` – mobile Erweiterung auf derselben Server- und API-Basis
-- `metadata_editor` – späterer Metadaten-Editor
-- `ai_assistant` – spätere KI-Unterstützung
-- `smart_renamer` – späteres intelligentes Massen-Umbenennungstool
-
-## Projektaufbau
-
-- `plugins/` – voneinander getrennte Plugins
-- `shared/` – gemeinsam verwendbare Laufzeiten, APIs und Design-Bausteine
-- `catalog/` – späterer Download- und Updatekatalog für MediaHub
-- `docs/` – Architektur-, Design- und Entwicklungsregeln
-- `dist/` – gebaute `.mhplugin`-Pakete
-
-Jedes Plugin wird einzeln gebaut, veröffentlicht, installiert, aktualisiert und entfernt.
+Offizielles Erweiterungs-Repository für MediaHub.
 
 ## Aktueller Stand
 
-WebRemote 0.2 kann über die MediaHub-Plugin-Brücke gestartet und gestoppt werden und liest erste Statusdaten. Als nächster Entwicklungsschritt folgt Version 0.3 mit dem Control-Center-Grundlayout.
+- **MediaHub WebRemote 0.5.2**
 
-## Bauen
+## WebRemote 0.5.2
+
+### Kompatibilität
+
+- Mindestversion auf MediaHub v1.0.5 angehoben.
+- Kompatibilität mit dem aktuellen MediaHub-API-Fix hergestellt.
+
+### Build und Veröffentlichung
+
+- GitHub Actions auf Node-24-kompatible Versionen aktualisiert.
+- `actions/checkout` auf Version 6 aktualisiert.
+- `actions/setup-python` auf Version 6 aktualisiert.
+- `actions/upload-artifact` auf Version 6 aktualisiert.
+- `softprops/action-gh-release` auf Version 3 aktualisiert.
+- Release-Beschreibung wird automatisch aus `RELEASE_NOTES.md` übernommen.
+- Zusätzliche Absicherung der Release-Beschreibung über `actions/github-script@v8`.
+- README und Build-Anleitungen auf den aktuellen Projektstand gebracht.
+- Build-Ausgabe korrekt auf den Ordner `release/` dokumentiert.
+
+## Kompatibilität
+
+Die aktuellen Plugins benötigen mindestens **MediaHub v1.0.5**.
+
+## Projektaufbau
+
+- `plugins/` – getrennte, einzeln installierbare Plugins
+- `shared/` – gemeinsam genutzte Laufzeiten, APIs und Design-Bausteine
+- `catalog/` – zukünftiger Download- und Updatekatalog
+- `docs/` – Architektur-, Design- und Entwicklungsunterlagen
+- `release/` – lokal und in GitHub Actions erzeugte Plugin-Pakete
+
+Jedes Plugin bleibt optional und kann einzeln installiert, aktualisiert und entfernt werden.
+
+## Plugins bauen
+
+Alle Plugins sauber neu erstellen:
 
 ```powershell
-python build_plugins.py web_remote
+python build_plugins.py all --clean
 ```
 
-Das Build-Skript verwendet die vorhandene Python-Umgebung. Für das reine Plugin-Paket ist keine erneute PyInstaller-Installation erforderlich.
+Nur WebRemote erstellen:
+
+```powershell
+python build_plugins.py web_remote --clean
+```
+
+Die fertigen `.mhplugin`-Dateien und `.sha256`-Prüfsummen liegen anschließend unter `release/`.
+
+## Release vorbereiten
+
+```powershell
+python prepare_plugin_release.py
+```
+
+Dieser Befehl übernimmt `RELEASE_NOTES_PENDING.md` in die verfolgte Datei
+`RELEASE_NOTES.md` und aktualisiert diese README. Die temporäre Pending-Datei
+bleibt lokal und wird nicht in Git aufgenommen.

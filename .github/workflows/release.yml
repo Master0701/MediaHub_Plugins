@@ -14,10 +14,10 @@ jobs:
 
     steps:
       - name: Repository auschecken
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Python einrichten
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
@@ -33,12 +33,60 @@ jobs:
           $name = "MediaHub_Plugins_Source_${{ github.ref_name }}.zip"
           git archive --format=zip --output="release/$name" HEAD
 
-      - name: GitHub-Release erstellen
-        uses: softprops/action-gh-release@v2
+      - name: Release-Dateien als Workflow-Artefakt hochladen
+        uses: actions/upload-artifact@v6
         with:
-          generate_release_notes: true
+          name: MediaHub-Plugins-${{ github.ref_name }}
+          path: |
+            release/*.mhplugin
+            release/*.sha256
+            release/MediaHub_Plugins_Source_*.zip
+            RELEASE_NOTES.md
+          if-no-files-found: error
+
+      - name: GitHub-Release erstellen
+        uses: softprops/action-gh-release@v3
+        with:
+          name: MediaHub Plugins ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          body_path: RELEASE_NOTES.md
+          generate_release_notes: false
+          fail_on_unmatched_files: true
           files: |
             release/*.mhplugin
             release/*.sha256
             release/MediaHub_Plugins_Source_*.zip
-          fail_on_unmatched_files: true
+
+      - name: Release-Beschreibung sicher aktualisieren
+        uses: actions/github-script@v8
+        env:
+          RELEASE_NOTES_PATH: RELEASE_NOTES.md
+        with:
+          script: |
+            const fs = require("fs");
+            const tag = context.ref.replace("refs/tags/", "");
+            const body = fs.readFileSync(
+              process.env.RELEASE_NOTES_PATH,
+              "utf8"
+            );
+
+            const release = await github.rest.repos.getReleaseByTag({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag,
+            });
+
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: release.data.id,
+              name: `MediaHub Plugins ${tag}`,
+              body,
+              draft: false,
+              prerelease:
+                tag.includes("test") ||
+                tag.includes("beta") ||
+                tag.includes("alpha"),
+            });
+
+            core.info("Plugin-Release-Beschreibung aktualisiert.");
