@@ -1,3 +1,9 @@
+# WebRemote v0.8.2
+
+- Assistent-Schaltfläche öffnet jetzt den richtigen Start-/Download-Assistenten.
+- Freigegebene Aktion auf `setup_wizard.open` umgestellt.
+- Versions- und Katalogdaten konsistent aktualisiert.
+
 # WebRemote v0.8.1
 
 - Fehlende Browser-Funktion `runAction()` ergänzt.

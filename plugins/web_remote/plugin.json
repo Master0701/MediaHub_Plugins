@@ -1,7 +1,7 @@
 {
   "id": "mediahub.web_remote",
   "name": "MediaHub WebRemote",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "author": "Master0701",
   "description": "Lokales MediaHub Control Center mit vollständiger Leseoberfläche und kontrollierten Schreibaktionen.",
   "type": "web",
@@ -26,7 +26,7 @@
     "read_plugins",
     "read_system",
     "read_activities",
-    "actions.assistant.open",
+    "actions.setup_wizard.open",
     "actions.channels.sync",
     "actions.downloads.control",
     "actions.jobs.control",

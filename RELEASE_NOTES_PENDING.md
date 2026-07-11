@@ -1,5 +1,5 @@
-# MediaHub Plugins – WebRemote v0.8.0
+# MediaHub WebRemote v0.8.2
 
-- Kontrollierte Schreibaktionen über feste Whitelist.
-- Kanal-Synchronisierung, Downloadsteuerung, Jobs und Scheduler.
-- Assistent und Plugin-Center aus WebRemote öffnen.
+- Start-Assistent statt allgemeinem MediaHub-Assistenten angebunden.
+- Schreibaktions-Zuordnung korrigiert.
+- Manifest, Katalog und Paketversion vereinheitlicht.

@@ -10,7 +10,7 @@ from mediahub_web_core.server import LocalWebServer
 
 
 class MediaHubWebRemotePlugin:
-    VERSION = "0.8.1"
+    VERSION = "0.8.2"
 
     def __init__(self, plugin_path: Path, mediahub_api=None):
         self.plugin_path = Path(plugin_path)
@@ -161,7 +161,7 @@ class MediaHubWebRemotePlugin:
     def _action(self, payload):
         action = str(payload.get("action") or "").strip()
         args = payload.get("payload") or {}
-        allowed = {"assistant.open","plugins.open","channels.sync","channels.sync_current","downloads.cancel","downloads.select_videos","downloads.select_playlists","jobs.run_next","scheduler.check","scheduler.toggle"}
+        allowed = {"setup_wizard.open","plugins.open","channels.sync","channels.sync_current","downloads.cancel","downloads.select_videos","downloads.select_playlists","jobs.run_next","scheduler.check","scheduler.toggle"}
         if action not in allowed:
             return self._json({"ok": False, "message": "Aktion ist nicht freigegeben."}, status=403)
         if self.mediahub_api is None or not hasattr(self.mediahub_api, "execute_action"):
