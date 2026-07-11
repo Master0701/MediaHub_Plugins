@@ -10,3 +10,8 @@ Lokales MediaHub Control Center. Version 0.4.0 ergänzt die echte Kanalübersich
 `http://127.0.0.1:8765`
 
 Der Server bleibt in dieser Version nur auf dem MediaHub-PC erreichbar.
+
+
+## Live-Downloads
+
+Version 0.5.1 zeigt den aktuellen Download, beide Fortschrittswerte und die Warteschlange ausschließlich lesend an.

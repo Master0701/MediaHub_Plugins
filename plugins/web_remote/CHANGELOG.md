@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.1
+
+- Live-Downloadstatus aus MediaHub
+- Aktuelles Video und Fortschrittsanzeige
+- Warteschlange mit Status je Eintrag
+- Sichere, nur lesende Download-API
+- Automatische Aktualisierung alle zwei Sekunden auf der Downloadseite
+
 ## 0.5.0
 
 - Live-Dashboard mit Aktualisierung alle 10 Sekunden

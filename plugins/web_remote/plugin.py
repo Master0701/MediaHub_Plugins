@@ -15,6 +15,7 @@ class MediaHubWebRemotePlugin:
         self.server.add_route("/api/status", self._status)
         self.server.add_route("/api/channels", self._channels)
         self.server.add_route("/api/plugins", self._plugins)
+        self.server.add_route("/api/downloads", self._downloads)
 
     def start(self):
         self.server.start()
@@ -33,18 +34,30 @@ class MediaHubWebRemotePlugin:
             "connected": False, "channels": 0, "playlists": 0, "videos": 0,
         }
         return self._json({
-            "product": "MediaHub WebRemote", "version": "0.5.0",
+            "product": "MediaHub WebRemote", "version": "0.5.1",
             "server": "online", "scope": "computer_only", "mediahub": mediahub,
         })
 
+    def _downloads(self):
+        if self.mediahub_api is None or not hasattr(self.mediahub_api, "get_download_status"):
+            return self._json({
+                "available": False,
+                "active": False,
+                "message": "MediaHub Plugin-API Fix 3 erforderlich.",
+                "queue": [],
+            })
+        try:
+            data = self.mediahub_api.get_download_status()
+            data["available"] = True
+            return self._json(data)
+        except Exception as error:
+            return self._json({"available": False, "active": False, "message": str(error), "queue": []}, status=500)
+
     def _plugins(self):
-        # Bis die zentrale Plugin-Bus-API bereitsteht, beschreibt WebRemote
-        # nur den sicher bekannten eigenen Status. Weitere Familienmitglieder
-        # werden ehrlich als nicht installiert ausgewiesen.
         return self._json({
             "available": True,
             "plugins": [
-                {"id": "mediahub.web_remote", "name": "WebRemote", "version": "0.5.0", "installed": True, "running": True},
+                {"id": "mediahub.web_remote", "name": "WebRemote", "version": "0.5.1", "installed": True, "running": True},
                 {"id": "mediahub.mobile_dashboard", "name": "Mobile Dashboard", "installed": False, "running": False},
                 {"id": "mediahub.metadata_editor", "name": "Metadaten-Editor", "installed": False, "running": False},
                 {"id": "mediahub.ai_assistant", "name": "KI-Assistent", "installed": False, "running": False},
