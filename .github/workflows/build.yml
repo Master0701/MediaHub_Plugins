@@ -12,16 +12,27 @@ permissions:
 jobs:
   validate-and-build:
     runs-on: windows-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - run: python validate_plugins.py
-      - run: python build_plugins.py --clean
-      - uses: actions/upload-artifact@v4
+
+      - name: Plugins prüfen
+        run: python validate_plugins.py
+
+      - name: Alle Plugins sauber bauen
+        run: python build_plugins.py all --clean
+
+      - name: Build-Dateien hochladen
+        uses: actions/upload-artifact@v4
         with:
           name: MediaHub-Plugins
           path: |
             release/*.mhplugin
             release/*.sha256
+          if-no-files-found: error
