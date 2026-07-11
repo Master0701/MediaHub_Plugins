@@ -1,25 +1,70 @@
-# Architekturentscheidung
+# MediaHub Suite – Architektur
 
-## Zwei getrennte Repositories
+## Repositories
 
-1. `MediaHub` – Hauptprogramm, Plugin-Schnittstelle und Plugin-Center
-2. `MediaHub-Plugins` – gesamte Plugin-Produktfamilie
+### MediaHub
 
-## Einzelne Installation
+Enthält das Hauptprogramm, das Plugin-Center, die sichere Plugin-API und den Plugin-Lebenszyklus.
 
-Jedes Plugin liegt in einem eigenen Ordner und wird als eigene `.mhplugin`-Datei gebaut.
+### MediaHub-Plugins
+
+Enthält die gesamte Plugin-Produktfamilie. Jedes Plugin liegt in einem eigenen Ordner und wird separat ausgeliefert.
+
+## Schichten
+
+```text
+Browser / mobile Oberfläche
+            ↓
+WebRemote oder MobileDashboard
+            ↓
+gemeinsame lokale Web- und API-Basis
+            ↓
+freigegebene MediaHub Plugin-API
+            ↓
+MediaHub Hauptprogramm
+```
+
+Plugins greifen nicht direkt auf interne MediaHub-Klassen zu.
 
 ## Gemeinsame Basis
 
-`shared/mediahub_web_core` enthält den lokalen Webserver und später die gemeinsame API-Basis für WebRemote und MobileDashboard.
+- `shared/mediahub_web_core` – lokaler Webserver und spätere API-Basis
+- `shared/mediahub_design` – zentrale Farben, Abstände und Web-Komponenten
 
-## Noch notwendige MediaHub-Erweiterung
+Plugin 1 und Plugin 2 verwenden dieselbe Basis. Beide müssen dennoch alleine installierbar und lauffähig bleiben.
 
-Der aktuelle MediaHub-Loader kann Manifestdateien entdecken und `.mhplugin`-Archive installieren. Er lädt aber noch keinen Plugin-Code. Benötigt werden später:
+## Netzwerk
 
-- sichere Entry-Point-Auflösung
-- Start/Stop-Lebenszyklus
-- begrenzte MediaHub-API statt direktem Zugriff auf interne Objekte
-- Aktivieren/Deaktivieren
-- Deinstallation und Update
-- Katalogdownload mit Prüfsumme
+WebRemote ist kein Cloud-Dienst. Es läuft ausschließlich lokal:
+
+- zuerst nur `127.0.0.1`
+- später auf Wunsch im Heimnetz
+- keine Router-Portfreigabe
+- kein externer Server erforderlich
+
+## Plugin-Katalog
+
+MediaHub soll später den Katalog dieses Repositories lesen und Plugins selbst herunterladen. Der Ablauf lautet:
+
+1. Katalog laden
+2. Kompatibilität prüfen
+3. Paket herunterladen
+4. SHA-256 prüfen
+5. sicher entpacken
+6. Plugin registrieren
+7. starten oder für den nächsten Start vormerken
+
+## Entwicklungsprinzip
+
+Erst gemeinsame und stabile Schnittstellen bauen, danach Funktionen ergänzen. WebRemote dient als erstes Referenz-Plugin für alle späteren Plugins.
+
+
+## Verbindlicher MediaHub-Kompatibilitätsstand
+
+Die Plugin-Produktfamilie basiert ab jetzt auf **MediaHub v1.0.3**.
+
+- Die MediaHub-Version wird ausschließlich über `src/mediahub/app_info.py` bestimmt.
+- Plugin-Manifeste geben `minimum_mediahub_version` an und dürfen keine eigene Kopie der MediaHub-Version pflegen.
+- Der Plugin-Release bleibt vom MediaHub-Hauptrelease getrennt.
+- Vor einer späteren Veröffentlichung in GitHub wird – wie im MediaHub-Release-Assistenten – direkt vor Commit/Tag/Release eine Passwort- bzw. Einmalcode-Freigabe verlangt.
+- Diese Freigabe betrifft nur die Veröffentlichung und niemals den normalen Start eines installierten Plugins.

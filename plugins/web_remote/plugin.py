@@ -7,17 +7,13 @@ from mediahub_web_core.server import LocalWebServer
 
 
 class MediaHubWebRemotePlugin:
-    """Erste lokale WebRemote-Grundversion.
-
-    Die endgültige MediaHub-Brücke wird nach Erweiterung der Plugin-API gesetzt.
-    """
-
     def __init__(self, plugin_path: Path, mediahub_api=None):
         self.plugin_path = Path(plugin_path)
         self.mediahub_api = mediahub_api
         self.server = LocalWebServer(host="127.0.0.1", port=8765)
         self.server.add_route("/", self._index)
         self.server.add_route("/api/status", self._status)
+        self.server.add_route("/api/channels", self._channels)
 
     def start(self):
         self.server.start()
@@ -26,15 +22,25 @@ class MediaHubWebRemotePlugin:
         self.server.stop()
 
     def _index(self):
-        html = (self.plugin_path / "index.html").read_bytes()
-        return 200, "text/html; charset=utf-8", html
+        return 200, "text/html; charset=utf-8", (self.plugin_path / "index.html").read_bytes()
+
+    def _json(self, data, status=200):
+        return status, "application/json; charset=utf-8", json.dumps(data, ensure_ascii=False).encode("utf-8")
 
     def _status(self):
-        data = {
-            "product": "MediaHub WebRemote",
-            "version": "0.1.0",
-            "server": "online",
-            "scope": "local_only",
-            "mediahub_connected": self.mediahub_api is not None,
+        mediahub = self.mediahub_api.get_status() if self.mediahub_api is not None else {
+            "connected": False, "channels": 0, "playlists": 0, "videos": 0,
         }
-        return 200, "application/json; charset=utf-8", json.dumps(data).encode("utf-8")
+        return self._json({
+            "product": "MediaHub WebRemote", "version": "0.4.0",
+            "server": "online", "scope": "computer_only", "mediahub": mediahub,
+        })
+
+    def _channels(self):
+        if self.mediahub_api is None or not hasattr(self.mediahub_api, "get_channels"):
+            return self._json({"channels": [], "available": False, "message": "MediaHub Plugin-API Fix 2 erforderlich."})
+        try:
+            channels = self.mediahub_api.get_channels()
+            return self._json({"channels": channels, "available": True, "count": len(channels)})
+        except Exception as error:
+            return self._json({"channels": [], "available": False, "message": str(error)}, status=500)

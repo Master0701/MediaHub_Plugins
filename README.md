@@ -1,13 +1,33 @@
 # MediaHub Plugins
 
-Eigenständige Produktfamilie für offizielle MediaHub-Erweiterungen.
+Eigenständiges Repository für die offizielle MediaHub-Produktfamilie.
 
-## Aufbau
+## Produkte
 
-- `shared/` – gemeinsame Laufzeit und Schnittstellen
-- `plugins/web_remote/` – Plugin 1: lokale Web-Fernsteuerung
-- `plugins/mobile_dashboard/` – Plugin 2: spätere Handy-/Tablet-Oberfläche
-- `catalog/` – Metadaten für den späteren Download im MediaHub Plugin-Center
+- `web_remote` – lokales MediaHub Control Center im Browser
+- `mobile_dashboard` – mobile Erweiterung auf derselben Server- und API-Basis
+- `metadata_editor` – späterer Metadaten-Editor
+- `ai_assistant` – spätere KI-Unterstützung
+- `smart_renamer` – späteres intelligentes Massen-Umbenennungstool
+
+## Projektaufbau
+
+- `plugins/` – voneinander getrennte Plugins
+- `shared/` – gemeinsam verwendbare Laufzeiten, APIs und Design-Bausteine
+- `catalog/` – späterer Download- und Updatekatalog für MediaHub
+- `docs/` – Architektur-, Design- und Entwicklungsregeln
 - `dist/` – gebaute `.mhplugin`-Pakete
 
-Jedes Plugin wird getrennt gebaut, veröffentlicht, installiert und deinstalliert.
+Jedes Plugin wird einzeln gebaut, veröffentlicht, installiert, aktualisiert und entfernt.
+
+## Aktueller Stand
+
+WebRemote 0.2 kann über die MediaHub-Plugin-Brücke gestartet und gestoppt werden und liest erste Statusdaten. Als nächster Entwicklungsschritt folgt Version 0.3 mit dem Control-Center-Grundlayout.
+
+## Bauen
+
+```powershell
+python build_plugins.py web_remote
+```
+
+Das Build-Skript verwendet die vorhandene Python-Umgebung. Für das reine Plugin-Paket ist keine erneute PyInstaller-Installation erforderlich.

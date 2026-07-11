@@ -1,15 +1,21 @@
 {
   "id": "mediahub.web_remote",
   "name": "MediaHub WebRemote",
-  "version": "0.1.0",
+  "version": "0.4.1",
   "author": "Master0701",
-  "description": "Lokale Weboberfläche zur Fernsteuerung von MediaHub im Heimnetz.",
+  "description": "Lokales MediaHub Control Center mit echter Kanalübersicht und vorbereitetem MediaHub-Assistenten für Desktop, Tablet und Smartphone.",
   "type": "web",
   "enabled": true,
   "entry": "plugin.py",
   "icon": "",
   "safe_mode": true,
-  "minimum_mediahub": "1.0.3",
+  "minimum_mediahub_version": "1.0.3",
   "shared_runtime": "mediahub_web_core",
-  "network_scope": "local_only"
+  "network_scope": "computer_only",
+  "class_name": "MediaHubWebRemotePlugin",
+  "permissions": [
+    "read_status",
+    "read_counts",
+    "read_channels"
+  ]
 }
