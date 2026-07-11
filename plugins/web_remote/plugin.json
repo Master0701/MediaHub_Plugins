@@ -1,9 +1,9 @@
 {
   "id": "mediahub.web_remote",
   "name": "MediaHub WebRemote",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "author": "Master0701",
-  "description": "Lokales MediaHub Control Center für MediaHub v1.0.5 mit Live-Dashboard, Kanalansicht, Downloads, Warteschlange und beobachteten Live-Aktivitäten.",
+  "description": "Lokales, ausschließlich lesendes MediaHub Control Center mit Dashboard, Kanälen, Playlists, Bibliothek, Downloads, Jobs, Scheduler, Statistiken, Plugins, Systemübersicht und Aktivitäten.",
   "type": "web",
   "enabled": true,
   "entry": "plugin.py",
@@ -15,9 +15,16 @@
   "class_name": "MediaHubWebRemotePlugin",
   "permissions": [
     "read_status",
-    "read_counts",
+    "read_dashboard",
     "read_channels",
+    "read_playlists",
+    "read_library",
     "read_downloads",
+    "read_jobs",
+    "read_scheduler",
+    "read_statistics",
+    "read_plugins",
+    "read_system",
     "read_activities"
   ],
   "minimum_mediahub": "1.0.5"

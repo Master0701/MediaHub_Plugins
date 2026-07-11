@@ -1,22 +1,9 @@
-# MediaHub WebRemote
+# MediaHub WebRemote 0.6.0
 
-Lokales MediaHub Control Center. Version 0.4.0 ergänzt die echte Kanalübersicht.
+Lokales, ausschließlich lesendes MediaHub Control Center.
 
-## Voraussetzung
-- MediaHub 1.0.3 oder neuer
-- MediaHub Plugin-API Fix 2 für `get_channels()`
+## Enthalten
+Dashboard, Kanäle, Playlists, Bibliothek, Downloads, Jobs, Scheduler, Statistiken, installierte Plugins, Systemübersicht und Laufzeitaktivitäten.
 
-## Zugriff
-`http://127.0.0.1:8765`
-
-Der Server bleibt in dieser Version nur auf dem MediaHub-PC erreichbar.
-
-
-## Live-Downloads
-
-Version 0.5.1 zeigt den aktuellen Download, beide Fortschrittswerte und die Warteschlange ausschließlich lesend an.
-
-
-## Live-Aktivitäten
-
-WebRemote protokolliert während seiner Laufzeit beobachtete Verbindungs- und Downloadänderungen. Die Liste ist flüchtig und wird beim Neustart neu begonnen.
+## Sicherheit
+Der Server bindet an `127.0.0.1`. Es gibt keine Schreib- oder Steuerbefehle und keine Anzeige geheimer Einstellungen.
