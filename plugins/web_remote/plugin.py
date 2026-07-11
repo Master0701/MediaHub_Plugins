@@ -10,7 +10,7 @@ from mediahub_web_core.server import LocalWebServer
 
 
 class MediaHubWebRemotePlugin:
-    VERSION = "0.6.1"
+    VERSION = "0.8.1"
 
     def __init__(self, plugin_path: Path, mediahub_api=None):
         self.plugin_path = Path(plugin_path)
@@ -38,6 +38,7 @@ class MediaHubWebRemotePlugin:
         }
         for path, handler in routes.items():
             self.server.add_route(path, handler)
+        self.server.add_post_route("/api/action", self._action)
         self._add_activity("system", "WebRemote gestartet", "Das lokale Lese-Control-Center ist bereit.", "info")
 
     def start(self):
@@ -103,7 +104,7 @@ class MediaHubWebRemotePlugin:
     def _status(self):
         mediahub = self._read_status(); self._observe_status(mediahub)
         return self._json({"product": "MediaHub WebRemote", "version": self.VERSION,
-                           "server": "online", "scope": "computer_only", "mode": "read_only", "mediahub": mediahub})
+                           "server": "online", "scope": "computer_only", "mode": "read_write_controlled", "mediahub": mediahub})
 
     def _dashboard(self):
         data, ok, message = self._api_call("get_dashboard_details", {})
@@ -155,6 +156,20 @@ class MediaHubWebRemotePlugin:
             self._observe_download(data); return self._json(data)
         except Exception as error:
             return self._json({"available": False, "active": False, "message": str(error), "queue": []}, status=500)
+
+
+    def _action(self, payload):
+        action = str(payload.get("action") or "").strip()
+        args = payload.get("payload") or {}
+        allowed = {"assistant.open","plugins.open","channels.sync","channels.sync_current","downloads.cancel","downloads.select_videos","downloads.select_playlists","jobs.run_next","scheduler.check","scheduler.toggle"}
+        if action not in allowed:
+            return self._json({"ok": False, "message": "Aktion ist nicht freigegeben."}, status=403)
+        if self.mediahub_api is None or not hasattr(self.mediahub_api, "execute_action"):
+            return self._json({"ok": False, "message": "MediaHub Write-API Fix 5 ist erforderlich."}, status=409)
+        result = self.mediahub_api.execute_action(action, args)
+        if not isinstance(result, dict): result = {"ok": bool(result), "message": "Aktion angenommen."}
+        self._add_activity("action", action, str(result.get("message") or ""), "success" if result.get("ok") else "error")
+        return self._json(result, status=200 if result.get("ok") else 409)
 
     def _activity_feed(self):
         try:

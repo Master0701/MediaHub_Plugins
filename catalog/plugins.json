@@ -4,9 +4,9 @@
     {
       "id": "mediahub.web_remote",
       "name": "MediaHub WebRemote",
-      "version": "0.6.0",
+      "version": "0.8.1",
       "category": "Fernsteuerung",
-      "description": "Lokales MediaHub Control Center mit Live-Dashboard, Kanalansicht, Downloads, Warteschlange und beobachteten Live-Aktivitäten.",
+      "description": "Lokales MediaHub Control Center mit vollständiger Leseoberfläche und kontrollierten Schreibaktionen.",
       "package": "MediaHub_WebRemote_v0.5.3.mhplugin",
       "minimum_mediahub_version": "1.0.5",
       "network_scope": "local_only",

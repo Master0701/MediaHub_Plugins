@@ -1,3 +1,16 @@
+# WebRemote v0.8.1
+
+- Fehlende Browser-Funktion `runAction()` ergänzt.
+- Schreibaktionen zeigen jetzt Bestätigung und Rückmeldung.
+- Kanal-Synchronisierung übergibt den korrekten Kanalindex.
+
+# Changelog
+
+## 0.8.1
+- Kontrollierte Schreibaktionen ergänzt.
+- Kanal-Synchronisierung, Downloadsteuerung, Jobs, Scheduler, Assistent und Plugin-Center.
+- Bestätigung vor jeder Aktion.
+
 # Changelog
 
 ## 0.6.1
