@@ -1,0 +1,15 @@
+{
+  "id": "mediahub.web_remote",
+  "name": "MediaHub WebRemote",
+  "version": "0.1.0",
+  "author": "Master0701",
+  "description": "Lokale Weboberfläche zur Fernsteuerung von MediaHub im Heimnetz.",
+  "type": "web",
+  "enabled": true,
+  "entry": "plugin.py",
+  "icon": "",
+  "safe_mode": true,
+  "minimum_mediahub_version": "1.0.1",
+  "shared_runtime": "mediahub_web_core",
+  "network_scope": "local_only"
+}

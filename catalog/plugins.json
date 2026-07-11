@@ -1,0 +1,15 @@
+{
+  "catalog_version": 1,
+  "products": [
+    {
+      "id": "mediahub.web_remote",
+      "name": "MediaHub WebRemote",
+      "version": "0.1.0",
+      "category": "Fernsteuerung",
+      "description": "Lokale Weboberfläche zur Fernsteuerung von MediaHub im Heimnetz.",
+      "package": "MediaHub_WebRemote_v0.1.0.mhplugin",
+      "minimum_mediahub_version": "1.0.1",
+      "network_scope": "local_only"
+    }
+  ]
+}

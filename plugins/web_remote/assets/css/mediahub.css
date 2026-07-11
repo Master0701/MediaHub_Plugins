@@ -1,0 +1,8 @@
+:root { color-scheme: dark; font-family: Segoe UI, Arial, sans-serif; }
+body { margin: 0; background: #202124; color: white; }
+header { display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; background: #2b2b2b; border-bottom: 1px solid #444; }
+h1 { margin: 0; font-size: 22px; }
+.status { color: #f9a825; font-weight: 700; }
+main { padding: 24px; }
+.card { max-width: 760px; background: #2b2b2b; border: 1px solid #444; padding: 20px; border-radius: 6px; }
+.card h2 { color: #f9a825; }

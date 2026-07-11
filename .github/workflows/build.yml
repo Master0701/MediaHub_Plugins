@@ -1,0 +1,27 @@
+name: Plugin Build Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python validate_plugins.py
+      - run: python build_plugins.py --clean
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MediaHub-Plugins
+          path: |
+            release/*.mhplugin
+            release/*.sha256
