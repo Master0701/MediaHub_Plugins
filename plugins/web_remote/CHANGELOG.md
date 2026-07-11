@@ -1,4 +1,11 @@
-# Changelog
+# WebRemote Changelog
+
+## 0.5.2
+
+- Basis auf MediaHub v1.0.5 angehoben.
+- Versionsangaben in Manifest, Laufzeit und Katalog vereinheitlicht.
+- Veraltete Hinweise auf separate Plugin-API-Fixes entfernt.
+- README auf den aktuellen Funktionsstand gebracht.
 
 ## 0.5.1
 

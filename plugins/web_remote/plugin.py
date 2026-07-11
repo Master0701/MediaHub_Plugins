@@ -34,7 +34,7 @@ class MediaHubWebRemotePlugin:
             "connected": False, "channels": 0, "playlists": 0, "videos": 0,
         }
         return self._json({
-            "product": "MediaHub WebRemote", "version": "0.5.1",
+            "product": "MediaHub WebRemote", "version": "0.5.2",
             "server": "online", "scope": "computer_only", "mediahub": mediahub,
         })
 
@@ -43,7 +43,7 @@ class MediaHubWebRemotePlugin:
             return self._json({
                 "available": False,
                 "active": False,
-                "message": "MediaHub Plugin-API Fix 3 erforderlich.",
+                "message": "Downloadstatus ist in dieser MediaHub-Version nicht verfügbar.",
                 "queue": [],
             })
         try:
@@ -57,7 +57,7 @@ class MediaHubWebRemotePlugin:
         return self._json({
             "available": True,
             "plugins": [
-                {"id": "mediahub.web_remote", "name": "WebRemote", "version": "0.5.1", "installed": True, "running": True},
+                {"id": "mediahub.web_remote", "name": "WebRemote", "version": "0.5.2", "installed": True, "running": True},
                 {"id": "mediahub.mobile_dashboard", "name": "Mobile Dashboard", "installed": False, "running": False},
                 {"id": "mediahub.metadata_editor", "name": "Metadaten-Editor", "installed": False, "running": False},
                 {"id": "mediahub.ai_assistant", "name": "KI-Assistent", "installed": False, "running": False},
@@ -67,7 +67,7 @@ class MediaHubWebRemotePlugin:
 
     def _channels(self):
         if self.mediahub_api is None or not hasattr(self.mediahub_api, "get_channels"):
-            return self._json({"channels": [], "available": False, "message": "MediaHub Plugin-API Fix 2 erforderlich."})
+            return self._json({"channels": [], "available": False, "message": "Kanaldaten sind in dieser MediaHub-Version nicht verfügbar."})
         try:
             channels = self.mediahub_api.get_channels()
             return self._json({"channels": channels, "available": True, "count": len(channels)})
