@@ -1,9 +1,9 @@
 {
   "id": "mediahub.web_remote",
   "name": "MediaHub WebRemote",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "author": "Master0701",
-  "description": "Lokales, ausschließlich lesendes MediaHub Control Center mit Dashboard, Kanälen, Playlists, Bibliothek, Downloads, Jobs, Scheduler, Statistiken, Plugins, Systemübersicht und Aktivitäten.",
+  "description": "Lokales MediaHub Control Center mit vollständiger Read-Only-Oberfläche und zentraler Aktionsleiste für Navigation und Aktualisierung.",
   "type": "web",
   "enabled": true,
   "entry": "plugin.py",

@@ -10,7 +10,7 @@ from mediahub_web_core.server import LocalWebServer
 
 
 class MediaHubWebRemotePlugin:
-    VERSION = "0.6.0"
+    VERSION = "0.6.1"
 
     def __init__(self, plugin_path: Path, mediahub_api=None):
         self.plugin_path = Path(plugin_path)
