@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0
+
+- Live-Dashboard mit Aktualisierung alle 10 Sekunden
+- sichtbarer Verbindungs-, Server- und Netzwerkstatus
+- Plugin-Übersicht der MediaHub-Produktfamilie
+- WebRemote wird korrekt als laufend angezeigt
+- optionale, nicht installierte Plugins werden ehrlich gekennzeichnet
+- keine eigene Update-Funktion; Updates bleiben zentral in MediaHub
+
 ## 0.4.1
 
 - Assistent als eigener Menüpunkt direkt unter dem Dashboard ergänzt.

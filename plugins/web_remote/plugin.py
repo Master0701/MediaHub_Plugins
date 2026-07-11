@@ -14,6 +14,7 @@ class MediaHubWebRemotePlugin:
         self.server.add_route("/", self._index)
         self.server.add_route("/api/status", self._status)
         self.server.add_route("/api/channels", self._channels)
+        self.server.add_route("/api/plugins", self._plugins)
 
     def start(self):
         self.server.start()
@@ -32,8 +33,23 @@ class MediaHubWebRemotePlugin:
             "connected": False, "channels": 0, "playlists": 0, "videos": 0,
         }
         return self._json({
-            "product": "MediaHub WebRemote", "version": "0.4.0",
+            "product": "MediaHub WebRemote", "version": "0.5.0",
             "server": "online", "scope": "computer_only", "mediahub": mediahub,
+        })
+
+    def _plugins(self):
+        # Bis die zentrale Plugin-Bus-API bereitsteht, beschreibt WebRemote
+        # nur den sicher bekannten eigenen Status. Weitere Familienmitglieder
+        # werden ehrlich als nicht installiert ausgewiesen.
+        return self._json({
+            "available": True,
+            "plugins": [
+                {"id": "mediahub.web_remote", "name": "WebRemote", "version": "0.5.0", "installed": True, "running": True},
+                {"id": "mediahub.mobile_dashboard", "name": "Mobile Dashboard", "installed": False, "running": False},
+                {"id": "mediahub.metadata_editor", "name": "Metadaten-Editor", "installed": False, "running": False},
+                {"id": "mediahub.ai_assistant", "name": "KI-Assistent", "installed": False, "running": False},
+                {"id": "mediahub.smart_renamer", "name": "Smart Renamer", "installed": False, "running": False},
+            ],
         })
 
     def _channels(self):

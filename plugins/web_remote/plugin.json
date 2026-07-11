@@ -1,15 +1,14 @@
 {
   "id": "mediahub.web_remote",
   "name": "MediaHub WebRemote",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "author": "Master0701",
-  "description": "Lokales MediaHub Control Center mit echter Kanalübersicht und vorbereitetem MediaHub-Assistenten für Desktop, Tablet und Smartphone.",
+  "description": "Lokales MediaHub Control Center mit Live-Dashboard, Plugin-Übersicht, echter Kanalansicht und vorbereitetem Assistenten für Desktop, Tablet und Smartphone.",
   "type": "web",
   "enabled": true,
   "entry": "plugin.py",
   "icon": "",
   "safe_mode": true,
-  "minimum_mediahub": "1.0.3",
   "minimum_mediahub_version": "1.0.3",
   "shared_runtime": "mediahub_web_core",
   "network_scope": "computer_only",
@@ -18,5 +17,6 @@
     "read_status",
     "read_counts",
     "read_channels"
-  ]
+  ],
+  "minimum_mediahub": "1.0.3"
 }

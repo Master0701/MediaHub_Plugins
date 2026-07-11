@@ -54,7 +54,7 @@ def copy_shared_runtime(package_root: Path, manifest: dict) -> None:
 
 def build_plugin(key: str, source: Path) -> Path:
     manifest = read_manifest(source)
-    for required in ("id", "name", "version", "entry", "minimum_mediahub_version", "permissions"):
+    for required in ("id", "name", "version", "entry", "minimum_mediahub", "permissions"):
         if required not in manifest:
             raise ValueError(f"Fehlendes Pflichtfeld '{required}' in {source / 'plugin.json'}")
     version = str(manifest["version"])
