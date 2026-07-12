@@ -1,3 +1,10 @@
+## v0.10.1
+
+- Sichtbarer Ladehinweis beim Kanaleinlesen
+- Kanalbild und Banner im Web-Assistenten
+- Option „Danach neue Videos zur Download-Auswahl öffnen“ wie im Original
+- Vollständige Videoauswahl im Browser mit Vorschaubildern, Suche und Downloadstart
+
 # Changelog – MediaHub WebRemote
 
 ## v0.10.0

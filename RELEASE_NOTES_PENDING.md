@@ -1,5 +1,4 @@
-# MediaHub WebRemote v0.10.0
+# MediaHub WebRemote v0.10.1
 
-- Zentrale, einheitliche Action-Registrierung eingeführt.
-- Start-Assistent korrekt und dauerhaft angebunden.
-- Kontrollierte Schreibaktionen bleiben einzeln freigegeben.
+- Web-Assistent öffnet nach dem Sync die echte Download-Auswahl im Browser.
+- Kanalbilder, Ladehinweise und Videovorschaubilder ergänzt.

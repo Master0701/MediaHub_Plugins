@@ -10,10 +10,11 @@ from mediahub_web_core.server import LocalWebServer
 
 
 class MediaHubWebRemotePlugin:
-    VERSION = "0.10.0"
+    VERSION = "0.10.1"
     ACTION_REGISTRY = {
         "setup_wizard.open": "Start-Assistent öffnen",
         "setup_wizard.submit": "Start-Assistent speichern",
+        "setup_wizard.download_selected": "Ausgewählte Videos herunterladen",
         "plugins.open": "Plugin-Center öffnen",
         "channels.sync": "Kanal synchronisieren",
         "channels.sync_current": "Aktuellen Kanal synchronisieren",
@@ -49,6 +50,7 @@ class MediaHubWebRemotePlugin:
             "/api/system": self._system,
             "/api/activities": self._activity_feed,
             "/api/wizard/options": self._wizard_options,
+            "/api/wizard/selection": self._wizard_selection,
         }
         for path, handler in routes.items():
             self.server.add_route(path, handler)
@@ -56,6 +58,7 @@ class MediaHubWebRemotePlugin:
         self.server.add_post_route("/api/wizard/analyze", self._wizard_analyze)
         self.server.add_post_route("/api/wizard/playlists", self._wizard_playlists)
         self.server.add_post_route("/api/wizard/submit", self._wizard_submit)
+        self.server.add_post_route("/api/wizard/download", self._wizard_download)
         self._add_activity("system", "WebRemote gestartet", "Das lokale Lese-Control-Center ist bereit.", "info")
 
     def start(self):
@@ -214,6 +217,25 @@ class MediaHubWebRemotePlugin:
         result = self.mediahub_api.execute_action(action, args)
         if not isinstance(result, dict): result = {"ok": bool(result), "message": "Aktion angenommen."}
         self._add_activity("action", action, str(result.get("message") or ""), "success" if result.get("ok") else "error")
+        return self._json(result, status=200 if result.get("ok") else 409)
+
+    def _wizard_selection(self):
+        if self.mediahub_api is None or not hasattr(self.mediahub_api, "get_setup_wizard_video_selection"):
+            return self._json({"available": False, "status": "unavailable", "message": "Web-Videoauswahl ist nicht verfügbar.", "videos": []}, status=409)
+        try:
+            data = self.mediahub_api.get_setup_wizard_video_selection() or {}
+            data["available"] = True
+            return self._json(data)
+        except Exception as error:
+            return self._json({"available": False, "status": "error", "message": str(error), "videos": []}, status=500)
+
+    def _wizard_download(self, payload):
+        video_ids = [str(value) for value in list((payload or {}).get("video_ids") or []) if str(value).strip()]
+        if not video_ids:
+            return self._json({"ok": False, "message": "Bitte mindestens ein Video auswählen."}, status=400)
+        if self.mediahub_api is None or not hasattr(self.mediahub_api, "execute_action"):
+            return self._json({"ok": False, "message": "MediaHub-Aktionsschnittstelle ist nicht verfügbar."}, status=409)
+        result = self.mediahub_api.execute_action("setup_wizard.download_selected", {"video_ids": video_ids})
         return self._json(result, status=200 if result.get("ok") else 409)
 
     def _activity_feed(self):

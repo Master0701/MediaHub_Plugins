@@ -1,7 +1,7 @@
 {
   "id": "mediahub.web_remote",
   "name": "MediaHub WebRemote",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "author": "Master0701",
   "description": "Lokales MediaHub Control Center mit vollständig im Browser bedienbarem Start-/Download-Assistenten.",
   "type": "web",
