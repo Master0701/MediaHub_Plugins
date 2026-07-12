@@ -10,9 +10,10 @@ from mediahub_web_core.server import LocalWebServer
 
 
 class MediaHubWebRemotePlugin:
-    VERSION = "0.9.0"
+    VERSION = "0.10.0"
     ACTION_REGISTRY = {
         "setup_wizard.open": "Start-Assistent öffnen",
+        "setup_wizard.submit": "Start-Assistent speichern",
         "plugins.open": "Plugin-Center öffnen",
         "channels.sync": "Kanal synchronisieren",
         "channels.sync_current": "Aktuellen Kanal synchronisieren",
@@ -47,10 +48,14 @@ class MediaHubWebRemotePlugin:
             "/api/plugins": self._plugins,
             "/api/system": self._system,
             "/api/activities": self._activity_feed,
+            "/api/wizard/options": self._wizard_options,
         }
         for path, handler in routes.items():
             self.server.add_route(path, handler)
         self.server.add_post_route("/api/action", self._action)
+        self.server.add_post_route("/api/wizard/analyze", self._wizard_analyze)
+        self.server.add_post_route("/api/wizard/playlists", self._wizard_playlists)
+        self.server.add_post_route("/api/wizard/submit", self._wizard_submit)
         self._add_activity("system", "WebRemote gestartet", "Das lokale Lese-Control-Center ist bereit.", "info")
 
     def start(self):
@@ -169,6 +174,35 @@ class MediaHubWebRemotePlugin:
         except Exception as error:
             return self._json({"available": False, "active": False, "message": str(error), "queue": []}, status=500)
 
+
+
+    def _wizard_options(self):
+        data, ok, message = self._api_call("get_setup_wizard_options", {})
+        return self._json({"available": ok, "options": data, "message": message}, status=200 if ok else 409)
+
+    def _wizard_analyze(self, payload):
+        if self.mediahub_api is None or not hasattr(self.mediahub_api, "analyze_setup_wizard_source"):
+            return self._json({"ok": False, "message": "Web-Assistent ist nicht verfügbar."}, status=409)
+        try:
+            data = self.mediahub_api.analyze_setup_wizard_source(payload)
+            return self._json({"ok": True, "data": data})
+        except Exception as error:
+            return self._json({"ok": False, "message": str(error)}, status=400)
+
+    def _wizard_playlists(self, payload):
+        if self.mediahub_api is None or not hasattr(self.mediahub_api, "load_setup_wizard_playlists"):
+            return self._json({"ok": False, "message": "Playlist-Assistent ist nicht verfügbar."}, status=409)
+        try:
+            data = self.mediahub_api.load_setup_wizard_playlists(payload)
+            return self._json({"ok": True, "playlists": data, "count": len(data)})
+        except Exception as error:
+            return self._json({"ok": False, "message": str(error)}, status=400)
+
+    def _wizard_submit(self, payload):
+        result = self.mediahub_api.execute_action("setup_wizard.submit", payload) if self.mediahub_api else {"ok": False, "message": "MediaHub ist nicht verbunden."}
+        if result.get("ok"):
+            self._add_activity("assistant", "Start-Assistent übergeben", str(payload.get("name") or "Neuer Kanal"), "success")
+        return self._json(result, status=200 if result.get("ok") else 409)
 
     def _action(self, payload):
         action = str(payload.get("action") or "").strip()

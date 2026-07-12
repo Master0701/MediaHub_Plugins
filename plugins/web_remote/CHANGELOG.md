@@ -1,4 +1,14 @@
-# WebRemote v0.9.0
+# Changelog – MediaHub WebRemote
+
+## v0.10.0
+- kompletter Start-/Download-Assistent direkt im Browser
+- sechs Schritte: Quelle, Ordner, Benennung, Playlists, Automatisierung, Zusammenfassung
+- YouTube-Kanalinfos und Playlists werden über dieselben MediaHub-Dienste geladen
+- Kanal, Job und Scheduler-Aufgabe können gespeichert werden
+- optional sofort synchronisieren oder synchronisieren und Downloadauswahl öffnen
+- Schreiben erfolgt weiterhin ausschließlich über die zentrale Action-Registry im Qt-Hauptthread
+
+# WebRemote v0.10.0
 
 - Zentrale Action-Registrierung in WebRemote und MediaHub-Plugin-API.
 - Start-Assistent `setup_wizard.open` dauerhaft freigegeben.
