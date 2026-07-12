@@ -10,7 +10,19 @@ from mediahub_web_core.server import LocalWebServer
 
 
 class MediaHubWebRemotePlugin:
-    VERSION = "0.8.2"
+    VERSION = "0.9.0"
+    ACTION_REGISTRY = {
+        "setup_wizard.open": "Start-Assistent öffnen",
+        "plugins.open": "Plugin-Center öffnen",
+        "channels.sync": "Kanal synchronisieren",
+        "channels.sync_current": "Aktuellen Kanal synchronisieren",
+        "downloads.cancel": "Download abbrechen",
+        "downloads.select_videos": "Videoauswahl öffnen",
+        "downloads.select_playlists": "Playlist-Auswahl öffnen",
+        "jobs.run_next": "Nächsten Job starten",
+        "scheduler.check": "Scheduler prüfen",
+        "scheduler.toggle": "Scheduler-Automatik umschalten",
+    }
 
     def __init__(self, plugin_path: Path, mediahub_api=None):
         self.plugin_path = Path(plugin_path)
@@ -161,11 +173,10 @@ class MediaHubWebRemotePlugin:
     def _action(self, payload):
         action = str(payload.get("action") or "").strip()
         args = payload.get("payload") or {}
-        allowed = {"setup_wizard.open","plugins.open","channels.sync","channels.sync_current","downloads.cancel","downloads.select_videos","downloads.select_playlists","jobs.run_next","scheduler.check","scheduler.toggle"}
-        if action not in allowed:
+        if action not in self.ACTION_REGISTRY:
             return self._json({"ok": False, "message": "Aktion ist nicht freigegeben."}, status=403)
         if self.mediahub_api is None or not hasattr(self.mediahub_api, "execute_action"):
-            return self._json({"ok": False, "message": "MediaHub Write-API Fix 5 ist erforderlich."}, status=409)
+            return self._json({"ok": False, "message": "MediaHub-Aktions-API ist nicht verfügbar."}, status=409)
         result = self.mediahub_api.execute_action(action, args)
         if not isinstance(result, dict): result = {"ok": bool(result), "message": "Aktion angenommen."}
         self._add_activity("action", action, str(result.get("message") or ""), "success" if result.get("ok") else "error")

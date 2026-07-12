@@ -1,3 +1,10 @@
+# WebRemote v0.9.0
+
+- Zentrale Action-Registrierung in WebRemote und MediaHub-Plugin-API.
+- Start-Assistent `setup_wizard.open` dauerhaft freigegeben.
+- Aktionsnamen werden nicht mehr in mehreren Whitelists getrennt gepflegt.
+- Fehlermeldungen nennen unbekannte Aktionen eindeutig.
+
 # WebRemote v0.8.2
 
 - Assistent-Schaltfläche öffnet jetzt den richtigen Start-/Download-Assistenten.

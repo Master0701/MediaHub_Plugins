@@ -1,5 +1,5 @@
-# MediaHub WebRemote v0.8.2
+# MediaHub WebRemote v0.9.0
 
-- Start-Assistent statt allgemeinem MediaHub-Assistenten angebunden.
-- Schreibaktions-Zuordnung korrigiert.
-- Manifest, Katalog und Paketversion vereinheitlicht.
+- Zentrale, einheitliche Action-Registrierung eingeführt.
+- Start-Assistent korrekt und dauerhaft angebunden.
+- Kontrollierte Schreibaktionen bleiben einzeln freigegeben.
