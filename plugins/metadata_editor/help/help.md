@@ -1,24 +1,11 @@
 # Hilfe – Metadata Editor
 
-## Öffnen
+Wähle links ein Medium. Unter **Metadaten** kannst du Werte vergleichen und als Entwurf speichern. Unter **NFO & Bilder** erkennt das Plugin vorhandene Dateien.
 
-Nach dem Start ist der Editor unter `/metadata-editor` auf derselben lokalen
-Adresse wie WebRemote und Mobile Dashboard erreichbar.
+## NFO speichern
 
-## Arbeiten mit Metadaten
+Der Button **NFO aus Formular speichern** übernimmt die Formularfelder in die NFO. Eine bestehende Datei wird vorher automatisch gesichert. Dateien, die nicht als UTF-8 gelesen werden können oder ungültiges XML enthalten, werden nicht überschrieben.
 
-1. Links einen Bibliothekseintrag auswählen.
-2. Gewünschte Felder ändern.
-3. Mit **Änderungen prüfen** die alten und neuen Werte vergleichen.
-4. Mit **Entwurf speichern** die Änderung lokal sichern.
+## Bilder ersetzen
 
-## Endgültig speichern
-
-Der Button bleibt deaktiviert, bis das MediaHub-Hauptprogramm die freigegebene
-Plugin-Aktion `metadata.update` bereitstellt. Dadurch kann das Plugin keine
-NFO-Datei oder Datenbank außerhalb der kontrollierten MediaHub-API verändern.
-
-## Entwürfe
-
-Entwürfe werden im MediaHub-Datenordner unter
-`plugin_data/metadata_editor/drafts.json` gespeichert.
+Trage den vollständigen lokalen Pfad zu einer JPG-, PNG- oder WebP-Datei ein und wähle **Bild ersetzen**. Vorhandene Bilder werden vorher gesichert.

@@ -4,10 +4,10 @@
     {
       "id": "mediahub.web_remote",
       "name": "MediaHub WebRemote",
-      "version": "0.13.1",
+      "version": "0.13.5",
       "category": "Fernsteuerung",
       "description": "Lokales MediaHub Desktop-Control-Center für PC und Notebook mit vollständigem Web-Assistenten und Live-Downloads.",
-      "package": "MediaHub_WebRemote_v0.13.1.mhplugin",
+      "package": "MediaHub_WebRemote_v0.13.5.mhplugin",
       "minimum_mediahub_version": "1.0.5",
       "network_scope": "configurable_desktop",
       "minimum_mediahub": "1.0.5"
@@ -15,12 +15,23 @@
     {
       "id": "mediahub.mobile_dashboard",
       "name": "MediaHub Mobile Dashboard",
-      "version": "0.1.1",
+      "version": "0.1.5",
       "category": "Mobil",
       "description": "Mobile MediaHub-Oberfläche für Handy und Tablet mit einklappbarer linker Sidebar, QR-Code und Geräte-Kopplung.",
-      "package": "MediaHub_MobileDashboard_v0.1.1.mhplugin",
+      "package": "MediaHub_MobileDashboard_v0.1.5.mhplugin",
       "minimum_mediahub_version": "1.0.5",
       "network_scope": "home_network_mobile",
+      "minimum_mediahub": "1.0.5"
+    },
+    {
+      "id": "mediahub.metadata_editor",
+      "name": "MediaHub Metadata Editor",
+      "version": "0.1.0",
+      "category": "Metadaten",
+      "description": "Lokaler Metadaten-Editor für die MediaHub-Bibliothek mit Suche, Vergleichsansicht und sicheren Entwürfen.",
+      "package": "MediaHub_MetadataEditor_v0.1.0.mhplugin",
+      "minimum_mediahub_version": "1.0.5",
+      "network_scope": "local_only",
       "minimum_mediahub": "1.0.5"
     }
   ]

@@ -1,9 +1,9 @@
 {
   "id": "mediahub.metadata_editor",
   "name": "MediaHub Metadata Editor",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "Master0701",
-  "description": "Lokaler Metadaten-Editor für die MediaHub-Bibliothek mit Suche, Vergleichsansicht und sicheren Entwürfen.",
+  "description": "Lokaler Metadaten-, NFO- und Bildeditor mit UTF-8-sicherem Schreiben und automatischen Sicherungen.",
   "type": "web",
   "enabled": true,
   "entry": "plugin.py",
@@ -21,7 +21,11 @@
     "read_metadata",
     "write_metadata_drafts",
     "actions.metadata.update",
-    "network.local"
+    "network.local",
+    "read_local_metadata_files",
+    "write_nfo_files",
+    "write_local_images",
+    "create_metadata_backups"
   ],
   "has_settings": false
 }

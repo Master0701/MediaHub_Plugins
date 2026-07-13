@@ -1,10 +1,13 @@
 # Changelog
 
+## 0.2.0
+
+- NFO-Erkennung und UTF-8-Vorschau ergänzt
+- NFO-Erstellung und sichere Aktualisierung ergänzt
+- automatische NFO- und Bildsicherungen ergänzt
+- Poster-, Fanart-, Banner- und Thumbnail-Verwaltung ergänzt
+
 ## 0.1.0
 
-- erstes vollständiges Plugin-Grundgerüst
-- Bibliotheksansicht und Suche hinzugefügt
-- Metadatenformular und Vergleichsansicht hinzugefügt
-- lokale Entwurfsspeicherung hinzugefügt
-- sichere Vorbereitung für die spätere MediaHub-Schreib-API hinzugefügt
-- Integration in gemeinsamen Build und Release-Ablauf
+- erste Bibliotheks- und Metadatenansicht
+- Vergleich und lokale Entwürfe
