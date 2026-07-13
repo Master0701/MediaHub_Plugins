@@ -1,0 +1,27 @@
+{
+  "id": "mediahub.metadata_editor",
+  "name": "MediaHub Metadata Editor",
+  "version": "0.1.0",
+  "author": "Master0701",
+  "description": "Lokaler Metadaten-Editor für die MediaHub-Bibliothek mit Suche, Vergleichsansicht und sicheren Entwürfen.",
+  "type": "web",
+  "enabled": true,
+  "entry": "plugin.py",
+  "icon": "",
+  "safe_mode": true,
+  "minimum_mediahub_version": "1.0.5",
+  "minimum_mediahub": "1.0.5",
+  "shared_runtime": "mediahub_web_core",
+  "network_scope": "local_only",
+  "class_name": "MediaHubMetadataEditorPlugin",
+  "permissions": [
+    "read_library",
+    "read_channels",
+    "read_playlists",
+    "read_metadata",
+    "write_metadata_drafts",
+    "actions.metadata.update",
+    "network.local"
+  ],
+  "has_settings": false
+}
