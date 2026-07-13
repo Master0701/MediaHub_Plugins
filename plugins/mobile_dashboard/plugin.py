@@ -13,7 +13,7 @@ from mediahub_web_core.qr import qr_matrix
 
 
 class MediaHubMobileDashboardPlugin:
-    VERSION = "0.1.2"
+    VERSION = "0.1.5"
     ACTION_REGISTRY = {
         "setup_wizard.open": "Start-Assistent öffnen",
         "setup_wizard.submit": "Start-Assistent speichern",
@@ -116,9 +116,10 @@ class MediaHubMobileDashboardPlugin:
             "/mobile/api/wizard/selection": self._wizard_selection,
             "/mobile/api/pairing/status": self._pairing_status,
         }
-        if "/" not in self.server.routes:
-            routes["/"] = self._index
-        public_paths = {"/", "/mobile", "/mobile/", "/mobile/api/pairing/status"}
+        # Fallback für den Fall, dass WebRemote nicht installiert oder gestoppt ist.
+        # Eine normale WebRemote-Route auf "/" hat immer Vorrang.
+        self.server.add_fallback_route("/", self._mobile_root_fallback, owner=self)
+        public_paths = {"/mobile", "/mobile/", "/mobile/api/pairing/status"}
         for path, handler in routes.items():
             auth = None if path in public_paths else self._authorize_request
             self.server.add_route(path, handler, auth_callback=auth, owner=self)
@@ -153,6 +154,12 @@ class MediaHubMobileDashboardPlugin:
         self._add_activity("system", "Mobile Dashboard beendet", "Der lokale Webserver wird gestoppt.", "info")
         key = str(getattr(self.mediahub_api, "base_dir", self.plugin_path))
         release_shared_server(key, owner=self)
+
+    def _mobile_root_fallback(self, request=None):
+        # Wenn WebRemote nicht läuft, wird die mobile Oberfläche direkt
+        # unter "/" ausgeliefert. Dadurch gibt es auf mobilen Browsern
+        # keine fehleranfällige HTML-/302-Weiterleitung mehr.
+        return self._index()
 
     def _index(self):
         return 200, "text/html; charset=utf-8", (self.plugin_path / "index.html").read_bytes()

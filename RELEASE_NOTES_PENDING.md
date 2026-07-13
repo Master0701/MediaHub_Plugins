@@ -1,7 +1,8 @@
-# MediaHub Plugins – Desktop/Mobile Split Fix
+# Ausstehende Release-Notizen
 
-- WebRemote v0.13.1 und Mobile Dashboard v0.1.1.
-- Importfehler durch alte Shared-Runtime behoben.
-- Mobile API-Routen wieder durch Gerätekopplung geschützt.
-- Plugin-Routen werden beim Stoppen sauber entfernt.
-- Gemeinsamer Server bleibt beim Stoppen eines einzelnen Plugins für das andere aktiv.
+## Mobile Dashboard – Startseite im Heimnetz repariert
+
+- Mobile Dashboard liefert bei alleiniger Installation die mobile Oberfläche direkt unter `/` aus.
+- Die fehleranfällige HTML-/302-Weiterleitung nach `/mobile` wurde entfernt.
+- `/mobile` bleibt weiterhin die feste mobile Adresse.
+- Wenn WebRemote parallel läuft, besitzt dessen Desktop-Route auf `/` weiterhin Vorrang.

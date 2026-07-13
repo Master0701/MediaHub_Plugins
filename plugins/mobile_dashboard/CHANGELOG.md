@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.3
+- Hamburger-Menü für Handy und Tablet repariert.
+- Mobile Dashboard öffnet immer `/mobile`, auch wenn WebRemote parallel läuft.
+- Root-Route wird nicht mehr vom Mobile Dashboard übernommen.
+- Kopplungstexte auf Mobile Dashboard korrigiert.
+
+# Changelog
+
 ## 0.1.2
 - Öffnungs- und Kopplungsadressen zeigen immer auf `/mobile`.
 - Mobile Dashboard bleibt nach Stoppen von WebRemote über `/mobile` erreichbar.

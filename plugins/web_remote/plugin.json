@@ -1,7 +1,7 @@
 {
   "id": "mediahub.web_remote",
   "name": "MediaHub WebRemote",
-  "version": "0.13.2",
+  "version": "0.13.5",
   "author": "Master0701",
   "description": "Lokales MediaHub Desktop-Control-Center für PC und Notebook mit vollständigem Web-Assistenten und Live-Downloads.",
   "type": "web",

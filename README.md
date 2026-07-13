@@ -1,47 +1,57 @@
 # MediaHub Plugins
 
-Eigenständiges Repository für die offizielle MediaHub-Produktfamilie. Alle Plugins liegen getrennt in eigenen Ordnern, bleiben einzeln installierbar und verwenden gemeinsame Bausteine aus `shared/`.
+Offizielles Erweiterungs-Repository für MediaHub.
 
 ## Aktueller Stand
 
-**MediaHub WebRemote v0.12.6**
+- **MediaHub Mobile Dashboard 0.1.5**
+- **MediaHub WebRemote 0.13.5**
 
-WebRemote ist ein lokales MediaHub Control Center für Desktop, Tablet und Smartphone. Es bietet Dashboard, Kanäle, Playlists, Bibliothek, Live-Downloads, Jobs, Scheduler, Statistiken, Aktivitäten und den vollständigen Start-/Download-Assistenten direkt im Browser. Downloads aus dem Web-Assistenten werden ohne zusätzliches MediaHub-Dialogfenster gestartet und live im Browser angezeigt.
+# Ausstehende Release-Notizen
 
-## Produktfamilie
+## Mobile Dashboard – Startseite im Heimnetz repariert
 
-- `web_remote` – lokales MediaHub Control Center im Browser
-- `mobile_dashboard` – mobile Erweiterung auf derselben Server- und API-Basis
-- `metadata_editor` – geplanter Metadaten-Editor
-- `ai_assistant` – geplante KI-Unterstützung
-- `smart_renamer` – geplantes intelligentes Massen-Umbenennungstool
+- Mobile Dashboard liefert bei alleiniger Installation die mobile Oberfläche direkt unter `/` aus.
+- Die fehleranfällige HTML-/302-Weiterleitung nach `/mobile` wurde entfernt.
+- `/mobile` bleibt weiterhin die feste mobile Adresse.
+- Wenn WebRemote parallel läuft, besitzt dessen Desktop-Route auf `/` weiterhin Vorrang.
 
-## Prüfen und bauen
+## Kompatibilität
+
+Die aktuellen Plugins benötigen mindestens **MediaHub v1.0.5**.
+
+## Projektaufbau
+
+- `plugins/` – getrennte, einzeln installierbare Plugins
+- `shared/` – gemeinsam genutzte Laufzeiten, APIs und Design-Bausteine
+- `catalog/` – zukünftiger Download- und Updatekatalog
+- `docs/` – Architektur-, Design- und Entwicklungsunterlagen
+- `release/` – lokal und in GitHub Actions erzeugte Plugin-Pakete
+
+Jedes Plugin bleibt optional und kann einzeln installiert, aktualisiert und entfernt werden.
+
+## Plugins bauen
+
+Alle Plugins sauber neu erstellen:
 
 ```powershell
-python validate_plugins.py
 python build_plugins.py all --clean
 ```
 
-Die fertigen `.mhplugin`-Pakete und SHA-256-Prüfsummen werden unter `release/` erzeugt.
+Nur WebRemote erstellen:
 
-## Repositories
+```powershell
+python build_plugins.py web_remote --clean
+```
 
-- Hauptprogramm: `Master0701/MediaHub`
-- Plugins: `Master0701/MediaHub_Plugins`
+Die fertigen `.mhplugin`-Dateien und `.sha256`-Prüfsummen liegen anschließend unter `release/`.
 
+## Release vorbereiten
 
-## Gemeinsame Web Runtime
+```powershell
+python prepare_plugin_release.py
+```
 
-WebRemote und das spätere Mobile Dashboard verwenden dieselbe lokale Serverbasis. Jedes Plugin bringt die benötigte Runtime mit und bleibt einzeln installierbar. Sind mehrere Web-Plugins installiert, verwenden sie dieselben Netzwerk- und Geräte-Einstellungen.
-
-## Sicherheit im Heimnetz
-
-WebRemote kann im Heimnetz nur für gekoppelte Geräte freigegeben werden. Die Kopplung erfolgt über einen QR-Code oder einen sechsstelligen Einmalcode in den Plugin-Einstellungen von MediaHub. Gekoppelte Geräte können dort einzeln oder vollständig entfernt werden.
-
-
-## Getrennte Web-Oberflächen
-
-- **WebRemote 0.13.0:** Desktop-/PC-Control-Center.
-- **Mobile Dashboard 0.1.0:** Handy und Tablet mit einklappbarer linker Sidebar sowie QR-/Gerätekopplung.
-- Beide Plugins funktionieren einzeln und verwenden bei gemeinsamer Installation dieselbe Serverinstanz.
+Dieser Befehl übernimmt `RELEASE_NOTES_PENDING.md` in die verfolgte Datei
+`RELEASE_NOTES.md` und aktualisiert diese README. Die temporäre Pending-Datei
+bleibt lokal und wird nicht in Git aufgenommen.

@@ -11,7 +11,7 @@ from mediahub_web_core.settings import WebRuntimeSettingsStore, connection_info
 
 
 class MediaHubWebRemotePlugin:
-    VERSION = "0.13.2"
+    VERSION = "0.13.5"
     ACTION_REGISTRY = {
         "setup_wizard.open": "Start-Assistent öffnen",
         "setup_wizard.submit": "Start-Assistent speichern",

@@ -36,6 +36,7 @@ class LocalWebServer:
         self.port = int(port)
         self.routes: dict[str, RouteEntry] = {}
         self.post_routes: dict[str, RouteEntry] = {}
+        self.fallback_routes: dict[str, RouteEntry] = {}
         self._server = None
         self._thread = None
         self._route_lock = threading.RLock()
@@ -48,10 +49,16 @@ class LocalWebServer:
         with self._route_lock:
             self.post_routes[path] = RouteEntry(callback, auth_callback, owner)
 
+    def add_fallback_route(self, path, callback, *, auth_callback=None, owner=None):
+        """Route, die nur verwendet wird, wenn keine normale Route existiert."""
+        with self._route_lock:
+            self.fallback_routes[path] = RouteEntry(callback, auth_callback, owner)
+
     def remove_routes(self, owner):
         with self._route_lock:
             self.routes = {path: entry for path, entry in self.routes.items() if entry.owner is not owner}
             self.post_routes = {path: entry for path, entry in self.post_routes.items() if entry.owner is not owner}
+            self.fallback_routes = {path: entry for path, entry in self.fallback_routes.items() if entry.owner is not owner}
 
     @staticmethod
     def _invoke(callback: Callable, *args):
@@ -99,8 +106,12 @@ class LocalWebServer:
                 self.close_connection = True
 
             def _entry(self, table):
+                path = self.path.split("?", 1)[0]
                 with owner._route_lock:
-                    return table.get(self.path.split("?", 1)[0])
+                    entry = table.get(path)
+                    if entry is None and table is owner.routes:
+                        entry = owner.fallback_routes.get(path)
+                    return entry
 
             def do_GET(self):
                 context = self._context()
@@ -191,7 +202,12 @@ def release_shared_server(key: str, owner=None) -> None:
             return
         if owner is not None:
             item["server"].remove_routes(owner)
-        item["references"] -= 1
-        if item["references"] <= 0:
-            item["server"].stop()
+        item["references"] = max(0, int(item.get("references", 1)) - 1)
+        server = item["server"]
+        # Solange ein anderes Plugin noch Routen registriert hat, bleibt die
+        # gemeinsame Serverinstanz aktiv – auch wenn ein Referenzzähler durch
+        # Reloads oder Plugin-Austausch kurzzeitig nicht mehr exakt ist.
+        has_routes = bool(server.routes or server.post_routes or server.fallback_routes)
+        if item["references"] <= 0 and not has_routes:
+            server.stop()
             _SHARED_SERVERS.pop(normalized, None)

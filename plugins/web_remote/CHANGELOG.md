@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.13.3
+- Desktop-Einstellungen enthalten nur Netzwerkmodus, Port, Gerätename und Webadressen.
+- Mobile-/QR-Funktionen vollständig aus WebRemote-Zuständigkeit entfernt.
+
+# Changelog
+
 ## 0.13.2
 - Desktop-JavaScript nach dem Mobile-Split repariert.
 - Kopplungsreste aus WebRemote entfernt.
