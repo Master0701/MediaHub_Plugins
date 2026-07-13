@@ -8,12 +8,10 @@ from pathlib import Path
 
 from mediahub_web_core.server import acquire_shared_server, release_shared_server
 from mediahub_web_core.settings import WebRuntimeSettingsStore, connection_info
-from mediahub_web_core.security import PairingStore
-from mediahub_web_core.qr import qr_matrix
 
 
 class MediaHubWebRemotePlugin:
-    VERSION = "0.13.0"
+    VERSION = "0.13.2"
     ACTION_REGISTRY = {
         "setup_wizard.open": "Start-Assistent öffnen",
         "setup_wizard.submit": "Start-Assistent speichern",
@@ -48,12 +46,6 @@ class MediaHubWebRemotePlugin:
         key = str(getattr(self.mediahub_api, "base_dir", self.plugin_path))
         return acquire_shared_server(key, self.settings.host, self.settings.port)
 
-    def _authorize_request(self, request):
-        if self.settings.network_mode != "home_network" or not self.settings.pairing_required:
-            return True
-        if request.client_ip in {"127.0.0.1", "::1"}:
-            return True
-        return self.pairing_store.authorize(request.bearer_token)
 
     def start(self):
         self.server.start()
@@ -61,7 +53,17 @@ class MediaHubWebRemotePlugin:
         self._add_activity("network", "WebRemote erreichbar", info.get("active_url", ""), "success")
 
     def get_plugin_settings(self):
-        return connection_info(self.settings)
+        info = connection_info(self.settings)
+        return {
+            "network_mode": info.get("network_mode"),
+            "host": info.get("host"),
+            "port": info.get("port"),
+            "device_name": info.get("device_name"),
+            "local_url": info.get("local_url"),
+            "network_url": info.get("network_url"),
+            "active_url": info.get("active_url"),
+            "lan_ip": info.get("lan_ip"),
+        }
 
     def update_plugin_settings(self, data):
         new_settings = self.settings_store.save(dict(data or {}))
@@ -69,10 +71,7 @@ class MediaHubWebRemotePlugin:
         self.settings = new_settings
         if changed and self.server.running:
             key = str(getattr(self.mediahub_api, "base_dir", self.plugin_path))
-            release_shared_server(key)
-            self.server = self._create_server()
-            self._register_routes()
-            self.server.start()
+            self.server.restart(new_settings.host, new_settings.port)
         return {"ok": True, "message": "WebRemote-Einstellungen gespeichert.", **self.get_plugin_settings()}
 
     def _register_routes(self):
@@ -94,18 +93,18 @@ class MediaHubWebRemotePlugin:
             "/api/wizard/selection": self._wizard_selection,
         }
         for path, handler in routes.items():
-            self.server.add_route(path, handler)
-        self.server.add_post_route("/api/action", self._action)
-        self.server.add_post_route("/api/wizard/analyze", self._wizard_analyze)
-        self.server.add_post_route("/api/wizard/playlists", self._wizard_playlists)
-        self.server.add_post_route("/api/wizard/submit", self._wizard_submit)
-        self.server.add_post_route("/api/wizard/download", self._wizard_download)
+            self.server.add_route(path, handler, owner=self)
+        self.server.add_post_route("/api/action", self._action, owner=self)
+        self.server.add_post_route("/api/wizard/analyze", self._wizard_analyze, owner=self)
+        self.server.add_post_route("/api/wizard/playlists", self._wizard_playlists, owner=self)
+        self.server.add_post_route("/api/wizard/submit", self._wizard_submit, owner=self)
+        self.server.add_post_route("/api/wizard/download", self._wizard_download, owner=self)
 
 
     def stop(self):
         self._add_activity("system", "WebRemote beendet", "Der lokale Webserver wird gestoppt.", "info")
         key = str(getattr(self.mediahub_api, "base_dir", self.plugin_path))
-        release_shared_server(key)
+        release_shared_server(key, owner=self)
 
     def _index(self):
         return 200, "text/html; charset=utf-8", (self.plugin_path / "index.html").read_bytes()

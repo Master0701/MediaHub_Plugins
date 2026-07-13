@@ -1,5 +1,7 @@
-# MediaHub Plugins – Split Desktop und Mobile
+# MediaHub Plugins – Desktop/Mobile Split Fix
 
-- WebRemote 0.13.0 auf Desktop-/PC-Oberfläche konzentriert.
-- Mobile Dashboard 0.1.0 mit QR-Kopplung und mobiler Sidebar angelegt.
-- Gemeinsame Web-Runtime kann von beiden Plugins einzeln oder gemeinsam genutzt werden.
+- WebRemote v0.13.1 und Mobile Dashboard v0.1.1.
+- Importfehler durch alte Shared-Runtime behoben.
+- Mobile API-Routen wieder durch Gerätekopplung geschützt.
+- Plugin-Routen werden beim Stoppen sauber entfernt.
+- Gemeinsamer Server bleibt beim Stoppen eines einzelnen Plugins für das andere aktiv.

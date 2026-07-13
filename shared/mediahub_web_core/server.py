@@ -5,7 +5,7 @@ import json
 import threading
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Callable
+from typing import Callable, Any
 
 
 @dataclass
@@ -23,22 +23,35 @@ class RequestContext:
         return ""
 
 
+@dataclass
+class RouteEntry:
+    callback: Callable
+    auth_callback: Callable[[RequestContext], bool] | None = None
+    owner: Any = None
+
+
 class LocalWebServer:
-    def __init__(self, host: str = "127.0.0.1", port: int = 8765, *, auth_callback: Callable[[RequestContext], bool] | None = None, public_paths: set[str] | None = None):
+    def __init__(self, host: str = "127.0.0.1", port: int = 8765):
         self.host = host
         self.port = int(port)
-        self.auth_callback = auth_callback
-        self.public_paths = set(public_paths or {"/"})
-        self.routes: dict[str, Callable] = {}
-        self.post_routes: dict[str, Callable] = {}
+        self.routes: dict[str, RouteEntry] = {}
+        self.post_routes: dict[str, RouteEntry] = {}
         self._server = None
         self._thread = None
+        self._route_lock = threading.RLock()
 
-    def add_route(self, path, callback):
-        self.routes[path] = callback
+    def add_route(self, path, callback, *, auth_callback=None, owner=None):
+        with self._route_lock:
+            self.routes[path] = RouteEntry(callback, auth_callback, owner)
 
-    def add_post_route(self, path, callback):
-        self.post_routes[path] = callback
+    def add_post_route(self, path, callback, *, auth_callback=None, owner=None):
+        with self._route_lock:
+            self.post_routes[path] = RouteEntry(callback, auth_callback, owner)
+
+    def remove_routes(self, owner):
+        with self._route_lock:
+            self.routes = {path: entry for path, entry in self.routes.items() if entry.owner is not owner}
+            self.post_routes = {path: entry for path, entry in self.post_routes.items() if entry.owner is not owner}
 
     @staticmethod
     def _invoke(callback: Callable, *args):
@@ -48,6 +61,15 @@ class LocalWebServer:
         except (TypeError, ValueError):
             count = len(args)
         return callback(*args[:count])
+
+    @staticmethod
+    def _authorized(entry: RouteEntry, context: RequestContext) -> bool:
+        if entry.auth_callback is None:
+            return True
+        try:
+            return bool(entry.auth_callback(context))
+        except Exception:
+            return False
 
     def _handler_class(self):
         owner = self
@@ -76,41 +98,37 @@ class LocalWebServer:
                 self.wfile.flush()
                 self.close_connection = True
 
-            def _authorized(self, context: RequestContext) -> bool:
-                if context.path in owner.public_paths or owner.auth_callback is None:
-                    return True
-                try:
-                    return bool(owner.auth_callback(context))
-                except Exception:
-                    return False
+            def _entry(self, table):
+                with owner._route_lock:
+                    return table.get(self.path.split("?", 1)[0])
 
             def do_GET(self):
                 context = self._context()
-                route = owner.routes.get(context.path)
-                if not route:
+                entry = self._entry(owner.routes)
+                if not entry:
                     return self._write(404, "application/json; charset=utf-8", b'{"error":"not_found"}')
-                if not self._authorized(context):
+                if not owner._authorized(entry, context):
                     return self._write(401, "application/json; charset=utf-8", json.dumps({"ok": False, "error": "pairing_required", "message": "Dieses Gerät muss zuerst gekoppelt werden."}, ensure_ascii=False).encode("utf-8"))
                 try:
-                    self._write(*owner._invoke(route, context))
+                    self._write(*owner._invoke(entry.callback, context))
                 except Exception as error:
-                    self._write(500, "application/json; charset=utf-8", json.dumps({"ok": False, "error": str(error)}).encode("utf-8"))
+                    self._write(500, "application/json; charset=utf-8", json.dumps({"ok": False, "error": str(error)}, ensure_ascii=False).encode("utf-8"))
 
             def do_POST(self):
                 context = self._context()
-                route = owner.post_routes.get(context.path)
-                if not route:
+                entry = self._entry(owner.post_routes)
+                if not entry:
                     return self._write(404, "application/json; charset=utf-8", b'{"error":"not_found"}')
-                if not self._authorized(context):
+                if not owner._authorized(entry, context):
                     return self._write(401, "application/json; charset=utf-8", json.dumps({"ok": False, "error": "pairing_required", "message": "Dieses Gerät muss zuerst gekoppelt werden."}, ensure_ascii=False).encode("utf-8"))
                 try:
                     length = min(int(self.headers.get("Content-Length", "0") or 0), 1048576)
                     payload = json.loads((self.rfile.read(length) if length else b"{}").decode("utf-8"))
                     if not isinstance(payload, dict):
                         raise ValueError("JSON-Objekt erwartet")
-                    self._write(*owner._invoke(route, payload, context))
+                    self._write(*owner._invoke(entry.callback, payload, context))
                 except Exception as error:
-                    self._write(400, "application/json; charset=utf-8", json.dumps({"ok": False, "error": str(error)}).encode("utf-8"))
+                    self._write(400, "application/json; charset=utf-8", json.dumps({"ok": False, "error": str(error)}, ensure_ascii=False).encode("utf-8"))
 
             def log_message(self, format, *args):
                 return
@@ -132,6 +150,14 @@ class LocalWebServer:
         self._server = None
         self._thread = None
 
+    def restart(self, host: str, port: int):
+        was_running = self.running
+        self.stop()
+        self.host = str(host)
+        self.port = int(port)
+        if was_running:
+            self.start()
+
     @property
     def running(self):
         return self._server is not None
@@ -149,7 +175,7 @@ def acquire_shared_server(key: str, host: str, port: int) -> LocalWebServer:
         if item is not None:
             server = item["server"]
             if server.host != host or int(server.port) != int(port):
-                raise RuntimeError("Die gemeinsame Web-Runtime läuft bereits mit anderen Netzwerk-Einstellungen.")
+                server.restart(host, port)
             item["references"] += 1
             return server
         server = LocalWebServer(host=host, port=port)
@@ -157,12 +183,14 @@ def acquire_shared_server(key: str, host: str, port: int) -> LocalWebServer:
         return server
 
 
-def release_shared_server(key: str) -> None:
+def release_shared_server(key: str, owner=None) -> None:
     normalized = str(key)
     with _SHARED_LOCK:
         item = _SHARED_SERVERS.get(normalized)
         if item is None:
             return
+        if owner is not None:
+            item["server"].remove_routes(owner)
         item["references"] -= 1
         if item["references"] <= 0:
             item["server"].stop()

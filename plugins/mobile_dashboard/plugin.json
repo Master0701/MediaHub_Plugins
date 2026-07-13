@@ -1,7 +1,7 @@
 {
   "id": "mediahub.mobile_dashboard",
   "name": "MediaHub Mobile Dashboard",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "author": "Master0701",
   "description": "Mobile MediaHub-Oberfläche für Handy und Tablet mit einklappbarer linker Sidebar, QR-Code und Geräte-Kopplung.",
   "type": "web",

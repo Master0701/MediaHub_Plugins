@@ -8,121 +8,19 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 sections.forEach(([id,ico,label],i)=>{nav.insertAdjacentHTML('beforeend',`<button data-page="${id}" class="${i?'':'active'}">${ico} <span>${label}</span></button>`);pages.insertAdjacentHTML('beforeend',`<section class="page ${i?'':'active'}" id="page-${id}"><div class="empty">${label} wird geladen …</div></section>`)});
 function show(id){if(!authReady)return;document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id==='page-'+id));document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===id));title.textContent=sections.find(x=>x[0]===id)?.[2]||id;load(id)}document.addEventListener('click',e=>{const b=e.target.closest('[data-page]');if(b)show(b.dataset.page)});
 let authReady=true;
-async function requestJson(path,options={},retried=false){
-  const generation=authGeneration;
-  options={...options,headers:authHeaders(options.headers||{})};
+async function requestJson(path,options={}){
+  options={...options,headers:{...(options.headers||{}),'Accept':'application/json'}};
   if(options.method!=='POST')options.cache='no-store';
-  const r=await fetch(path,options);
-  const d=await r.json().catch(()=>({}));
-  if(r.status===401){
-    if(generation!==authGeneration)throw new Error('Veraltete Anfrage verworfen.');
-    const stillAuthorized=await confirmAuthorization();
-    if(stillAuthorized===true&&!retried){
-      await new Promise(resolve=>setTimeout(resolve,120));
-      return requestJson(path,options,true);
-    }
-    if(stillAuthorized===false&&authReady&&!pairingCompleting){authReady=false;showPairing()}
-    throw new Error(stillAuthorized===null?'Verbindung zu MediaHub unterbrochen.':(d.message||'Gerät muss gekoppelt werden.'));
-  }
-  if(!r.ok)throw new Error(d.message||d.error||'Anfrage fehlgeschlagen');
-  return d
+  const response=await fetch(path,options);
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(data.message||data.error||'Anfrage fehlgeschlagen');
+  return data;
 }
 async function api(path){return requestJson(path)}
-function showPairing(){
-  const overlay=document.getElementById('pairing-overlay');
-  const device=document.getElementById('pairing-device');
-  if(!pairingVisible){
-    if(!device.value.trim())device.value=localStorage.getItem('mediahub_web_device_name')||navigator.platform||'Mein Gerät';
-    overlay.classList.add('show');
-    pairingVisible=true;
-    setTimeout(()=>device.focus(),0);
-  }
-}
-function hidePairing(){document.getElementById('pairing-overlay').classList.remove('show');pairingVisible=false}
-async function claimPairing(){
-  const code=document.getElementById('pairing-code').value.trim();
-  const device_name=document.getElementById('pairing-device').value.trim()||'Mein Gerät';
-  const error=document.getElementById('pairing-error');
-  const button=document.querySelector('#pairing-overlay .button.primary');
-  error.textContent='';
-  if(code.length!==6){error.textContent='Bitte den sechsstelligen Einmalcode eingeben.';return}
-  pairingCompleting=true;
-  button.disabled=true;
-  button.textContent='Gerät wird gekoppelt …';
-  const controller=new AbortController();
-  const timeout=setTimeout(()=>controller.abort(),12000);
-  try{
-    const response=await fetch('/api/pairing/claim',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Accept':'application/json'},
-      body:JSON.stringify({code,device_name}),
-      cache:'no-store',
-      signal:controller.signal
-    });
-    const d=await response.json().catch(()=>({}));
-    if(!response.ok||!d.token)throw new Error(d.message||d.error||'Kopplung fehlgeschlagen.');
-    sessionToken=d.token;
-    try{localStorage.setItem(tokenKey,d.token);localStorage.setItem('mediahub_web_device_name',device_name)}catch(e){}
-    const check=await fetch('/api/pairing/status',{
-      headers:{'Authorization':'Bearer '+d.token,'Accept':'application/json'},
-      cache:'no-store',
-      signal:controller.signal
-    });
-    const status=await check.json().catch(()=>({}));
-    if(!check.ok||!status.authorized)throw new Error('Das Gerät wurde gespeichert, aber die Anmeldung konnte nicht bestätigt werden.');
-    clearTimeout(timeout);
-    document.getElementById('pairing-code').value='';
-    error.style.color='var(--ok)';
-    error.textContent='Gerät gekoppelt. Dashboard wird geöffnet …';
-    authGeneration++;
-    authReady=true;
-    hidePairing();
-    pairingCompleting=false;
-    button.disabled=false;
-    button.textContent='Gerät koppeln';
-    show('dashboard');
-  }catch(e){
-    clearTimeout(timeout);
-    pairingCompleting=false;
-    button.disabled=false;
-    button.textContent='Gerät koppeln';
-    error.style.color='var(--danger)';
-    error.textContent=e.name==='AbortError'?'Die Kopplungsanfrage hat zu lange gedauert. Bitte erneut versuchen.':e.message;
-  }
-}
-async function initPairing(){
-  const hash=new URLSearchParams(location.hash.replace(/^#/,''));
-  const pairedToken=hash.get('paired_token');
-  if(pairedToken){
-    sessionToken=pairedToken;
-    try{localStorage.setItem(tokenKey,pairedToken)}catch(e){}
-    history.replaceState({},'',location.pathname+location.search);
-  }
-  const query=new URLSearchParams(location.search);
-  const code=query.get('pair');
-  if(code){
-    document.getElementById('pairing-code').value=code;
-    history.replaceState({},'',location.pathname);
-    showPairing();
-  }
-  try{
-    const status=await requestJson('/api/pairing/status');
-    if(status.pairing_required&&!status.authorized){authReady=false;showPairing();return false}
-    authGeneration++;
-    authReady=true;
-    hidePairing();
-    return true;
-  }catch(e){
-    showPairing();
-    return false;
-  }
-}
-
 async function runAction(action,payload={}){
   if(!confirm('Aktion in MediaHub ausführen?')) return;
   try{
-    const r=await fetch('/api/action',{method:'POST',headers:authHeaders({'Content-Type':'application/json'}),body:JSON.stringify({action,payload})});
-    const data=await r.json();
+    const data=await requestJson('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,payload})});
     alert(data.message||data.error||(data.ok?'Aktion wurde ausgeführt.':'Aktion fehlgeschlagen.'));
     if(data.ok){setTimeout(refreshCurrent,300)}
   }catch(error){alert('Aktion fehlgeschlagen: '+error.message)}

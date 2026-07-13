@@ -13,7 +13,7 @@ from mediahub_web_core.qr import qr_matrix
 
 
 class MediaHubMobileDashboardPlugin:
-    VERSION = "0.1.0"
+    VERSION = "0.1.2"
     ACTION_REGISTRY = {
         "setup_wizard.open": "Start-Assistent öffnen",
         "setup_wizard.submit": "Start-Assistent speichern",
@@ -63,7 +63,15 @@ class MediaHubMobileDashboardPlugin:
 
     def get_plugin_settings(self):
         info = connection_info(self.settings)
-        pair_url = f"{info.get('active_url', '')}?pair={self.pairing_store.pairing_code}" if info.get("active_url") else ""
+        for key in ("local_url", "network_url", "active_url"):
+            value = str(info.get(key) or "")
+            if value:
+                info[key] = value.rstrip("/") + "/mobile"
+        pair_url = (
+            f"{info.get('active_url', '')}?pair={self.pairing_store.pairing_code}"
+            if info.get("active_url")
+            else ""
+        )
         info.update({
             "pairing_code": self.pairing_store.pairing_code,
             "pairing_url": pair_url,
@@ -85,11 +93,8 @@ class MediaHubMobileDashboardPlugin:
         changed = (new_settings.host, new_settings.port) != (self.settings.host, self.settings.port)
         self.settings = new_settings
         if changed and self.server.running:
-            self.server.stop()
-            self.server = self._create_server()
-            self._register_routes()
-            self.server.start()
-        return {"ok": True, "message": "WebRemote-Einstellungen gespeichert.", **self.get_plugin_settings()}
+            self.server.restart(new_settings.host, new_settings.port)
+        return {"ok": True, "message": "Mobile-Dashboard-Einstellungen gespeichert.", **self.get_plugin_settings()}
 
     def _register_routes(self):
         routes = {
@@ -113,14 +118,16 @@ class MediaHubMobileDashboardPlugin:
         }
         if "/" not in self.server.routes:
             routes["/"] = self._index
+        public_paths = {"/", "/mobile", "/mobile/", "/mobile/api/pairing/status"}
         for path, handler in routes.items():
-            self.server.add_route(path, handler)
-        self.server.add_post_route("/mobile/api/action", self._action)
-        self.server.add_post_route("/mobile/api/wizard/analyze", self._wizard_analyze)
-        self.server.add_post_route("/mobile/api/wizard/playlists", self._wizard_playlists)
-        self.server.add_post_route("/mobile/api/wizard/submit", self._wizard_submit)
-        self.server.add_post_route("/mobile/api/wizard/download", self._wizard_download)
-        self.server.add_post_route("/mobile/api/pairing/claim", self._pairing_claim)
+            auth = None if path in public_paths else self._authorize_request
+            self.server.add_route(path, handler, auth_callback=auth, owner=self)
+        self.server.add_post_route("/mobile/api/action", self._action, auth_callback=self._authorize_request, owner=self)
+        self.server.add_post_route("/mobile/api/wizard/analyze", self._wizard_analyze, auth_callback=self._authorize_request, owner=self)
+        self.server.add_post_route("/mobile/api/wizard/playlists", self._wizard_playlists, auth_callback=self._authorize_request, owner=self)
+        self.server.add_post_route("/mobile/api/wizard/submit", self._wizard_submit, auth_callback=self._authorize_request, owner=self)
+        self.server.add_post_route("/mobile/api/wizard/download", self._wizard_download, auth_callback=self._authorize_request, owner=self)
+        self.server.add_post_route("/mobile/api/pairing/claim", self._pairing_claim, owner=self)
 
 
     def _pairing_status(self, request=None):
@@ -145,7 +152,7 @@ class MediaHubMobileDashboardPlugin:
     def stop(self):
         self._add_activity("system", "Mobile Dashboard beendet", "Der lokale Webserver wird gestoppt.", "info")
         key = str(getattr(self.mediahub_api, "base_dir", self.plugin_path))
-        release_shared_server(key)
+        release_shared_server(key, owner=self)
 
     def _index(self):
         return 200, "text/html; charset=utf-8", (self.plugin_path / "index.html").read_bytes()

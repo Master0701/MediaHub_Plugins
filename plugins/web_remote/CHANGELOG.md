@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.13.2
+- Desktop-JavaScript nach dem Mobile-Split repariert.
+- Kopplungsreste aus WebRemote entfernt.
+- Desktop-Einstellungen auf Netzwerk und Webadressen begrenzt.
+
 ## 0.12.6
 - Sitzungstoken wird sofort im Arbeitsspeicher verwendet.
 - Einzelne 401-Antworten lösen nicht mehr direkt eine erneute Kopplung aus.
