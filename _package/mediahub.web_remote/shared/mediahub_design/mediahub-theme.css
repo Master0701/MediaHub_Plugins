@@ -1,0 +1,57 @@
+:root {
+  color-scheme: dark;
+  --mh-background: #202124;
+  --mh-surface: #2b2b2b;
+  --mh-surface-alt: #333333;
+  --mh-border: #444444;
+  --mh-primary: #f9a825;
+  --mh-primary-hover: #ffb632;
+  --mh-text: #ffffff;
+  --mh-text-muted: #b8b8b8;
+  --mh-success: #4caf50;
+  --mh-warning: #ffb300;
+  --mh-error: #ef5350;
+  --mh-info: #42a5f5;
+  --mh-space-xs: 4px;
+  --mh-space-sm: 8px;
+  --mh-space-md: 16px;
+  --mh-space-lg: 24px;
+  --mh-space-xl: 32px;
+  --mh-radius-sm: 4px;
+  --mh-radius-md: 6px;
+  --mh-radius-lg: 10px;
+  --mh-font-family: "Segoe UI", Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  margin: 0;
+  background: var(--mh-background);
+  color: var(--mh-text);
+  font-family: var(--mh-font-family);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.mh-card {
+  background: var(--mh-surface);
+  border: 1px solid var(--mh-border);
+  border-radius: var(--mh-radius-md);
+  padding: var(--mh-space-lg);
+}
+
+.mh-button {
+  border: 1px solid var(--mh-primary);
+  border-radius: var(--mh-radius-md);
+  padding: 10px 16px;
+  background: var(--mh-primary);
+  color: #111;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mh-button:hover { background: var(--mh-primary-hover); }
+.mh-button--secondary { background: transparent; color: var(--mh-text); }
+.mh-muted { color: var(--mh-text-muted); }

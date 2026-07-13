@@ -8,10 +8,12 @@ from pathlib import Path
 
 from mediahub_web_core.server import LocalWebServer
 from mediahub_web_core.settings import WebRuntimeSettingsStore, connection_info
+from mediahub_web_core.security import PairingStore
+from mediahub_web_core.qr import qr_matrix
 
 
 class MediaHubWebRemotePlugin:
-    VERSION = "0.11.0"
+    VERSION = "0.12.6"
     ACTION_REGISTRY = {
         "setup_wizard.open": "Start-Assistent öffnen",
         "setup_wizard.submit": "Start-Assistent speichern",
@@ -33,7 +35,8 @@ class MediaHubWebRemotePlugin:
         base_dir = getattr(mediahub_api, "base_dir", self.plugin_path)
         self.settings_store = WebRuntimeSettingsStore(Path(base_dir))
         self.settings = self.settings_store.load()
-        self.server = LocalWebServer(host=self.settings.host, port=self.settings.port)
+        self.pairing_store = PairingStore(Path(base_dir))
+        self.server = self._create_server()
         self._activity_lock = threading.Lock()
         self._activities = deque(maxlen=100)
         self._last_connected = None
@@ -42,24 +45,55 @@ class MediaHubWebRemotePlugin:
         self._register_routes()
         self._add_activity("system", "WebRemote gestartet", "Das lokale Lese-Control-Center ist bereit.", "info")
 
+    def _create_server(self):
+        return LocalWebServer(
+            host=self.settings.host,
+            port=self.settings.port,
+            auth_callback=self._authorize_request,
+            public_paths={"/", "/api/pairing/status", "/api/pairing/claim"},
+        )
+
+    def _authorize_request(self, request):
+        if self.settings.network_mode != "home_network" or not self.settings.pairing_required:
+            return True
+        if request.client_ip in {"127.0.0.1", "::1"}:
+            return True
+        return self.pairing_store.authorize(request.bearer_token)
+
     def start(self):
         self.server.start()
         info = connection_info(self.settings)
         self._add_activity("network", "WebRemote erreichbar", info.get("active_url", ""), "success")
 
     def get_plugin_settings(self):
-        return connection_info(self.settings)
+        info = connection_info(self.settings)
+        pair_url = f"{info.get('active_url', '')}?pair={self.pairing_store.pairing_code}" if info.get("active_url") else ""
+        info.update({
+            "pairing_code": self.pairing_store.pairing_code,
+            "pairing_url": pair_url,
+            "pairing_qr_matrix": qr_matrix(pair_url) if pair_url else [],
+            "paired_devices": self.pairing_store.devices(),
+        })
+        return info
 
     def update_plugin_settings(self, data):
+        data = dict(data or {})
+        if data.pop("rotate_pairing_code", False):
+            self.pairing_store.rotate_code()
+        revoke_device_id = str(data.pop("revoke_device_id", "") or "")
+        if revoke_device_id:
+            self.pairing_store.revoke(revoke_device_id)
+        if data.pop("revoke_all_devices", False):
+            self.pairing_store.revoke_all()
         new_settings = self.settings_store.save(data)
         changed = (new_settings.host, new_settings.port) != (self.settings.host, self.settings.port)
         self.settings = new_settings
         if changed and self.server.running:
             self.server.stop()
-            self.server = LocalWebServer(host=self.settings.host, port=self.settings.port)
+            self.server = self._create_server()
             self._register_routes()
             self.server.start()
-        return {"ok": True, "message": "WebRemote-Einstellungen gespeichert.", **connection_info(self.settings)}
+        return {"ok": True, "message": "WebRemote-Einstellungen gespeichert.", **self.get_plugin_settings()}
 
     def _register_routes(self):
         routes = {
@@ -78,6 +112,7 @@ class MediaHubWebRemotePlugin:
             "/api/activities": self._activity_feed,
             "/api/wizard/options": self._wizard_options,
             "/api/wizard/selection": self._wizard_selection,
+            "/api/pairing/status": self._pairing_status,
         }
         for path, handler in routes.items():
             self.server.add_route(path, handler)
@@ -86,6 +121,27 @@ class MediaHubWebRemotePlugin:
         self.server.add_post_route("/api/wizard/playlists", self._wizard_playlists)
         self.server.add_post_route("/api/wizard/submit", self._wizard_submit)
         self.server.add_post_route("/api/wizard/download", self._wizard_download)
+        self.server.add_post_route("/api/pairing/claim", self._pairing_claim)
+
+
+    def _pairing_status(self, request=None):
+        token = request.bearer_token if request is not None else ""
+        authorized = self._authorize_request(request) if request is not None else False
+        return self._json({
+            "pairing_required": bool(self.settings.network_mode == "home_network" and self.settings.pairing_required),
+            "authorized": bool(authorized),
+            "device_name": self.settings.device_name,
+            "network_mode": self.settings.network_mode,
+            "has_token": bool(token),
+        })
+
+    def _pairing_claim(self, payload, request=None):
+        try:
+            result = self.pairing_store.claim(str(payload.get("code") or ""), str(payload.get("device_name") or "Neues Gerät"))
+            self._add_activity("security", "Gerät gekoppelt", result.device_name, "success")
+            return self._json({"ok": True, "token": result.token, "device_id": result.device_id, "device_name": result.device_name})
+        except Exception as error:
+            return self._json({"ok": False, "message": str(error)}, status=403)
 
     def stop(self):
         self._add_activity("system", "WebRemote beendet", "Der lokale Webserver wird gestoppt.", "info")

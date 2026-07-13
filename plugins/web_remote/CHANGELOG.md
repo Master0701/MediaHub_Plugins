@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.12.6
+- Sitzungstoken wird sofort im Arbeitsspeicher verwendet.
+- Einzelne 401-Antworten lösen nicht mehr direkt eine erneute Kopplung aus.
+- Autorisierung wird zentral bestätigt und die Anfrage einmal wiederholt.
+
+## 0.12.4
+- Mobile Kopplung mit Zeitlimit und direkter Token-Prüfung stabilisiert.
+- HTTP-Antworten enthalten jetzt Content-Length und schließen die Verbindung sauber.
+- Dashboard öffnet sich direkt nach bestätigter Kopplung ohne Seitenneustart.
+
+## v0.12.4
+
+- Kopplungstoken wird nach erfolgreicher Kopplung vor allen geschützten Abfragen übernommen.
+- Dashboard öffnet sich erst nach bestätigter Autorisierung.
+- Irreführender Platzhalter `000000` wurde durch einen neutralen Hinweis ersetzt.
+- Kopplungsfenster bleibt bei fehlender Autorisierung sichtbar und verschwindet nach erfolgreicher Prüfung.
+
+## v0.12.1
+
+- Gerätename bleibt während der Kopplung frei editierbar.
+- Wiederholte 401-Antworten setzen das Kopplungsformular nicht mehr zurück.
+- Nach erfolgreicher Kopplung wird WebRemote automatisch mit dem gespeicherten Token neu geöffnet.
+- Klare Erfolgsmeldung und Eingabeprüfung für den sechsstelligen Code.
+
+
+## 0.12.0
+
+- QR-Code und sechsstelliger Einmalcode für die Geräte-Kopplung ergänzt.
+- Heimnetz-Zugriff kann auf gekoppelte Geräte beschränkt werden.
+- Tokens werden nur lokal im Browser gespeichert.
+- Gekoppelte Geräte können im MediaHub Plugin-Center einzeln oder vollständig entfernt werden.
+- Einmalcode kann jederzeit neu erzeugt werden.
+- Gemeinsame Web-Runtime um lokale Authentifizierung erweitert.
+
 ## 0.11.0
 - Konfigurierbarer Modus: nur dieser Computer oder Heimnetz.
 - Port und Gerätename als Plugin-Einstellungen im MediaHub-Plugin-Center.
@@ -52,12 +86,22 @@
 
 # Changelog
 
+## 0.12.6
+- Sitzungstoken wird sofort im Arbeitsspeicher verwendet.
+- Einzelne 401-Antworten lösen nicht mehr direkt eine erneute Kopplung aus.
+- Autorisierung wird zentral bestätigt und die Anfrage einmal wiederholt.
+
 ## 0.8.1
 - Kontrollierte Schreibaktionen ergänzt.
 - Kanal-Synchronisierung, Downloadsteuerung, Jobs, Scheduler, Assistent und Plugin-Center.
 - Bestätigung vor jeder Aktion.
 
 # Changelog
+
+## 0.12.6
+- Sitzungstoken wird sofort im Arbeitsspeicher verwendet.
+- Einzelne 401-Antworten lösen nicht mehr direkt eine erneute Kopplung aus.
+- Autorisierung wird zentral bestätigt und die Anfrage einmal wiederholt.
 
 ## 0.6.1
 

@@ -1,5 +1,5 @@
-# MediaHub Plugins 0.11.0
+# MediaHub Plugins v0.12.4
 
-- Heimnetzmodus für WebRemote.
-- Plugin-Einstellungen im MediaHub-Plugin-Center.
-- Gemeinsame Web Runtime für WebRemote und Mobile Dashboard vorbereitet.
+- Kopplungsformular korrigiert: Gerätename bleibt editierbar.
+- Nach erfolgreicher Kopplung öffnet sich automatisch das WebRemote-Dashboard.
+- Wiederholte nicht autorisierte Hintergrundabfragen setzen das Formular nicht mehr zurück.

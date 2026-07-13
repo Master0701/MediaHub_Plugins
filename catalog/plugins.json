@@ -4,12 +4,12 @@
     {
       "id": "mediahub.web_remote",
       "name": "MediaHub WebRemote",
-      "version": "0.10.0",
+      "version": "0.12.6",
       "category": "Fernsteuerung",
-      "description": "Lokales MediaHub Control Center mit vollständiger Leseoberfläche und kontrollierten Schreibaktionen.",
-      "package": "MediaHub_WebRemote_v0.8.2.mhplugin",
+      "description": "Lokales MediaHub Control Center mit Web-Assistent, Live-Downloads, Heimnetzmodus und Geräte-Kopplung.",
+      "package": "MediaHub_WebRemote_v0.12.6.mhplugin",
       "minimum_mediahub_version": "1.0.5",
-      "network_scope": "local_only",
+      "network_scope": "configurable",
       "minimum_mediahub": "1.0.5"
     }
   ]
