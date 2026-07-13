@@ -1,4 +1,5 @@
-# MediaHub WebRemote v0.10.1
+# MediaHub Plugins 0.11.0
 
-- Web-Assistent öffnet nach dem Sync die echte Download-Auswahl im Browser.
-- Kanalbilder, Ladehinweise und Videovorschaubilder ergänzt.
+- Heimnetzmodus für WebRemote.
+- Plugin-Einstellungen im MediaHub-Plugin-Center.
+- Gemeinsame Web Runtime für WebRemote und Mobile Dashboard vorbereitet.

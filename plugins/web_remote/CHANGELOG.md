@@ -1,3 +1,19 @@
+# Changelog
+
+## 0.11.0
+- Konfigurierbarer Modus: nur dieser Computer oder Heimnetz.
+- Port und Gerätename als Plugin-Einstellungen im MediaHub-Plugin-Center.
+- Anzeige der lokalen und Heimnetz-Adresse.
+- Shared Web Runtime bleibt für Mobile Dashboard wiederverwendbar.
+
+
+## 0.10.2
+
+- Downloads aus dem Web-Assistenten öffnen kein natives MediaHub-Dialogfenster mehr.
+- Nach dem Start wechselt WebRemote automatisch zur Live-Downloadseite.
+- Live-Downloadstatus wird im Sekundentakt aktualisiert.
+- Repository-README auf den aktuellen WebRemote-Stand gebracht.
+
 ## v0.10.1
 
 - Sichtbarer Ladehinweis beim Kanaleinlesen

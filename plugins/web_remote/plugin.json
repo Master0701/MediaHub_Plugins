@@ -1,9 +1,9 @@
 {
   "id": "mediahub.web_remote",
   "name": "MediaHub WebRemote",
-  "version": "0.10.1",
+  "version": "0.11.0",
   "author": "Master0701",
-  "description": "Lokales MediaHub Control Center mit vollständig im Browser bedienbarem Start-/Download-Assistenten.",
+  "description": "Lokales MediaHub Control Center mit vollständigem Web-Assistenten, Live-Download und konfigurierbarem Heimnetzmodus.",
   "type": "web",
   "enabled": true,
   "entry": "plugin.py",
@@ -11,7 +11,7 @@
   "safe_mode": true,
   "minimum_mediahub_version": "1.0.5",
   "shared_runtime": "mediahub_web_core",
-  "network_scope": "computer_only",
+  "network_scope": "configurable",
   "class_name": "MediaHubWebRemotePlugin",
   "permissions": [
     "read_status",
@@ -35,5 +35,6 @@
     "read_setup_wizard",
     "actions.setup_wizard.control"
   ],
-  "minimum_mediahub": "1.0.5"
+  "minimum_mediahub": "1.0.5",
+  "has_settings": true
 }

@@ -7,10 +7,11 @@ from datetime import datetime
 from pathlib import Path
 
 from mediahub_web_core.server import LocalWebServer
+from mediahub_web_core.settings import WebRuntimeSettingsStore, connection_info
 
 
 class MediaHubWebRemotePlugin:
-    VERSION = "0.10.1"
+    VERSION = "0.11.0"
     ACTION_REGISTRY = {
         "setup_wizard.open": "Start-Assistent öffnen",
         "setup_wizard.submit": "Start-Assistent speichern",
@@ -29,12 +30,38 @@ class MediaHubWebRemotePlugin:
     def __init__(self, plugin_path: Path, mediahub_api=None):
         self.plugin_path = Path(plugin_path)
         self.mediahub_api = mediahub_api
-        self.server = LocalWebServer(host="127.0.0.1", port=8765)
+        base_dir = getattr(mediahub_api, "base_dir", self.plugin_path)
+        self.settings_store = WebRuntimeSettingsStore(Path(base_dir))
+        self.settings = self.settings_store.load()
+        self.server = LocalWebServer(host=self.settings.host, port=self.settings.port)
         self._activity_lock = threading.Lock()
         self._activities = deque(maxlen=100)
         self._last_connected = None
         self._last_download_signature = None
         self._last_done_count = 0
+        self._register_routes()
+        self._add_activity("system", "WebRemote gestartet", "Das lokale Lese-Control-Center ist bereit.", "info")
+
+    def start(self):
+        self.server.start()
+        info = connection_info(self.settings)
+        self._add_activity("network", "WebRemote erreichbar", info.get("active_url", ""), "success")
+
+    def get_plugin_settings(self):
+        return connection_info(self.settings)
+
+    def update_plugin_settings(self, data):
+        new_settings = self.settings_store.save(data)
+        changed = (new_settings.host, new_settings.port) != (self.settings.host, self.settings.port)
+        self.settings = new_settings
+        if changed and self.server.running:
+            self.server.stop()
+            self.server = LocalWebServer(host=self.settings.host, port=self.settings.port)
+            self._register_routes()
+            self.server.start()
+        return {"ok": True, "message": "WebRemote-Einstellungen gespeichert.", **connection_info(self.settings)}
+
+    def _register_routes(self):
         routes = {
             "/": self._index,
             "/api/status": self._status,
@@ -59,10 +86,6 @@ class MediaHubWebRemotePlugin:
         self.server.add_post_route("/api/wizard/playlists", self._wizard_playlists)
         self.server.add_post_route("/api/wizard/submit", self._wizard_submit)
         self.server.add_post_route("/api/wizard/download", self._wizard_download)
-        self._add_activity("system", "WebRemote gestartet", "Das lokale Lese-Control-Center ist bereit.", "info")
-
-    def start(self):
-        self.server.start()
 
     def stop(self):
         self._add_activity("system", "WebRemote beendet", "Der lokale Webserver wird gestoppt.", "info")
@@ -124,7 +147,7 @@ class MediaHubWebRemotePlugin:
     def _status(self):
         mediahub = self._read_status(); self._observe_status(mediahub)
         return self._json({"product": "MediaHub WebRemote", "version": self.VERSION,
-                           "server": "online", "scope": "computer_only", "mode": "read_write_controlled", "mediahub": mediahub})
+                           "server": "online", "scope": self.settings.network_mode, "connection": connection_info(self.settings), "mode": "read_write_controlled", "mediahub": mediahub})
 
     def _dashboard(self):
         data, ok, message = self._api_call("get_dashboard_details", {})

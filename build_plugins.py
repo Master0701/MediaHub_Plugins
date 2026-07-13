@@ -50,7 +50,7 @@ def copy_shared_runtime(package_root: Path, manifest: dict) -> None:
         raise FileNotFoundError(f"Gemeinsame Laufzeit fehlt: {source}")
     target = package_root / "shared" / str(shared_runtime)
     target.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(source, target)
+    shutil.copytree(source, target, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo", ".pytest_cache"))
 
 def build_plugin(key: str, source: Path) -> Path:
     manifest = read_manifest(source)
