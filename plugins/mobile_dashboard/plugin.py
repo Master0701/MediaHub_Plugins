@@ -12,8 +12,8 @@ from mediahub_web_core.security import PairingStore
 from mediahub_web_core.qr import qr_matrix
 
 
-class MediaHubWebRemotePlugin:
-    VERSION = "0.13.0"
+class MediaHubMobileDashboardPlugin:
+    VERSION = "0.1.0"
     ACTION_REGISTRY = {
         "setup_wizard.open": "Start-Assistent öffnen",
         "setup_wizard.submit": "Start-Assistent speichern",
@@ -35,6 +35,7 @@ class MediaHubWebRemotePlugin:
         base_dir = getattr(mediahub_api, "base_dir", self.plugin_path)
         self.settings_store = WebRuntimeSettingsStore(Path(base_dir))
         self.settings = self.settings_store.load()
+        self.pairing_store = PairingStore(Path(base_dir))
         self.server = self._create_server()
         self._activity_lock = threading.Lock()
         self._activities = deque(maxlen=100)
@@ -42,7 +43,7 @@ class MediaHubWebRemotePlugin:
         self._last_download_signature = None
         self._last_done_count = 0
         self._register_routes()
-        self._add_activity("system", "WebRemote gestartet", "Das lokale Lese-Control-Center ist bereit.", "info")
+        self._add_activity("system", "Mobile Dashboard gestartet", "Das lokale Lese-Control-Center ist bereit.", "info")
 
     def _create_server(self):
         key = str(getattr(self.mediahub_api, "base_dir", self.plugin_path))
@@ -58,18 +59,33 @@ class MediaHubWebRemotePlugin:
     def start(self):
         self.server.start()
         info = connection_info(self.settings)
-        self._add_activity("network", "WebRemote erreichbar", info.get("active_url", ""), "success")
+        self._add_activity("network", "Mobile Dashboard erreichbar", info.get("active_url", ""), "success")
 
     def get_plugin_settings(self):
-        return connection_info(self.settings)
+        info = connection_info(self.settings)
+        pair_url = f"{info.get('active_url', '')}?pair={self.pairing_store.pairing_code}" if info.get("active_url") else ""
+        info.update({
+            "pairing_code": self.pairing_store.pairing_code,
+            "pairing_url": pair_url,
+            "pairing_qr_matrix": qr_matrix(pair_url) if pair_url else [],
+            "paired_devices": self.pairing_store.devices(),
+        })
+        return info
 
     def update_plugin_settings(self, data):
-        new_settings = self.settings_store.save(dict(data or {}))
+        data = dict(data or {})
+        if data.pop("rotate_pairing_code", False):
+            self.pairing_store.rotate_code()
+        revoke_device_id = str(data.pop("revoke_device_id", "") or "")
+        if revoke_device_id:
+            self.pairing_store.revoke(revoke_device_id)
+        if data.pop("revoke_all_devices", False):
+            self.pairing_store.revoke_all()
+        new_settings = self.settings_store.save(data)
         changed = (new_settings.host, new_settings.port) != (self.settings.host, self.settings.port)
         self.settings = new_settings
         if changed and self.server.running:
-            key = str(getattr(self.mediahub_api, "base_dir", self.plugin_path))
-            release_shared_server(key)
+            self.server.stop()
             self.server = self._create_server()
             self._register_routes()
             self.server.start()
@@ -77,33 +93,57 @@ class MediaHubWebRemotePlugin:
 
     def _register_routes(self):
         routes = {
-            "/": self._index,
-            "/api/status": self._status,
-            "/api/dashboard": self._dashboard,
-            "/api/channels": self._channels,
-            "/api/playlists": self._playlists,
-            "/api/library": self._library,
-            "/api/downloads": self._downloads,
-            "/api/jobs": self._jobs,
-            "/api/scheduler": self._scheduler,
-            "/api/statistics": self._statistics,
-            "/api/plugins": self._plugins,
-            "/api/system": self._system,
-            "/api/activities": self._activity_feed,
-            "/api/wizard/options": self._wizard_options,
-            "/api/wizard/selection": self._wizard_selection,
+            "/mobile": self._index,
+            "/mobile/": self._index,
+            "/mobile/api/status": self._status,
+            "/mobile/api/dashboard": self._dashboard,
+            "/mobile/api/channels": self._channels,
+            "/mobile/api/playlists": self._playlists,
+            "/mobile/api/library": self._library,
+            "/mobile/api/downloads": self._downloads,
+            "/mobile/api/jobs": self._jobs,
+            "/mobile/api/scheduler": self._scheduler,
+            "/mobile/api/statistics": self._statistics,
+            "/mobile/api/plugins": self._plugins,
+            "/mobile/api/system": self._system,
+            "/mobile/api/activities": self._activity_feed,
+            "/mobile/api/wizard/options": self._wizard_options,
+            "/mobile/api/wizard/selection": self._wizard_selection,
+            "/mobile/api/pairing/status": self._pairing_status,
         }
+        if "/" not in self.server.routes:
+            routes["/"] = self._index
         for path, handler in routes.items():
             self.server.add_route(path, handler)
-        self.server.add_post_route("/api/action", self._action)
-        self.server.add_post_route("/api/wizard/analyze", self._wizard_analyze)
-        self.server.add_post_route("/api/wizard/playlists", self._wizard_playlists)
-        self.server.add_post_route("/api/wizard/submit", self._wizard_submit)
-        self.server.add_post_route("/api/wizard/download", self._wizard_download)
+        self.server.add_post_route("/mobile/api/action", self._action)
+        self.server.add_post_route("/mobile/api/wizard/analyze", self._wizard_analyze)
+        self.server.add_post_route("/mobile/api/wizard/playlists", self._wizard_playlists)
+        self.server.add_post_route("/mobile/api/wizard/submit", self._wizard_submit)
+        self.server.add_post_route("/mobile/api/wizard/download", self._wizard_download)
+        self.server.add_post_route("/mobile/api/pairing/claim", self._pairing_claim)
 
+
+    def _pairing_status(self, request=None):
+        token = request.bearer_token if request is not None else ""
+        authorized = self._authorize_request(request) if request is not None else False
+        return self._json({
+            "pairing_required": bool(self.settings.network_mode == "home_network" and self.settings.pairing_required),
+            "authorized": bool(authorized),
+            "device_name": self.settings.device_name,
+            "network_mode": self.settings.network_mode,
+            "has_token": bool(token),
+        })
+
+    def _pairing_claim(self, payload, request=None):
+        try:
+            result = self.pairing_store.claim(str(payload.get("code") or ""), str(payload.get("device_name") or "Neues Gerät"))
+            self._add_activity("security", "Gerät gekoppelt", result.device_name, "success")
+            return self._json({"ok": True, "token": result.token, "device_id": result.device_id, "device_name": result.device_name})
+        except Exception as error:
+            return self._json({"ok": False, "message": str(error)}, status=403)
 
     def stop(self):
-        self._add_activity("system", "WebRemote beendet", "Der lokale Webserver wird gestoppt.", "info")
+        self._add_activity("system", "Mobile Dashboard beendet", "Der lokale Webserver wird gestoppt.", "info")
         key = str(getattr(self.mediahub_api, "base_dir", self.plugin_path))
         release_shared_server(key)
 
@@ -162,7 +202,7 @@ class MediaHubWebRemotePlugin:
 
     def _status(self):
         mediahub = self._read_status(); self._observe_status(mediahub)
-        return self._json({"product": "MediaHub WebRemote", "version": self.VERSION,
+        return self._json({"product": "MediaHub Mobile Dashboard", "version": self.VERSION,
                            "server": "online", "scope": self.settings.network_mode, "connection": connection_info(self.settings), "mode": "read_write_controlled", "mediahub": mediahub})
 
     def _dashboard(self):

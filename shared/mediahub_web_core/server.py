@@ -135,3 +135,35 @@ class LocalWebServer:
     @property
     def running(self):
         return self._server is not None
+
+
+_SHARED_LOCK = threading.RLock()
+_SHARED_SERVERS: dict[str, dict] = {}
+
+
+def acquire_shared_server(key: str, host: str, port: int) -> LocalWebServer:
+    """Eine Serverinstanz pro MediaHub-Laufzeit, gemeinsam für alle Web-Plugins."""
+    normalized = str(key)
+    with _SHARED_LOCK:
+        item = _SHARED_SERVERS.get(normalized)
+        if item is not None:
+            server = item["server"]
+            if server.host != host or int(server.port) != int(port):
+                raise RuntimeError("Die gemeinsame Web-Runtime läuft bereits mit anderen Netzwerk-Einstellungen.")
+            item["references"] += 1
+            return server
+        server = LocalWebServer(host=host, port=port)
+        _SHARED_SERVERS[normalized] = {"server": server, "references": 1}
+        return server
+
+
+def release_shared_server(key: str) -> None:
+    normalized = str(key)
+    with _SHARED_LOCK:
+        item = _SHARED_SERVERS.get(normalized)
+        if item is None:
+            return
+        item["references"] -= 1
+        if item["references"] <= 0:
+            item["server"].stop()
+            _SHARED_SERVERS.pop(normalized, None)

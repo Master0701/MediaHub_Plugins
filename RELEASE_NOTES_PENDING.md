@@ -1,5 +1,5 @@
-# MediaHub Plugins v0.12.4
+# MediaHub Plugins – Split Desktop und Mobile
 
-- Kopplungsformular korrigiert: Gerätename bleibt editierbar.
-- Nach erfolgreicher Kopplung öffnet sich automatisch das WebRemote-Dashboard.
-- Wiederholte nicht autorisierte Hintergrundabfragen setzen das Formular nicht mehr zurück.
+- WebRemote 0.13.0 auf Desktop-/PC-Oberfläche konzentriert.
+- Mobile Dashboard 0.1.0 mit QR-Kopplung und mobiler Sidebar angelegt.
+- Gemeinsame Web-Runtime kann von beiden Plugins einzeln oder gemeinsam genutzt werden.

@@ -38,3 +38,10 @@ WebRemote und das spätere Mobile Dashboard verwenden dieselbe lokale Serverbasi
 ## Sicherheit im Heimnetz
 
 WebRemote kann im Heimnetz nur für gekoppelte Geräte freigegeben werden. Die Kopplung erfolgt über einen QR-Code oder einen sechsstelligen Einmalcode in den Plugin-Einstellungen von MediaHub. Gekoppelte Geräte können dort einzeln oder vollständig entfernt werden.
+
+
+## Getrennte Web-Oberflächen
+
+- **WebRemote 0.13.0:** Desktop-/PC-Control-Center.
+- **Mobile Dashboard 0.1.0:** Handy und Tablet mit einklappbarer linker Sidebar sowie QR-/Gerätekopplung.
+- Beide Plugins funktionieren einzeln und verwenden bei gemeinsamer Installation dieselbe Serverinstanz.

@@ -1,3 +1,3 @@
-# MediaHub MobileDashboard
+# MediaHub Mobile Dashboard
 
-Platzhalter für Plugin 2. Dieses Plugin wird später dieselbe gemeinsame lokale Server-Basis wie WebRemote verwenden, bleibt aber einzeln installierbar.
+Mobile Oberfläche für Handy und Tablet. Läuft allein oder gemeinsam mit WebRemote und verwendet dieselbe lokale Web-Runtime.
