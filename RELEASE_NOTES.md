@@ -1,32 +1,8 @@
-# MediaHub Plugins – Release v0.13.5
+# Ausstehende Release-Notizen
 
-## Enthaltene Plugins
+## Mobile Dashboard – Startseite im Heimnetz repariert
 
-### MediaHub WebRemote v0.13.5
-
-- Desktop-Weboberfläche für den lokalen PC-Betrieb
-- feste linke Navigation
-- Dashboard, Assistent, Kanäle, Playlists, Bibliothek und Live-Downloads
-- Jobs, Scheduler, Statistiken und Plugin-Übersicht
-- gemeinsame WebRuntime mit Mobile Dashboard
-- Desktop-Route unter `/`
-- funktioniert allein oder gemeinsam mit Mobile Dashboard
-
-### MediaHub Mobile Dashboard v0.1.5
-
-- mobile Oberfläche für Handy und Tablet
-- einklappbare linke Sidebar
-- QR-Code und Gerätekopplung
-- mobile Route unter `/mobile`
-- funktioniert allein oder gemeinsam mit WebRemote
-- bei alleiniger Installation wird die mobile Oberfläche zusätzlich direkt unter `/` ausgeliefert
-- bleibt nach Stoppen oder Entfernen von WebRemote erreichbar
-
-## Gemeinsame Änderungen
-
-- Desktop- und Mobile-Oberfläche sauber getrennt
-- gemeinsame Runtime für beide Plugins
-- beide Plugins bleiben unabhängig installierbar
-- gemeinsame Serverinstanz ohne Portkonflikt
-- Routing und Plugin-Lebenszyklus korrigiert
-- Build erzeugt für beide Plugins `.mhplugin` und `.sha256`
+- Mobile Dashboard liefert bei alleiniger Installation die mobile Oberfläche direkt unter `/` aus.
+- Die fehleranfällige HTML-/302-Weiterleitung nach `/mobile` wurde entfernt.
+- `/mobile` bleibt weiterhin die feste mobile Adresse.
+- Wenn WebRemote parallel läuft, besitzt dessen Desktop-Route auf `/` weiterhin Vorrang.
