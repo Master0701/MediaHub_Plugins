@@ -9,6 +9,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from PySide6.QtWidgets import QListWidgetItem, QWidget
+
 from mediahub_web_core.server import acquire_shared_server, release_shared_server
 from mediahub_web_core.settings import WebRuntimeSettingsStore, connection_info
 
@@ -16,7 +18,7 @@ from mediahub_web_core.settings import WebRuntimeSettingsStore, connection_info
 class MediaHubMetadataEditorPlugin:
     """Lokaler, sicherer Metadaten- und NFO-Editor für MediaHub."""
 
-    VERSION = "0.2.0"
+    VERSION = "0.3.1"
     EDITABLE_FIELDS = (
         "title", "description", "year", "season", "episode",
         "series", "channel", "playlist", "published_at",
@@ -114,7 +116,7 @@ class MediaHubMetadataEditorPlugin:
             "write_api_available": self._write_api_available(),
             "direct_nfo_available": True,
             "safe_mode": True,
-            "message": "NFO- und Bildverwaltung mit automatischer Sicherung ist verfügbar.",
+            "message": "Medienbrowser, Metadaten-, NFO- und Bildverwaltung mit automatischer Sicherung sind verfügbar.",
         })
 
     def _library(self, request=None):
@@ -335,3 +337,263 @@ class MediaHubMetadataEditorPlugin:
         temporary = self.drafts_file.with_suffix(".tmp")
         temporary.write_text(json.dumps(drafts, ensure_ascii=False, indent=2), encoding="utf-8")
         temporary.replace(self.drafts_file)
+
+    def create_widget(self, parent=None):
+        """Erzeugt die native Metadata-Editor-Oberfläche für MediaHub."""
+        return NativeMetadataEditorWidget(self, parent=parent)
+
+
+class NativeMetadataEditorWidget(QWidget):
+    def __init__(self, plugin, parent=None):
+        super().__init__(parent)
+        from PySide6.QtCore import Qt
+        from PySide6.QtWidgets import (
+            QAbstractItemView, QComboBox, QFileDialog, QFormLayout, QHBoxLayout,
+            QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox,
+            QPushButton, QSpinBox, QSplitter, QTextEdit, QVBoxLayout, QWidget,
+        )
+        self.plugin = plugin
+        self._items = []
+        self._current = None
+        self._loading = False
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(8)
+
+        toolbar = QHBoxLayout()
+        self.search = QLineEdit()
+        self.search.setPlaceholderText("Medien durchsuchen …")
+        self.search.textChanged.connect(self._apply_filter)
+        self.btn_refresh = QPushButton("Aktualisieren")
+        self.btn_refresh.clicked.connect(self.refresh)
+        toolbar.addWidget(self.search, 1)
+        toolbar.addWidget(self.btn_refresh)
+        root.addLayout(toolbar)
+
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setHandleWidth(8)
+
+        left = QWidget()
+        left_layout = QVBoxLayout(left)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.addWidget(QLabel("Kategorien"))
+        self.categories = QListWidget()
+        for text in ("Alle Medien", "Kanäle", "Serien", "Playlists", "Entwürfe"):
+            self.categories.addItem(text)
+        self.categories.setCurrentRow(0)
+        self.categories.currentRowChanged.connect(self._apply_filter)
+        left_layout.addWidget(self.categories, 1)
+
+        center = QWidget()
+        center_layout = QVBoxLayout(center)
+        center_layout.setContentsMargins(0, 0, 0, 0)
+        center_layout.addWidget(QLabel("Medien"))
+        self.media_list = QListWidget()
+        self.media_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.media_list.currentRowChanged.connect(self._load_selected)
+        center_layout.addWidget(self.media_list, 1)
+
+        right = QWidget()
+        right_layout = QVBoxLayout(right)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.addWidget(QLabel("Metadaten"))
+        form = QFormLayout()
+        self.title_edit = QLineEdit()
+        self.description_edit = QTextEdit()
+        self.description_edit.setMinimumHeight(100)
+        self.year_edit = QSpinBox(); self.year_edit.setRange(0, 9999); self.year_edit.setSpecialValueText("")
+        self.season_edit = QSpinBox(); self.season_edit.setRange(0, 9999)
+        self.episode_edit = QSpinBox(); self.episode_edit.setRange(0, 99999)
+        self.series_edit = QLineEdit()
+        self.channel_edit = QLineEdit()
+        self.playlist_edit = QLineEdit()
+        self.date_edit = QLineEdit()
+        self.path_label = QLabel("-")
+        self.path_label.setWordWrap(True)
+        form.addRow("Titel", self.title_edit)
+        form.addRow("Beschreibung", self.description_edit)
+        form.addRow("Jahr", self.year_edit)
+        form.addRow("Staffel", self.season_edit)
+        form.addRow("Episode", self.episode_edit)
+        form.addRow("Serie", self.series_edit)
+        form.addRow("Kanal", self.channel_edit)
+        form.addRow("Playlist", self.playlist_edit)
+        form.addRow("Veröffentlicht", self.date_edit)
+        form.addRow("Pfad", self.path_label)
+        right_layout.addLayout(form)
+
+        self.diff_label = QLabel("Keine Änderungen")
+        self.diff_label.setWordWrap(True)
+        right_layout.addWidget(self.diff_label)
+
+        buttons = QHBoxLayout()
+        self.btn_draft = QPushButton("Entwurf speichern")
+        self.btn_nfo = QPushButton("NFO speichern")
+        self.btn_poster = QPushButton("Poster ersetzen")
+        self.btn_reset = QPushButton("Zurücksetzen")
+        self.btn_draft.clicked.connect(self._save_draft)
+        self.btn_nfo.clicked.connect(self._save_nfo)
+        self.btn_poster.clicked.connect(self._replace_poster)
+        self.btn_reset.clicked.connect(self._reset_fields)
+        for button in (self.btn_draft, self.btn_nfo, self.btn_poster, self.btn_reset):
+            buttons.addWidget(button)
+        right_layout.addLayout(buttons)
+        right_layout.addStretch(1)
+
+        for widget in (
+            self.title_edit, self.description_edit, self.series_edit,
+            self.channel_edit, self.playlist_edit, self.date_edit,
+        ):
+            widget.textChanged.connect(self._update_diff)
+        for widget in (self.year_edit, self.season_edit, self.episode_edit):
+            widget.valueChanged.connect(self._update_diff)
+
+        splitter.addWidget(left)
+        splitter.addWidget(center)
+        splitter.addWidget(right)
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 2)
+        splitter.setStretchFactor(2, 4)
+        splitter.setSizes([170, 320, 650])
+        root.addWidget(splitter, 1)
+        self.refresh()
+
+    def refresh(self):
+        try:
+            raw = self.plugin.mediahub_api.get_library_videos() if self.plugin.mediahub_api else []
+            self._items = self.plugin._normalize_items(raw)
+            self._apply_filter()
+        except Exception as error:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "Metadata Editor", f"Bibliothek konnte nicht geladen werden:\n{error}")
+
+    def _apply_filter(self, *args):
+        query = self.search.text().strip().lower()
+        category = self.categories.currentItem().text() if self.categories.currentItem() else "Alle Medien"
+        drafts = self.plugin._read_drafts() if category == "Entwürfe" else {}
+        self.media_list.blockSignals(True)
+        self.media_list.clear()
+        visible = []
+        for item in self._items:
+            if category == "Entwürfe" and str(item.get("id")) not in drafts:
+                continue
+            if category == "Kanäle" and not str(item.get("channel") or "").strip():
+                continue
+            if category == "Serien" and not str(item.get("series") or "").strip():
+                continue
+            if category == "Playlists" and not str(item.get("playlist") or "").strip():
+                continue
+            haystack = " ".join(str(item.get(key) or "") for key in ("title", "series", "channel", "playlist", "path")).lower()
+            if query and query not in haystack:
+                continue
+            visible.append(item)
+            text = str(item.get("title") or "Ohne Titel")
+            context = str(item.get("series") or item.get("channel") or item.get("playlist") or "").strip()
+            if context:
+                text += f"\n{context}"
+            row = QListWidgetItem(text)
+            row.setData(256, item)
+            self.media_list.addItem(row)
+        self.media_list.blockSignals(False)
+        if visible:
+            self.media_list.setCurrentRow(0)
+        else:
+            self._current = None
+            self._clear_fields()
+
+    def _load_selected(self, row):
+        item = self.media_list.item(row)
+        self._current = dict(item.data(256) or {}) if item is not None else None
+        if not self._current:
+            self._clear_fields()
+            return
+        draft = self.plugin._read_drafts().get(str(self._current.get("id")))
+        values = dict(draft.get("edited") or {}) if draft else self._current
+        self._set_fields(values)
+
+    def _set_fields(self, item):
+        self._loading = True
+        self.title_edit.setText(str(item.get("title") or ""))
+        self.description_edit.setPlainText(str(item.get("description") or ""))
+        self.year_edit.setValue(self._number(item.get("year")))
+        self.season_edit.setValue(self._number(item.get("season")))
+        self.episode_edit.setValue(self._number(item.get("episode")))
+        self.series_edit.setText(str(item.get("series") or ""))
+        self.channel_edit.setText(str(item.get("channel") or ""))
+        self.playlist_edit.setText(str(item.get("playlist") or ""))
+        self.date_edit.setText(str(item.get("published_at") or ""))
+        path = item.get("path") or item.get("file_path") or item.get("filepath") or item.get("local_path") or item.get("filename") or "-"
+        self.path_label.setText(str(path))
+        self._loading = False
+        self._update_diff()
+
+    def _clear_fields(self):
+        self._set_fields({})
+
+    @staticmethod
+    def _number(value):
+        try:
+            return int(value or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    def _edited(self):
+        item = dict(self._current or {})
+        item.update({
+            "title": self.title_edit.text().strip(),
+            "description": self.description_edit.toPlainText().strip(),
+            "year": self.year_edit.value() or "",
+            "season": self.season_edit.value(),
+            "episode": self.episode_edit.value(),
+            "series": self.series_edit.text().strip(),
+            "channel": self.channel_edit.text().strip(),
+            "playlist": self.playlist_edit.text().strip(),
+            "published_at": self.date_edit.text().strip(),
+        })
+        return item
+
+    def _update_diff(self, *args):
+        if self._loading or not self._current:
+            return
+        _, _, _, changes = self.plugin._clean_changes({"id": self._current.get("id"), "original": self._current, "edited": self._edited()})
+        if not changes:
+            self.diff_label.setText("Keine Änderungen")
+        else:
+            self.diff_label.setText("Geändert: " + ", ".join(changes.keys()))
+
+    def _save_draft(self):
+        if not self._current:
+            return
+        status, _, body = self.plugin._save_draft({"id": self._current.get("id"), "original": self._current, "edited": self._edited()})
+        self._show_result(status, body)
+
+    def _save_nfo(self):
+        if not self._current:
+            return
+        status, _, body = self.plugin._save_nfo({"item": self._current, "edited": self._edited()})
+        self._show_result(status, body)
+
+    def _replace_poster(self):
+        from PySide6.QtWidgets import QFileDialog
+        if not self._current:
+            return
+        filename, _ = QFileDialog.getOpenFileName(self, "Poster auswählen", "", "Bilder (*.jpg *.jpeg *.png *.webp)")
+        if not filename:
+            return
+        status, _, body = self.plugin._replace_image({"item": self._current, "kind": "poster", "source_path": filename})
+        self._show_result(status, body)
+
+    def _reset_fields(self):
+        if self._current:
+            self._set_fields(self._current)
+
+    def _show_result(self, status, body):
+        from PySide6.QtWidgets import QMessageBox
+        try:
+            data = json.loads(body.decode("utf-8"))
+        except Exception:
+            data = {"message": str(body)}
+        message = str(data.get("message") or "Aktion abgeschlossen.")
+        (QMessageBox.information if int(status) < 400 else QMessageBox.warning)(self, "Metadata Editor", message)
+        self._update_diff()

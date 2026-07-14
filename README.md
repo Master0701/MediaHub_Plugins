@@ -4,39 +4,43 @@ Offizielles Erweiterungs-Repository für MediaHub.
 
 ## Aktueller Stand
 
-- **MediaHub Metadata Editor 0.2.0**
+- **MediaHub Metadata Editor 0.3.1**
 - **MediaHub Mobile Dashboard 0.1.5**
 - **MediaHub WebRemote 0.13.5**
 
-# MediaHub Plugins – Metadata Editor v0.2.0
+# MediaHub Plugins – Metadata Editor v0.3.1
 
 ## Enthaltene Plugins
 
-### MediaHub Metadata Editor v0.2.0
+### MediaHub WebRemote v0.13.5
 
-- NFO-Dateien erkennen und UTF-8-sicher anzeigen
-- NFO-Dateien aus den bearbeiteten Metadaten neu erstellen oder aktualisieren
-- automatische Sicherung vorhandener NFO-Dateien vor jeder Änderung
-- Poster, Fanart, Banner und Thumbnail erkennen und über lokale Dateipfade ersetzen
-- automatische Sicherung ersetzter Bilder
-- nicht als UTF-8 lesbare oder fehlerhafte NFO-Dateien werden nicht überschrieben
-- sichere Entwürfe und Vergleichsansicht bleiben erhalten
+- Lokale Desktop-/PC-Weboberfläche für MediaHub.
+- Gemeinsame lokale Webserver- und API-Basis beibehalten.
 
 ### MediaHub Mobile Dashboard v0.1.5
 
-- unverändert enthalten
-- mobile Oberfläche für Handy und Tablet
+- Eigenständige mobile Oberfläche für Handy und Tablet.
+- Gemeinsame einklappbare Sidebar für beide Geräteklassen.
 
-### MediaHub WebRemote v0.13.5
+### MediaHub Metadata Editor v0.3.1
 
-- unverändert enthalten
-- Desktop-Weboberfläche für PC und Notebook
+- vollständige dreigeteilte Medienbrowser-GUI ergänzt
+- Navigation für alle Medien, Kanäle, Serien, Playlists und Entwürfe ergänzt
+- Suche und Gruppenfilter ergänzt
+- vollständiges Metadatenformular mit Live-Vergleich ergänzt
+- Entwürfe können gespeichert, geladen und gelöscht werden
+- NFO- und Bildverwaltung mit automatischen Sicherungen beibehalten
+- responsive Darstellung für kleinere Bildschirme ergänzt
+- UTF-8-sichere Verarbeitung geprüft
 
-## Gemeinsame Änderungen
+## Build-Dateien
 
-- Plugin-Katalog auf Metadata Editor v0.2.0 aktualisiert
-- alle Text-, JSON- und XML-Ausgaben UTF-8-sicher
-- alle drei Plugins bleiben unabhängig installierbar
+- `MediaHub_WebRemote_v0.13.5.mhplugin`
+- `MediaHub_WebRemote_v0.13.5.mhplugin.sha256`
+- `MediaHub_MobileDashboard_v0.1.5.mhplugin`
+- `MediaHub_MobileDashboard_v0.1.5.mhplugin.sha256`
+- `MediaHub_MetadataEditor_v0.3.1.mhplugin`
+- `MediaHub_MetadataEditor_v0.3.1.mhplugin.sha256`
 
 ## Kompatibilität
 

@@ -1,11 +1,13 @@
-# Hilfe – Metadata Editor
+# Metadata Editor v0.3.0
 
-Wähle links ein Medium. Unter **Metadaten** kannst du Werte vergleichen und als Entwurf speichern. Unter **NFO & Bilder** erkennt das Plugin vorhandene Dateien.
+Öffne den Metadata Editor über die Plugin-Verwaltung oder direkt unter `/metadata-editor`.
 
-## NFO speichern
+## Oberfläche
 
-Der Button **NFO aus Formular speichern** übernimmt die Formularfelder in die NFO. Eine bestehende Datei wird vorher automatisch gesichert. Dateien, die nicht als UTF-8 gelesen werden können oder ungültiges XML enthalten, werden nicht überschrieben.
+1. Links wählst du zwischen allen Medien, Kanälen, Serien, Playlists und Entwürfen.
+2. In der mittleren Spalte suchst und filterst du die Bibliothek.
+3. Rechts bearbeitest du Metadaten, NFO-Dateien und Bilder.
 
-## Bilder ersetzen
+Der Live-Vergleich zeigt jede Änderung sofort an. Entwürfe verändern die MediaHub-Datenbank nicht. Vor Änderungen an NFO-Dateien oder Bildern wird automatisch eine Sicherung unter `plugin_data/metadata_editor/backups` erstellt.
 
-Trage den vollständigen lokalen Pfad zu einer JPG-, PNG- oder WebP-Datei ein und wähle **Bild ersetzen**. Vorhandene Bilder werden vorher gesichert.
+Die Schaltfläche „MediaHub-Datenbank speichern“ ist nur aktiv, wenn das Hauptprogramm die kontrollierte Aktion `metadata.update` bereitstellt.
