@@ -1,7 +1,7 @@
 {
   "id": "mediahub.web_remote",
   "name": "MediaHub WebRemote",
-  "version": "0.13.5",
+  "version": "0.13.7",
   "author": "Master0701",
   "description": "Lokales MediaHub Desktop-Control-Center für PC und Notebook mit vollständigem Web-Assistenten und Live-Downloads.",
   "type": "web",
@@ -34,8 +34,23 @@
     "actions.plugins.open",
     "read_setup_wizard",
     "actions.setup_wizard.control",
-    "network.home"
+    "network.home",
+    "actions.plugins.control",
+    "actions.plugins.manage"
   ],
   "minimum_mediahub": "1.0.5",
-  "has_settings": true
+  "has_settings": true,
+  "ui": {
+    "enabled": true,
+    "type": "web",
+    "title": "MediaHub WebRemote",
+    "web": {
+      "enabled": true,
+      "title": "MediaHub WebRemote",
+      "route": "/",
+      "icon": "🌐",
+      "shell": true
+    },
+    "route": "/"
+  }
 }

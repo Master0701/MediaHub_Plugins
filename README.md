@@ -4,43 +4,29 @@ Offizielles Erweiterungs-Repository für MediaHub.
 
 ## Aktueller Stand
 
-- **MediaHub Metadata Editor 0.3.1**
-- **MediaHub Mobile Dashboard 0.1.5**
-- **MediaHub WebRemote 0.13.5**
+- **MediaHub Metadata Editor 0.3.6**
+- **MediaHub Mobile Dashboard 0.1.7**
+- **MediaHub WebRemote 0.13.7**
 
-# MediaHub Plugins – Metadata Editor v0.3.1
+# Ausstehende Release-Notizen
 
-## Enthaltene Plugins
+## MediaHub WebRemote v0.13.7
 
-### MediaHub WebRemote v0.13.5
+- Eigene Weboberfläche wieder aktiviert und über die normale Plugin-Verwaltung wieder direkt öffnbar.
+- WebRemote bleibt aus dem zusätzlichen Bereich „Plugin-Oberflächen“ ausgeblendet.
+- Die browserbasierte Plugin-Verwaltung und der neue Bereich für zusätzliche Web-Plugins bleiben erhalten.
 
-- Lokale Desktop-/PC-Weboberfläche für MediaHub.
-- Gemeinsame lokale Webserver- und API-Basis beibehalten.
+## MediaHub Mobile Dashboard v0.1.7
 
-### MediaHub Mobile Dashboard v0.1.5
+- Eigene mobile Weboberfläche wieder aktiviert und über die normale Plugin-Verwaltung wieder direkt öffnbar.
+- Mobile Dashboard bleibt aus dem zusätzlichen Bereich „Plugin-Oberflächen“ ausgeblendet.
+- Die mobile Plugin-Verwaltung und der Bereich für zusätzliche Web-Plugins bleiben erhalten.
 
-- Eigenständige mobile Oberfläche für Handy und Tablet.
-- Gemeinsame einklappbare Sidebar für beide Geräteklassen.
+## MediaHub Metadata Editor v0.3.6
 
-### MediaHub Metadata Editor v0.3.1
-
-- vollständige dreigeteilte Medienbrowser-GUI ergänzt
-- Navigation für alle Medien, Kanäle, Serien, Playlists und Entwürfe ergänzt
-- Suche und Gruppenfilter ergänzt
-- vollständiges Metadatenformular mit Live-Vergleich ergänzt
-- Entwürfe können gespeichert, geladen und gelöscht werden
-- NFO- und Bildverwaltung mit automatischen Sicherungen beibehalten
-- responsive Darstellung für kleinere Bildschirme ergänzt
-- UTF-8-sichere Verarbeitung geprüft
-
-## Build-Dateien
-
-- `MediaHub_WebRemote_v0.13.5.mhplugin`
-- `MediaHub_WebRemote_v0.13.5.mhplugin.sha256`
-- `MediaHub_MobileDashboard_v0.1.5.mhplugin`
-- `MediaHub_MobileDashboard_v0.1.5.mhplugin.sha256`
-- `MediaHub_MetadataEditor_v0.3.1.mhplugin`
-- `MediaHub_MetadataEditor_v0.3.1.mhplugin.sha256`
+- Desktop- und Weboberfläche bleiben gemeinsam verfügbar.
+- Der Metadata Editor bleibt als zusätzliche Plugin-Oberfläche in WebRemote und Mobile Dashboard sichtbar.
+- Die Weboberfläche öffnet weiterhin in einem neuen Browser-Tab.
 
 ## Kompatibilität
 

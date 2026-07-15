@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.3.6
+
+- Bildbereich auf der allgemeinen Web-/Mobilansicht ergänzt.
+- Poster, Fanart und Staffel-/Playlistbild mit Vorschau, Dateiname, Auflösung und Größe.
+- Lokale Bildvorschauen werden sicher als eingebettete Daten ausgeliefert.
+- Schnellzugriff für Medienordner, Video, NFO, Bilder, MediaInfo und Eigenschaften ergänzt.
+- Responsive Darstellung für Handy und Tablet verbessert.
+
+## v0.3.5
+
+- Web-Umschalter „Allgemein | Erweiterter Editor“ ergänzt.
+- Filter „Vorhandene Videos“ ergänzt.
+- Weboberfläche für WebRemote und Mobile Dashboard veröffentlicht.
+
+## v0.3.2
+
+- Metadata Editor öffnet sich als eigenes Desktop-Fenster.
+- Große Editoroberfläche ist frei vergrößerbar und maximierbar.
+- Reine Weboberflächen werden nicht im MediaHub-Bereich „Plugin-Oberflächen“ geführt.
+
 ## v0.3.1
 
 - Echte native Qt-Oberfläche direkt im MediaHub-Hauptfenster.

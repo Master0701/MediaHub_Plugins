@@ -21,4 +21,9 @@ Die Oberfläche ist unter `/metadata-editor` erreichbar.
 
 ## Native MediaHub-Oberfläche
 
-Ab v0.3.1 kann der Metadata Editor direkt im MediaHub-Hauptfenster eingebettet werden. Die lokale Weboberfläche bleibt zusätzlich verfügbar.
+Ab v0.3.6 kann der Metadata Editor direkt im MediaHub-Hauptfenster eingebettet werden. Die lokale Weboberfläche bleibt zusätzlich verfügbar.
+
+
+## Desktop-Fenster
+
+Der Metadata Editor wird über „Plugin-Oberflächen“ als eigenes, frei vergrößerbares Desktop-Fenster geöffnet. WebRemote und Mobile Dashboard werden dort nicht angezeigt.

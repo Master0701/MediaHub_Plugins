@@ -1,7 +1,7 @@
 {
   "id": "mediahub.metadata_editor",
   "name": "MediaHub Metadata Editor",
-  "version": "0.3.1",
+  "version": "0.3.6",
   "author": "Master0701",
   "description": "Zentraler lokaler Medienbrowser mit Metadaten-, NFO- und Bildeditor, Live-Vergleich und automatischen Sicherungen.",
   "type": "tool",
@@ -30,9 +30,17 @@
   "has_settings": false,
   "ui": {
     "enabled": true,
-    "type": "native",
+    "type": "window",
     "title": "Metadata Editor",
     "icon": "📝",
-    "order": 30
+    "order": 30,
+    "web": {
+      "enabled": true,
+      "title": "Metadata Editor",
+      "route": "/metadata-editor",
+      "icon": "📝",
+      "order": 30,
+      "shell": false
+    }
   }
 }

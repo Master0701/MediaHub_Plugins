@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import base64
 import json
+import mimetypes
 import shutil
 import threading
 import xml.etree.ElementTree as ET
@@ -9,6 +11,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from PySide6.QtCore import QUrl
+from PySide6.QtGui import QDesktopServices, QImageReader
 from PySide6.QtWidgets import QListWidgetItem, QWidget
 
 from mediahub_web_core.server import acquire_shared_server, release_shared_server
@@ -18,7 +22,7 @@ from mediahub_web_core.settings import WebRuntimeSettingsStore, connection_info
 class MediaHubMetadataEditorPlugin:
     """Lokaler, sicherer Metadaten- und NFO-Editor für MediaHub."""
 
-    VERSION = "0.3.1"
+    VERSION = "0.3.6"
     EDITABLE_FIELDS = (
         "title", "description", "year", "season", "episode",
         "series", "channel", "playlist", "published_at",
@@ -33,6 +37,7 @@ class MediaHubMetadataEditorPlugin:
         "fanart": ("fanart.jpg", "fanart.png", "background.jpg", "background.png"),
         "banner": ("banner.jpg", "banner.png"),
         "thumbnail": ("thumb.jpg", "thumb.png", "thumbnail.jpg", "thumbnail.png"),
+        "season_playlist": ("season.jpg", "season.png", "season-poster.jpg", "season-poster.png", "playlist.jpg", "playlist.png", "folder.jpg", "folder.png"),
     }
     IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 
@@ -88,6 +93,7 @@ class MediaHubMetadataEditorPlugin:
             "/metadata-editor/api/inspect-files": self._inspect_files,
             "/metadata-editor/api/nfo/save": self._save_nfo,
             "/metadata-editor/api/image/replace": self._replace_image,
+            "/metadata-editor/api/open": self._open_local_target,
         }.items():
             self.server.add_post_route(path, handler, owner=self)
 
@@ -239,8 +245,49 @@ class MediaHubMetadataEditorPlugin:
         images = {}
         for kind, names in self.IMAGE_NAMES.items():
             found = next((folder / name for name in names if folder and (folder / name).exists()), None)
-            images[kind] = {"exists": bool(found), "path": str(found or "")}
+            info = {"exists": bool(found), "path": str(found or ""), "name": "", "size_bytes": 0, "width": 0, "height": 0, "preview": ""}
+            if found:
+                info["name"] = found.name
+                try:
+                    info["size_bytes"] = found.stat().st_size
+                except OSError:
+                    pass
+                try:
+                    reader = QImageReader(str(found))
+                    size = reader.size()
+                    if size.isValid():
+                        info["width"], info["height"] = size.width(), size.height()
+                except Exception:
+                    pass
+                try:
+                    mime = mimetypes.guess_type(found.name)[0] or "image/jpeg"
+                    encoded = base64.b64encode(found.read_bytes()).decode("ascii")
+                    info["preview"] = f"data:{mime};base64,{encoded}"
+                except Exception:
+                    pass
+            images[kind] = info
         return self._json({"ok": True, "media_path": str(media_path or ""), "folder": str(folder or ""), "nfo": nfo, "images": images})
+
+    def _open_local_target(self, payload, request=None):
+        source = dict(payload or {})
+        item = dict(source.get("item") or {})
+        target_type = str(source.get("target") or "folder").strip().lower()
+        media_path = self._media_path(item)
+        folder = media_path if media_path and media_path.is_dir() else (media_path.parent if media_path else None)
+        nfo_path = self._nfo_path(item, media_path)
+        if target_type == "video":
+            target = media_path
+        elif target_type == "nfo":
+            target = nfo_path if nfo_path and nfo_path.exists() else None
+        else:
+            target = folder
+        if target is None or not target.exists():
+            return self._json({"ok": False, "message": "Das gewünschte lokale Ziel wurde nicht gefunden."}, 404)
+        try:
+            opened = QDesktopServices.openUrl(QUrl.fromLocalFile(str(target)))
+        except Exception as error:
+            return self._json({"ok": False, "message": str(error)}, 500)
+        return self._json({"ok": bool(opened), "message": "Lokales Ziel wurde auf dem MediaHub-Rechner geöffnet." if opened else "Das lokale Ziel konnte nicht geöffnet werden.", "path": str(target)}, 200 if opened else 409)
 
     def _backup_file(self, source: Path, item_id: str, category: str) -> Path:
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
@@ -308,7 +355,8 @@ class MediaHubMetadataEditorPlugin:
         folder = media_path if media_path and media_path.is_dir() else (media_path.parent if media_path else None)
         if folder is None or not folder.exists():
             return self._json({"ok": False, "message": "Der lokale Medienordner wurde nicht gefunden."}, 400)
-        target = folder / f"{kind}{source_path.suffix.lower()}"
+        target_stem = "folder" if kind == "season_playlist" else kind
+        target = folder / f"{target_stem}{source_path.suffix.lower()}"
         existing = next((folder / name for name in self.IMAGE_NAMES[kind] if (folder / name).exists()), None)
         try:
             backup = self._backup_file(existing, item_id, f"images/{kind}") if existing else None

@@ -13,12 +13,18 @@ from mediahub_web_core.qr import qr_matrix
 
 
 class MediaHubMobileDashboardPlugin:
-    VERSION = "0.1.5"
+    VERSION = "0.1.6"
     ACTION_REGISTRY = {
         "setup_wizard.open": "Start-Assistent öffnen",
         "setup_wizard.submit": "Start-Assistent speichern",
         "setup_wizard.download_selected": "Ausgewählte Videos herunterladen",
         "plugins.open": "Plugin-Center öffnen",
+        "plugins.start": "Plugin starten",
+        "plugins.stop": "Plugin stoppen",
+        "plugins.enable": "Plugin aktivieren",
+        "plugins.disable": "Plugin deaktivieren",
+        "plugins.remove": "Plugin entfernen",
+        "plugins.install": "Plugin installieren",
         "channels.sync": "Kanal synchronisieren",
         "channels.sync_current": "Aktuellen Kanal synchronisieren",
         "downloads.cancel": "Download abbrechen",

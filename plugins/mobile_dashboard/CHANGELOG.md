@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.1.7
+
+- Eigene Weboberfläche wieder aktiviert.
+- Plugin bleibt aus dem zusätzlichen Bereich „Plugin-Oberflächen“ ausgeblendet.
+- Öffnen über die normale Plugin-Verwaltung wiederhergestellt.
+
+## v0.1.6
+
+- Mobile Pluginverwaltung erweitert.
+- Plugin-Oberflächen öffnen in einem neuen Browser-Tab.
+
 ## v0.1.3
 - Hamburger-Menü für Handy und Tablet repariert.
 - Mobile Dashboard öffnet immer `/mobile`, auch wenn WebRemote parallel läuft.

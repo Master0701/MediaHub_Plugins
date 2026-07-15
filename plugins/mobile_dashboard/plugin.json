@@ -1,7 +1,7 @@
 {
   "id": "mediahub.mobile_dashboard",
   "name": "MediaHub Mobile Dashboard",
-  "version": "0.1.5",
+  "version": "0.1.7",
   "author": "Master0701",
   "description": "Mobile MediaHub-Oberfläche für Handy und Tablet mit einklappbarer linker Sidebar, QR-Code und Geräte-Kopplung.",
   "type": "web",
@@ -35,8 +35,23 @@
     "read_setup_wizard",
     "actions.setup_wizard.control",
     "network.home",
-    "security.device_pairing"
+    "security.device_pairing",
+    "actions.plugins.control",
+    "actions.plugins.manage"
   ],
   "minimum_mediahub": "1.0.5",
-  "has_settings": true
+  "has_settings": true,
+  "ui": {
+    "enabled": true,
+    "type": "web",
+    "title": "MediaHub Mobile Dashboard",
+    "web": {
+      "enabled": true,
+      "title": "MediaHub Mobile Dashboard",
+      "route": "/mobile",
+      "icon": "📱",
+      "shell": true
+    },
+    "route": "/mobile"
+  }
 }
