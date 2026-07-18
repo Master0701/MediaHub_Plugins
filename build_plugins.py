@@ -21,6 +21,41 @@ def discover_plugins() -> dict[str, Path]:
         plugins[manifest_path.parent.name] = manifest_path.parent
     return plugins
 
+
+CATEGORY_BY_ID = {
+    "mediahub.web_remote": "Fernsteuerung",
+    "mediahub.mobile_dashboard": "Mobil",
+    "mediahub.metadata_editor": "Metadaten",
+    "mediahub.ai_assistant": "KI und Analyse",
+}
+
+def update_catalog(plugins: dict[str, Path]) -> Path:
+    products = []
+    for key, source in sorted(plugins.items()):
+        manifest = read_manifest(source)
+        version = str(manifest["version"])
+        package_name = safe_package_name(manifest, key)
+        minimum = str(manifest.get("minimum_mediahub_version") or manifest.get("minimum_mediahub") or "")
+        products.append({
+            "id": str(manifest["id"]),
+            "name": str(manifest["name"]),
+            "version": version,
+            "category": CATEGORY_BY_ID.get(str(manifest["id"]), "Erweiterung"),
+            "description": str(manifest.get("description", "")),
+            "package": f"MediaHub_{package_name}_v{version}.mhplugin",
+            "minimum_mediahub_version": minimum,
+            "network_scope": str(manifest.get("network_scope", "local_only")),
+            "minimum_mediahub": minimum,
+        })
+    catalog_path = ROOT / "catalog" / "plugins.json"
+    catalog_path.parent.mkdir(parents=True, exist_ok=True)
+    catalog_path.write_text(
+        json.dumps({"catalog_version": 1, "products": products}, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    print(f"Plugin-Katalog aktualisiert: {catalog_path}")
+    return catalog_path
+
 def clean_release_directory() -> None:
     if RELEASE_DIR.exists():
         shutil.rmtree(RELEASE_DIR)
@@ -80,6 +115,7 @@ def main() -> int:
     if not plugins:
         print(f"FEHLER: Keine Plugins unter {PLUGINS_DIR} gefunden.")
         return 1
+    update_catalog(plugins)
     parser = argparse.ArgumentParser(description="Erstellt installierbare MediaHub-Plugin-Pakete.")
     parser.add_argument("plugin", nargs="?", default="all", choices=[*plugins, "all"], help="Plugin-Ordnername oder 'all'. Standard: all")
     parser.add_argument("--clean", action="store_true", help="Leert vor dem Build den release-Ordner.")

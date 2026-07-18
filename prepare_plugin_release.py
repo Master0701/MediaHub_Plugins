@@ -62,6 +62,14 @@ def update_readme(notes: str) -> None:
         f"- **{name} {version}**" for name, version in versions
     )
 
+    compatibility_lines = []
+    for manifest_path in sorted(MANIFESTS.glob("*/plugin.json")):
+        import json
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        minimum = str(manifest.get("minimum_mediahub_version") or manifest.get("minimum_mediahub") or "nicht angegeben")
+        compatibility_lines.append(f"- **{manifest['name']} {manifest['version']}** – mindestens MediaHub v{minimum}")
+    compatibility = "\n".join(compatibility_lines)
+
     text = f"""# MediaHub Plugins
 
 Offizielles Erweiterungs-Repository für MediaHub.
@@ -74,7 +82,7 @@ Offizielles Erweiterungs-Repository für MediaHub.
 
 ## Kompatibilität
 
-Die aktuellen Plugins benötigen mindestens **MediaHub v1.0.5**.
+{compatibility}
 
 ## Projektaufbau
 

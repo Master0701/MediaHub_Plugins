@@ -1,0 +1,15 @@
+MediaHub Plugins – Vollrelease
+
+1. ZIP direkt in den Ordner MediaHub-Plugins entpacken und Dateien ersetzen.
+2. Folgende alte Dateien löschen:
+   RELEASE_NOTES_PENDING(1).md
+   RELEASE_NOTES_PENDING_ERGAENZUNG.md
+3. Prüfen: python validate_plugins.py
+4. Vollständig bauen: python build_plugins.py all --clean
+5. Danach Git-Commit, Push und neuen gemeinsamen Release-Tag erstellen.
+
+Enthalten:
+- WebRemote v0.13.7
+- Mobile Dashboard v0.1.7
+- Metadata Editor v0.3.6
+- KI-Assistent v0.4.1

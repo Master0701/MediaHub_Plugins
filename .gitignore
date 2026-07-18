@@ -9,4 +9,4 @@ dist/*
 Thumbs.db
 
 # Temporäre Release-Notizen
-RELEASE_NOTES_PENDING.md
+RELEASE_NOTES_PENDING*.md

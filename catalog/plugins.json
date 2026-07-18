@@ -2,14 +2,25 @@
   "catalog_version": 1,
   "products": [
     {
-      "id": "mediahub.web_remote",
-      "name": "MediaHub WebRemote",
-      "version": "0.13.7",
-      "category": "Fernsteuerung",
-      "description": "Lokales MediaHub Desktop-Control-Center für PC und Notebook mit vollständigem Web-Assistenten und Live-Downloads.",
-      "package": "MediaHub_WebRemote_v0.13.7.mhplugin",
+      "id": "mediahub.ai_assistant",
+      "name": "MediaHub KI-Assistent",
+      "version": "0.4.1",
+      "category": "KI und Analyse",
+      "description": "Lokaler MediaHub-KI-Assistent mit Medienanalyse, Cache und erster durchsuchbarer Wissensengine für Titel, Aliase und Beziehungen.",
+      "package": "MediaHub_KI-Assistent_v0.4.1.mhplugin",
+      "minimum_mediahub_version": "1.0.15",
+      "network_scope": "local_only",
+      "minimum_mediahub": "1.0.15"
+    },
+    {
+      "id": "mediahub.metadata_editor",
+      "name": "MediaHub Metadata Editor",
+      "version": "0.3.6",
+      "category": "Metadaten",
+      "description": "Zentraler lokaler Medienbrowser mit Metadaten-, NFO- und Bildeditor, Live-Vergleich und automatischen Sicherungen.",
+      "package": "MediaHub_MetadataEditor_v0.3.6.mhplugin",
       "minimum_mediahub_version": "1.0.5",
-      "network_scope": "configurable_desktop",
+      "network_scope": "local_only",
       "minimum_mediahub": "1.0.5"
     },
     {
@@ -24,14 +35,14 @@
       "minimum_mediahub": "1.0.5"
     },
     {
-      "id": "mediahub.metadata_editor",
-      "name": "MediaHub Metadata Editor",
-      "version": "0.3.6",
-      "category": "Metadaten",
-      "description": "Zentraler lokaler Medienbrowser mit Metadaten-, NFO- und Bildeditor, Live-Vergleich und automatischen Sicherungen.",
-      "package": "MediaHub_MetadataEditor_v0.3.5.mhplugin",
+      "id": "mediahub.web_remote",
+      "name": "MediaHub WebRemote",
+      "version": "0.13.7",
+      "category": "Fernsteuerung",
+      "description": "Lokales MediaHub Desktop-Control-Center für PC und Notebook mit vollständigem Web-Assistenten und Live-Downloads.",
+      "package": "MediaHub_WebRemote_v0.13.7.mhplugin",
       "minimum_mediahub_version": "1.0.5",
-      "network_scope": "local_only",
+      "network_scope": "configurable_desktop",
       "minimum_mediahub": "1.0.5"
     }
   ]
