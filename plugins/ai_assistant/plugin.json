@@ -1,9 +1,9 @@
 {
   "id": "mediahub.ai_assistant",
   "name": "MediaHub KI-Assistent",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "author": "Master0701",
-  "description": "Lokaler MediaHub-KI-Assistent mit Medienanalyse, Cache und erster durchsuchbarer Wissensengine für Titel, Aliase und Beziehungen.",
+  "description": "Lokaler MediaHub-KI-Assistent mit modularer Mehrquellen-Erkennung, frei konfigurierbaren Online-Quellen, Supervisor-Entscheidungen, technischer Medienanalyse, Cache und vorbereiteter In-Video-Erkennung.",
   "type": "tool",
   "enabled": true,
   "entry": "plugin.py",
@@ -49,18 +49,18 @@
       "id": "mediainfo",
       "required": true,
       "provided_by": "mediahub_tool_manager"
-    }
-  ],
-  "optional_tools": [
-    {
-      "id": "tesseract",
-      "required": false,
-      "feature": "ocr"
     },
     {
       "id": "mkvtoolnix",
       "required": false,
+      "provided_by": "mediahub_tool_manager",
       "feature": "mkv_analysis_and_editing"
+    },
+    {
+      "id": "tesseract",
+      "required": false,
+      "provided_by": "mediahub_tool_manager",
+      "feature": "ocr"
     }
   ]
 }

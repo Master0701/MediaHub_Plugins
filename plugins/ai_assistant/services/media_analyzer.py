@@ -8,6 +8,9 @@ from typing import Any
 from services.tool_resolver import ToolResolver
 from services.filename_identifier import FilenameIdentifier
 from services.analysis_cache import AnalysisCache
+from services.decision_planner import DecisionPlanner
+from services.source_manager import SourceManager
+from services.agents import SupervisorAgent, InVideoAgent
 
 
 VIDEO_EXTENSIONS = {
@@ -23,9 +26,14 @@ class MediaAnalyzer:
         self,
         mediahub_base: Path,
         knowledge_database_path: Path | None = None,
+        plugin_path: Path | None = None,
     ):
         self.tools = ToolResolver(mediahub_base)
         self.filename_identifier = FilenameIdentifier()
+        self.decision_planner = DecisionPlanner()
+        self.source_manager = SourceManager(plugin_path) if plugin_path is not None else None
+        self.supervisor = SupervisorAgent()
+        self.in_video_agent = InVideoAgent()
         self.cache = (
             AnalysisCache(knowledge_database_path)
             if knowledge_database_path is not None
@@ -33,14 +41,14 @@ class MediaAnalyzer:
         )
 
 
-    def analyze(self, file_path: str | Path) -> dict[str, Any]:
+    def analyze(self, file_path: str | Path, force: bool = False) -> dict[str, Any]:
         path = Path(file_path)
         if not path.is_file():
             raise FileNotFoundError(path)
         if path.suffix.lower() not in VIDEO_EXTENSIONS:
             raise ValueError(f"Nicht unterstützte Videodatei: {path.suffix}")
 
-        if self.cache is not None:
+        if self.cache is not None and not force:
             cached = self.cache.get(path)
             if cached is not None:
                 return cached
@@ -57,7 +65,7 @@ class MediaAnalyzer:
             "summary": {},
             "warnings": [],
             "methods_used": ["filename"],
-            "cache": {"hit": False, "message": "Neue Analyse durchgeführt."},
+            "cache": {"hit": False, "message": "Neue Analyse durchgeführt.", "forced": force},
             "identification": self.filename_identifier.identify(path),
         }
 
@@ -95,9 +103,19 @@ class MediaAnalyzer:
 
         result["summary"] = self._build_summary(result)
         result["evidence"] = self._build_evidence(result)
+        result["source_plan"] = self.source_manager.plan(result) if self.source_manager is not None else None
+        result["supervisor"] = self.supervisor.evaluate(result)
+        result["in_video"] = self.in_video_agent.capabilities()
+        result["change_plan"] = self.decision_planner.build(result)
         if self.cache is not None:
             self.cache.put(path, result)
         return result
+
+    def clear_cache_for(self, file_path: str | Path) -> int:
+        return self.cache.delete(Path(file_path)) if self.cache is not None else 0
+
+    def clear_cache(self) -> int:
+        return self.cache.clear() if self.cache is not None else 0
 
     @staticmethod
     def _run_json(command: list[str]) -> dict[str, Any]:

@@ -4,13 +4,35 @@
     {
       "id": "mediahub.ai_assistant",
       "name": "MediaHub KI-Assistent",
-      "version": "0.4.1",
+      "version": "0.5.0",
       "category": "KI und Analyse",
-      "description": "Lokaler MediaHub-KI-Assistent mit Medienanalyse, Cache und erster durchsuchbarer Wissensengine für Titel, Aliase und Beziehungen.",
-      "package": "MediaHub_KI-Assistent_v0.4.1.mhplugin",
+      "description": "Lokaler MediaHub-KI-Assistent mit modularer Mehrquellen-Erkennung, frei konfigurierbaren Online-Quellen, Supervisor-Entscheidungen, technischer Medienanalyse, Cache und vorbereiteter In-Video-Erkennung.",
+      "package": "MediaHub_KI-Assistent_v0.5.0.mhplugin",
       "minimum_mediahub_version": "1.0.15",
       "network_scope": "local_only",
       "minimum_mediahub": "1.0.15"
+    },
+    {
+      "id": "mediahub.audiobook_manager",
+      "name": "MediaHub Hörbuchverwaltung",
+      "version": "0.0.0",
+      "category": "Erweiterung",
+      "description": "Vorbereitetes Hörbuch-Plugin für Erkennung, Verwaltung, Metadaten, Cover und spätere Quellenanbindung.",
+      "package": "MediaHub_Hörbuchverwaltung_v0.0.0.mhplugin",
+      "minimum_mediahub_version": "1.0.17",
+      "network_scope": "local_only",
+      "minimum_mediahub": "1.0.17"
+    },
+    {
+      "id": "mediahub.list_exporter",
+      "name": "MediaHub Listen & Export",
+      "version": "0.0.0",
+      "category": "Erweiterung",
+      "description": "Erstellt frei konfigurierbare Medienlisten und exportiert sie später in verschiedene Ausgabeformate.",
+      "package": "MediaHub_ListenExport_v0.0.0.mhplugin",
+      "minimum_mediahub_version": "1.0.17",
+      "network_scope": "local_only",
+      "minimum_mediahub": "1.0.17"
     },
     {
       "id": "mediahub.metadata_editor",
@@ -33,6 +55,17 @@
       "minimum_mediahub_version": "1.0.5",
       "network_scope": "home_network_mobile",
       "minimum_mediahub": "1.0.5"
+    },
+    {
+      "id": "mediahub.smart_renamer",
+      "name": "MediaHub Smart Renamer",
+      "version": "0.0.0",
+      "category": "Erweiterung",
+      "description": "Universelles Umbenennungs-Plugin mit Vorschau, frei definierbaren Namensschemata und späterer Zusammenarbeit mit KI-Assistent und Metadata Editor.",
+      "package": "MediaHub_SmartRenamer_v0.0.0.mhplugin",
+      "minimum_mediahub_version": "1.0.17",
+      "network_scope": "local_only",
+      "minimum_mediahub": "1.0.17"
     },
     {
       "id": "mediahub.web_remote",

@@ -1,0 +1,49 @@
+{
+  "id": "mediahub.audiobook_manager",
+  "name": "MediaHub Hörbuchverwaltung",
+  "version": "0.0.0",
+  "author": "Master0701",
+  "description": "Vorbereitetes Hörbuch-Plugin für Erkennung, Verwaltung, Metadaten, Cover und spätere Quellenanbindung.",
+  "type": "tool",
+  "enabled": false,
+  "entry": "plugin.py",
+  "class_name": "MediaHubAudiobookManagerPlugin",
+  "icon": "🎧",
+  "safe_mode": true,
+  "minimum_mediahub_version": "1.0.17",
+  "has_settings": false,
+  "development_status": "planned",
+  "catalog": {
+    "visible": true,
+    "auto_install": true,
+    "channel": "planned"
+  },
+  "permissions": [
+    "read_library",
+    "read_metadata",
+    "write_metadata",
+    "network_metadata"
+  ],
+  "required_tools": [],
+  "optional_tools": [],
+  "capabilities": [
+    "audiobook_detection",
+    "chapters",
+    "authors",
+    "narrators",
+    "series",
+    "covers",
+    "metadata_sources"
+  ],
+  "ui": {
+    "enabled": false,
+    "type": "native",
+    "title": "MediaHub Hörbuchverwaltung",
+    "icon": "🎧",
+    "order": 100
+  },
+  "license": {
+    "project_license": "TBD",
+    "third_party_licenses": []
+  }
+}

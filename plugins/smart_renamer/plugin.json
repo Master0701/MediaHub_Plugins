@@ -1,0 +1,47 @@
+{
+  "id": "mediahub.smart_renamer",
+  "name": "MediaHub Smart Renamer",
+  "version": "0.0.0",
+  "author": "Master0701",
+  "description": "Universelles Umbenennungs-Plugin mit Vorschau, frei definierbaren Namensschemata und späterer Zusammenarbeit mit KI-Assistent und Metadata Editor.",
+  "type": "tool",
+  "enabled": false,
+  "entry": "plugin.py",
+  "class_name": "MediaHubSmartRenamerPlugin",
+  "icon": "✏️",
+  "safe_mode": true,
+  "minimum_mediahub_version": "1.0.17",
+  "has_settings": false,
+  "development_status": "planned",
+  "catalog": {
+    "visible": true,
+    "auto_install": true,
+    "channel": "planned"
+  },
+  "permissions": [
+    "read_library",
+    "read_metadata",
+    "write_files",
+    "write_metadata"
+  ],
+  "required_tools": [],
+  "optional_tools": [],
+  "capabilities": [
+    "rename_files",
+    "rename_folders",
+    "preview_changes",
+    "custom_naming_schemes",
+    "undo_plan"
+  ],
+  "ui": {
+    "enabled": false,
+    "type": "native",
+    "title": "MediaHub Smart Renamer",
+    "icon": "✏️",
+    "order": 100
+  },
+  "license": {
+    "project_license": "TBD",
+    "third_party_licenses": []
+  }
+}

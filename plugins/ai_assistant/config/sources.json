@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "id": "tmdb",
+      "name": "TMDb",
+      "type": "builtin_api",
+      "enabled": false,
+      "api_key_env": "MEDIAHUB_TMDB_API_KEY",
+      "media_types": ["movie", "series"],
+      "priority": 90,
+      "trust": 0.92,
+      "language": "de-DE"
+    },
+    {
+      "id": "tvdb",
+      "name": "TheTVDB",
+      "type": "builtin_api",
+      "enabled": false,
+      "api_key_env": "MEDIAHUB_TVDB_API_KEY",
+      "media_types": ["series", "movie"],
+      "priority": 90,
+      "trust": 0.94,
+      "language": "de-DE"
+    },
+    {
+      "id": "imdb",
+      "name": "IMDb",
+      "type": "builtin_api",
+      "enabled": false,
+      "media_types": ["movie", "series"],
+      "priority": 80,
+      "trust": 0.90,
+      "language": "de-DE"
+    },
+    {
+      "id": "custom_api_example",
+      "name": "Eigene API-Quelle (Beispiel)",
+      "type": "generic_api",
+      "enabled": false,
+      "base_url": "",
+      "media_types": ["movie", "series", "audiobook"],
+      "priority": 60,
+      "trust": 0.70
+    },
+    {
+      "id": "custom_web_example",
+      "name": "Eigene Webseite (Beispiel)",
+      "type": "generic_web",
+      "enabled": false,
+      "search_url": "",
+      "media_types": ["movie", "series", "audiobook"],
+      "priority": 50,
+      "trust": 0.60,
+      "rules": {}
+    }
+  ]
+}

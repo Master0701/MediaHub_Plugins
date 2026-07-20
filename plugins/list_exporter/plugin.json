@@ -1,0 +1,50 @@
+{
+  "id": "mediahub.list_exporter",
+  "name": "MediaHub Listen & Export",
+  "version": "0.0.0",
+  "author": "Master0701",
+  "description": "Erstellt frei konfigurierbare Medienlisten und exportiert sie später in verschiedene Ausgabeformate.",
+  "type": "tool",
+  "enabled": false,
+  "entry": "plugin.py",
+  "class_name": "MediaHubListExporterPlugin",
+  "icon": "📋",
+  "safe_mode": true,
+  "minimum_mediahub_version": "1.0.17",
+  "has_settings": false,
+  "development_status": "planned",
+  "catalog": {
+    "visible": true,
+    "auto_install": true,
+    "channel": "planned"
+  },
+  "permissions": [
+    "read_library",
+    "read_metadata",
+    "write_exports"
+  ],
+  "required_tools": [],
+  "optional_tools": [],
+  "capabilities": [
+    "custom_lists",
+    "filters",
+    "sorting",
+    "csv",
+    "json",
+    "txt",
+    "html",
+    "markdown",
+    "pdf"
+  ],
+  "ui": {
+    "enabled": false,
+    "type": "native",
+    "title": "MediaHub Listen & Export",
+    "icon": "📋",
+    "order": 100
+  },
+  "license": {
+    "project_license": "TBD",
+    "third_party_licenses": []
+  }
+}

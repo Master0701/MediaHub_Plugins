@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "repository": "Master0701/MediaHub_Plugins",
+  "generated_for": "MediaHub Plugin Center",
+  "plugins": [
+    {
+      "id": "mediahub.smart_renamer",
+      "name": "MediaHub Smart Renamer",
+      "version": "0.0.0",
+      "status": "planned",
+      "visible": true,
+      "auto_install": true,
+      "description": "Universelles Umbenennungs-Plugin mit Vorschau, frei definierbaren Namensschemata und späterer Zusammenarbeit mit KI-Assistent und Metadata Editor.",
+      "release_asset": "MediaHub_SmartRenamer_v{version}.mhplugin",
+      "sha256_asset": "MediaHub_SmartRenamer_v{version}.mhplugin.sha256"
+    },
+    {
+      "id": "mediahub.list_exporter",
+      "name": "MediaHub Listen & Export",
+      "version": "0.0.0",
+      "status": "planned",
+      "visible": true,
+      "auto_install": true,
+      "description": "Erstellt frei konfigurierbare Medienlisten und exportiert sie später in verschiedene Ausgabeformate.",
+      "release_asset": "MediaHub_ListenExport_v{version}.mhplugin",
+      "sha256_asset": "MediaHub_ListenExport_v{version}.mhplugin.sha256"
+    },
+    {
+      "id": "mediahub.audiobook_manager",
+      "name": "MediaHub Hörbuchverwaltung",
+      "version": "0.0.0",
+      "status": "planned",
+      "visible": true,
+      "auto_install": true,
+      "description": "Vorbereitetes Hörbuch-Plugin für Erkennung, Verwaltung, Metadaten, Cover und spätere Quellenanbindung.",
+      "release_asset": "MediaHub_Hoerbuchverwaltung_v{version}.mhplugin",
+      "sha256_asset": "MediaHub_Hoerbuchverwaltung_v{version}.mhplugin.sha256"
+    },
+    {
+      "id": "mediahub.ai_assistant",
+      "name": "MediaHub-KI-Assistent",
+      "version": "current",
+      "status": "development",
+      "visible": true,
+      "auto_install": false,
+      "manual_only": true,
+      "description": "Der KI-Assistent wird angezeigt, darf aber aus MediaHub heraus nicht automatisch heruntergeladen oder installiert werden.",
+      "project_page": "https://github.com/Master0701/MediaHub_Plugins",
+      "manual_install_message": "Dieses Plugin ist nur über die GitHub-Projektseite erhältlich."
+    }
+  ]
+}
