@@ -4,10 +4,10 @@
     {
       "id": "mediahub.ai_assistant",
       "name": "MediaHub KI-Assistent",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "category": "KI und Analyse",
-      "description": "Lokaler MediaHub-KI-Assistent mit modularer Mehrquellen-Erkennung, frei konfigurierbaren Online-Quellen, Supervisor-Entscheidungen, technischer Medienanalyse, Cache und vorbereiteter In-Video-Erkennung.",
-      "package": "MediaHub_KI-Assistent_v0.5.0.mhplugin",
+      "description": "Lokaler MediaHub-KI-Assistent mit kostenbewusster Agentensteuerung, automatischer Provider-Ausführung, Mehrquellen-Bewertung, technischer Medienanalyse, Cache und vorbereiteter In-Video-Erkennung.",
+      "package": "MediaHub_KI-Assistent_v0.6.0.mhplugin",
       "minimum_mediahub_version": "1.0.15",
       "network_scope": "local_only",
       "minimum_mediahub": "1.0.15"

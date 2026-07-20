@@ -10,7 +10,7 @@ from services.filename_identifier import FilenameIdentifier
 from services.analysis_cache import AnalysisCache
 from services.decision_planner import DecisionPlanner
 from services.source_manager import SourceManager
-from services.agents import SupervisorAgent, InVideoAgent
+from services.agents import SupervisorAgent, InVideoAgent, OnlineAgent
 
 
 VIDEO_EXTENSIONS = {
@@ -34,6 +34,7 @@ class MediaAnalyzer:
         self.source_manager = SourceManager(plugin_path) if plugin_path is not None else None
         self.supervisor = SupervisorAgent()
         self.in_video_agent = InVideoAgent()
+        self.online_agent = OnlineAgent(self.source_manager) if self.source_manager is not None else None
         self.cache = (
             AnalysisCache(knowledge_database_path)
             if knowledge_database_path is not None
@@ -104,6 +105,31 @@ class MediaAnalyzer:
         result["summary"] = self._build_summary(result)
         result["evidence"] = self._build_evidence(result)
         result["source_plan"] = self.source_manager.plan(result) if self.source_manager is not None else None
+        initial_supervisor = self.supervisor.evaluate(result)
+        should_run_online = any(
+            step.get("agent") == "online" and step.get("required")
+            for step in (initial_supervisor.get("next_steps") or [])
+        )
+        has_online_sources = bool((result.get("source_plan") or {}).get("candidate_sources"))
+        if self.online_agent is not None and should_run_online and has_online_sources:
+            result["online"] = self.online_agent.run(result)
+            result["source_plan"]["executed"] = True
+            result["source_plan"]["reason"] = "Konfigurierte Online-Quellen wurden automatisch ausgeführt."
+        else:
+            result["online"] = {
+                "schema_version": 1,
+                "executed": False,
+                "reason": (
+                    "Keine geeignete konfigurierte Quelle verfügbar."
+                    if should_run_online
+                    else "Lokale Sicherheit reicht aus; Online-Abgleich wurde eingespart."
+                ),
+                "provider_results": [],
+                "ranking": {
+                    "matches": [], "best_match": None, "match_count": 0,
+                    "confidence": 0.0, "confidence_gap": None, "decision": "not_executed",
+                },
+            }
         result["supervisor"] = self.supervisor.evaluate(result)
         result["in_video"] = self.in_video_agent.capabilities()
         result["change_plan"] = self.decision_planner.build(result)

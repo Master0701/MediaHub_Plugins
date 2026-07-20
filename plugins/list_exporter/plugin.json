@@ -46,5 +46,6 @@
   "license": {
     "project_license": "TBD",
     "third_party_licenses": []
-  }
+  },
+  "minimum_mediahub": "1.0.17"
 }

@@ -1,9 +1,9 @@
 {
   "id": "mediahub.ai_assistant",
   "name": "MediaHub KI-Assistent",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "author": "Master0701",
-  "description": "Lokaler MediaHub-KI-Assistent mit modularer Mehrquellen-Erkennung, frei konfigurierbaren Online-Quellen, Supervisor-Entscheidungen, technischer Medienanalyse, Cache und vorbereiteter In-Video-Erkennung.",
+  "description": "Lokaler MediaHub-KI-Assistent mit kostenbewusster Agentensteuerung, automatischer Provider-Ausführung, Mehrquellen-Bewertung, technischer Medienanalyse, Cache und vorbereiteter In-Video-Erkennung.",
   "type": "tool",
   "enabled": true,
   "entry": "plugin.py",

@@ -1,3 +1,12 @@
+# MediaHub KI-Assistent v0.6.0
+
+- Kostenmodell für alle Erkennungsagenten ergänzt.
+- Supervisor plant Agenten nach Sicherheit, Nutzen und Aufwand.
+- Aktivierte und konfigurierte Online-Provider werden automatisch ausgeführt.
+- Provider werden nach Medientyp und Priorität ausgewählt.
+- Treffer verschiedener Quellen werden vereinheitlicht und gemeinsam bewertet.
+- In-Video-Erkennung bleibt als verpflichtende Eskalationsstufe für unklare Fälle vorgesehen.
+
 # MediaHub KI-Assistent 0.4.1
 
 Erste testbare Grundversion von Plugin 4.

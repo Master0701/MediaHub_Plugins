@@ -61,16 +61,54 @@ class SourceManager:
             "duration_seconds": summary.get("duration_seconds"),
         }
 
-    def plan(self, analysis: dict[str, Any]) -> dict[str, Any]:
-        query = self.build_query(analysis)
-        candidates = []
+    def _supports_query(self, provider, query: dict[str, Any]) -> bool:
+        media_types = list(provider.config.get("media_types") or [])
+        media_type = query.get("media_type")
+        return not media_types or not media_type or media_type in media_types
+
+    def eligible_providers(self, query: dict[str, Any]):
+        providers = []
         for provider in self._providers:
             status = provider.status()
-            if status["enabled"] and status["configured"]:
-                candidates.append(status["id"])
+            if status["enabled"] and status["configured"] and self._supports_query(provider, query):
+                providers.append(provider)
+        return sorted(
+            providers,
+            key=lambda item: int(item.config.get("priority", 50)),
+            reverse=True,
+        )
+
+    def plan(self, analysis: dict[str, Any]) -> dict[str, Any]:
+        query = self.build_query(analysis)
+        candidates = [provider.status() for provider in self.eligible_providers(query)]
         return {
             "query": query,
-            "candidate_sources": candidates,
+            "candidate_sources": [item["id"] for item in candidates],
+            "candidate_details": candidates,
             "executed": False,
-            "reason": "Online-Abfragen sind vorbereitet, werden in dieser Version aber noch nicht automatisch ausgeführt.",
+            "reason": (
+                "Geeignete Quellen wurden gefunden und können automatisch ausgeführt werden."
+                if candidates
+                else "Keine aktivierte und vollständig konfigurierte Quelle passt zu diesem Medientyp."
+            ),
         }
+
+    def execute(self, query: dict[str, Any]) -> list[dict[str, Any]]:
+        results: list[dict[str, Any]] = []
+        for provider in self.eligible_providers(query):
+            status = provider.status()
+            try:
+                result = provider.search(query).as_dict()
+            except Exception as exc:
+                result = {
+                    "provider_id": provider.id,
+                    "provider_name": provider.name,
+                    "status": "error",
+                    "matches": [],
+                    "message": str(exc),
+                }
+            result["priority"] = status["priority"]
+            result["trust"] = status["trust"]
+            result["provider_type"] = status["type"]
+            results.append(result)
+        return results
