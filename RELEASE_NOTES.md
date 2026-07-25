@@ -38,3 +38,7 @@
 - Für jedes Plugin stehen eine `.mhplugin`-Datei und eine `.sha256`-Prüfsumme bereit.
 - Der Plugin-Katalog wird aus den aktuellen Manifesten erzeugt.
 - Geplante Plugins mit Version 0.0.0 werden nicht als installierbare Pakete veröffentlicht.
+
+## Commit-Nachricht
+
+MediaHub Plugins v0.5.5 mit KI-Assistent v1.0.0 veröffentlichen
