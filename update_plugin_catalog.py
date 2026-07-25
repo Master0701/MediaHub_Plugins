@@ -20,6 +20,7 @@ PLUGINS_DIR = ROOT / "plugins"
 RELEASE_DIR = ROOT / "release"
 CATALOG_DIR = ROOT / "catalog"
 OUTPUT = CATALOG_DIR / "plugin_catalog.json"
+AI_OUTPUT = CATALOG_DIR / "ai_plugin_catalog.json"
 
 SPECIAL_NAMES = {
     "ai_assistant": "MediaHub KI-Assistent",
@@ -211,8 +212,23 @@ def main() -> None:
         newline="\n",
     )
 
+    ai_catalog = {
+        "schema_version": 1,
+        "repository": "Master0701/MediaHub_Plugins",
+        "generated_for": "MediaHub AI-Plugin-Store",
+        "package_extension": ".mhaiplugin",
+        "plugins": [],
+    }
+    AI_OUTPUT.write_text(
+        json.dumps(ai_catalog, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+
     print(f"Katalog aktualisiert: {OUTPUT}")
+    print(f"AI-Katalog aktualisiert: {AI_OUTPUT}")
     print(f"Plugins eingetragen: {len(entries)}")
+    print("AI-Plugins eingetragen: 0")
     print()
 
     for entry in entries:
