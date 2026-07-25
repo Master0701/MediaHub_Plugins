@@ -1,12 +1,23 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "sources": [
+    {
+      "id": "wikipedia",
+      "name": "Wikipedia",
+      "type": "wikipedia",
+      "enabled": true,
+      "media_types": ["movie", "series", "audiobook"],
+      "priority": 55,
+      "trust": 0.72,
+      "language": "de"
+    },
     {
       "id": "tmdb",
       "name": "TMDb",
-      "type": "builtin_api",
+      "type": "tmdb",
       "enabled": false,
       "api_key_env": "MEDIAHUB_TMDB_API_KEY",
+      "bearer_token_env": "MEDIAHUB_TMDB_BEARER_TOKEN",
       "media_types": ["movie", "series"],
       "priority": 90,
       "trust": 0.92,
@@ -15,9 +26,10 @@
     {
       "id": "tvdb",
       "name": "TheTVDB",
-      "type": "builtin_api",
+      "type": "tvdb",
       "enabled": false,
       "api_key_env": "MEDIAHUB_TVDB_API_KEY",
+      "subscriber_pin_env": "MEDIAHUB_TVDB_SUBSCRIBER_PIN",
       "media_types": ["series", "movie"],
       "priority": 90,
       "trust": 0.94,

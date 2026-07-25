@@ -4,7 +4,7 @@ Offizielles Erweiterungs-Repository für MediaHub.
 
 ## Aktueller Stand
 
-- **MediaHub KI-Assistent 0.5.0**
+- **MediaHub KI-Assistent 0.6.0**
 - **MediaHub Hörbuchverwaltung 0.0.0**
 - **MediaHub Listen & Export 0.0.0**
 - **MediaHub Metadata Editor 0.3.6**
@@ -48,7 +48,7 @@ Offizielles Erweiterungs-Repository für MediaHub.
 
 ## Kompatibilität
 
-- **MediaHub KI-Assistent 0.5.0** – mindestens MediaHub v1.0.15
+- **MediaHub KI-Assistent 0.6.0** – mindestens MediaHub v1.0.15
 - **MediaHub Hörbuchverwaltung 0.0.0** – mindestens MediaHub v1.0.17
 - **MediaHub Listen & Export 0.0.0** – mindestens MediaHub v1.0.17
 - **MediaHub Metadata Editor 0.3.6** – mindestens MediaHub v1.0.5

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,7 +25,7 @@ class AgentCost:
 class AgentCostModel:
     """Zentrale Aufwandsskala für die stufenweise Medienerkennung."""
 
-    _AGENTS = {
+    _AGENTS: ClassVar[dict[str, AgentCost]] = {
         "filename": AgentCost("filename", "Dateiname", 1, "local", "Schnelle Muster- und Titelerkennung."),
         "folder": AgentCost("folder", "Ordner", 1, "local", "Auswertung der übergeordneten Ordnerstruktur."),
         "mediainfo": AgentCost("mediainfo", "MediaInfo", 1, "local", "Technische Container- und Streamdaten."),

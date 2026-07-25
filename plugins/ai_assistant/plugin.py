@@ -8,17 +8,25 @@ from pathlib import Path
 from typing import Any
 
 from services.knowledge_database import KnowledgeDatabase
+from services.knowledge_engine import KnowledgeEngine
+from services.media_analyzer import MediaAnalyzer
 from services.mediahub_reader import MediaHubDatabaseReader
 from services.paths import resolve_database_paths
-from services.media_analyzer import MediaAnalyzer
 from services.tool_resolver import ToolResolver
-from services.knowledge_engine import KnowledgeEngine
 
 try:
     from PySide6.QtCore import QObject, Qt, Signal, Slot
     from PySide6.QtWidgets import (
-        QApplication, QFileDialog, QHBoxLayout, QLabel, QMessageBox, QPlainTextEdit, QPushButton,
-        QTabWidget, QVBoxLayout, QWidget
+        QApplication,
+        QFileDialog,
+        QHBoxLayout,
+        QLabel,
+        QMessageBox,
+        QPlainTextEdit,
+        QPushButton,
+        QTabWidget,
+        QVBoxLayout,
+        QWidget,
     )
 except ImportError:
     QWidget = object
@@ -77,7 +85,7 @@ class WebFileDialogBridge(QObject):
 
 
 class MediaHubAIAssistantPlugin:
-    VERSION = "0.6.0"
+    VERSION = "1.0.0"
 
     def __init__(self, plugin_path: str | Path, mediahub_api: Any = None, **kwargs: Any):
         self.plugin_path = Path(plugin_path)
@@ -138,6 +146,10 @@ class MediaHubAIAssistantPlugin:
             "fast_rule_engine": True,
             "sources": self.media_analyzer.source_manager.status(),
             "in_video": self.media_analyzer.in_video_agent.capabilities(),
+            "quality_engine": {"implemented": True, "reference_profiles": True, "audio_quality": True},
+            "decision_engine": {"schema_version": 2, "explanations": True, "conflict_detection": True},
+            "fingerprints": self.media_analyzer.fingerprint_store.stats(),
+            "integration_api": {"schema_version": 1, "targets": ["mediahub.metadata_editor", "mediahub.universal_renamer"]},
         }
 
     def get_status(self):
@@ -159,6 +171,10 @@ class MediaHubAIAssistantPlugin:
             "tools": self.tool_resolver.status(),
             "sources": self.media_analyzer.source_manager.status(),
             "in_video": self.media_analyzer.in_video_agent.capabilities(),
+            "quality_engine": {"implemented": True, "reference_profiles": True, "audio_quality": True},
+            "decision_engine": {"schema_version": 2, "explanations": True, "conflict_detection": True},
+            "fingerprints": self.media_analyzer.fingerprint_store.stats(),
+            "integration_api": {"schema_version": 1, "targets": ["mediahub.metadata_editor", "mediahub.universal_renamer"]},
             "performance": {
                 "sqlite_wal": True,
                 "indexed_core_tables": True,
@@ -178,7 +194,7 @@ class MediaHubAIAssistantPlugin:
         duration = summary.get("duration_seconds")
         duration_text = "-"
         if duration is not None:
-            total = int(round(float(duration)))
+            total = round(float(duration))
             duration_text = f"{total // 60:02d}:{total % 60:02d} Minuten"
 
         lines = [
@@ -193,6 +209,29 @@ class MediaHubAIAssistantPlugin:
             f"Begründung: {', '.join(identification.get('reasons') or []) or '-'}",
             f"Sicherheit Dateiname: {round(float(identification.get('confidence') or 0) * 100)} %",
             "",
+            "KI-ENTSCHEIDUNG",
+            "---------------",
+            f"Status: {(result.get('decision') or {}).get('status') or '-'}",
+            f"Gesamtsicherheit: {(result.get('decision') or {}).get('confidence_percent') or '-'} %",
+            f"Vertrauen: {(result.get('decision') or {}).get('trust_label') or '-'}",
+            f"Unabhängige Bestätigungen: {(result.get('decision') or {}).get('independent_confirmations', 0)}",
+            f"Empfehlung: {(result.get('decision') or {}).get('recommendation') or '-'}",
+            f"Warum: {((result.get('decision') or {}).get('explanation') or {}).get('conclusion') or '-'}",
+            *[f"- {text}" for text in (((result.get('decision') or {}).get('explanation') or {}).get('why') or [])],
+            *(["Noch nicht eindeutig:"] + [f"- {text}" for text in (((result.get('decision') or {}).get('explanation') or {}).get('limitations') or [])] if (((result.get('decision') or {}).get('explanation') or {}).get('limitations') or []) else []),
+            *(["Widersprüche:"] + [
+                f"- {item.get('left_source')}: {item.get('left_value')} <> {item.get('right_source')}: {item.get('right_value')}"
+                for item in ((result.get('decision') or {}).get('conflicts') or [])
+            ] if ((result.get('decision') or {}).get('conflicts') or []) else []),
+            "",
+            "KI-BEWEISE",
+            "-----------",
+            *[
+                f"{'✔' if item.get('supports') else '○'} {item.get('label')}: {item.get('value')} "
+                f"({item.get('confidence_percent')} %, Gewicht {round(float(item.get('weight') or 0) * 100)} %)"
+                for item in ((result.get('decision') or {}).get('all_evidence') or [])
+            ],
+            "",
             "TECHNISCHE DATEN",
             "-----------------",
             f"Laufzeit: {duration_text}",
@@ -203,6 +242,19 @@ class MediaHubAIAssistantPlugin:
             f"Tonspuren: {summary.get('audio_tracks', 0)}",
             f"Untertitel: {summary.get('subtitle_tracks', 0)}",
             f"Kapitel: {summary.get('chapters', 0)}",
+            "",
+            "QUALITÄTSBEWERTUNG",
+            "-------------------",
+            f"Gesamt: {(result.get('quality') or {}).get('overall_score') or '-'} %",
+            f"Bild: {((result.get('quality') or {}).get('video') or {}).get('score') or '-'} %",
+            f"Ton: {((result.get('quality') or {}).get('audio') or {}).get('score') or '-'} %",
+            f"Status: {(result.get('quality') or {}).get('label') or '-'}",
+            "",
+            "IN-VIDEO-ANALYSE",
+            "-----------------",
+            f"Status: {(result.get('in_video') or {}).get('state') or '-'}",
+            f"Ausgeführte Agenten: {(result.get('in_video') or {}).get('completed_agents', 0)}",
+            *[f"{name}: {(data or {}).get('state', '-')}" for name, data in (((result.get('in_video') or {}).get('agents') or {}).items())],
             "",
             "ANALYSEWEG",
             "-----------",
@@ -216,6 +268,15 @@ class MediaHubAIAssistantPlugin:
             *(warnings or ["Keine"]),
         ]
         return "\n".join(lines)
+
+
+    def register_fingerprint_reference(self, analysis):
+        """Speichert einen vom Benutzer bestätigten Fingerprint als lokale Referenz."""
+        return self.media_analyzer.register_fingerprint_reference(analysis)
+
+    def get_integration_payload(self, analysis):
+        """Stabile Übergabe an Metadata Editor und Universal Renamer."""
+        return self.media_analyzer.export_integration_payload(analysis)
 
     def analyze_media_file(self, file_path, force=False):
         return self.media_analyzer.analyze(file_path, force=force)
@@ -305,7 +366,7 @@ class MediaHubAIAssistantPlugin:
 
     @staticmethod
     def _request_query_value(request, key):
-        from urllib.parse import parse_qs, urlparse, unquote_plus
+        from urllib.parse import parse_qs, unquote_plus, urlparse
 
         visited = set()
 
@@ -318,7 +379,7 @@ class MediaHubAIAssistantPlugin:
                     query = value.split("?", 1)[1]
                 if query:
                     parsed = parse_qs(query, keep_blank_values=True)
-                    if key in parsed and parsed[key]:
+                    if parsed.get(key):
                         return unquote_plus(str(parsed[key][0]))
             except Exception:
                 return None

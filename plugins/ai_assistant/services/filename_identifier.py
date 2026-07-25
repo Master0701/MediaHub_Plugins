@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-
 VIDEO_NOISE_TOKENS = {
     "480p", "576p", "720p", "1080p", "1080i", "1440p", "2160p", "4320p",
     "2k", "4k", "8k", "uhd", "hdr", "hdr10", "hdr10plus", "dolbyvision", "dv",

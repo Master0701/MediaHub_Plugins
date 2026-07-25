@@ -4,7 +4,14 @@ import json
 from pathlib import Path
 from typing import Any
 
-from services.providers import BuiltinOnlineProvider, GenericApiProvider, GenericWebProvider
+from services.providers import (
+    BuiltinOnlineProvider,
+    GenericApiProvider,
+    GenericWebProvider,
+    TmdbProvider,
+    TvdbProvider,
+    WikipediaProvider,
+)
 
 
 class SourceManager:
@@ -26,12 +33,19 @@ class SourceManager:
         with self.config_path.open("r", encoding="utf-8") as handle:
             data = json.load(handle)
         if not isinstance(data, dict):
-            raise ValueError("sources.json muss ein JSON-Objekt enthalten.")
+            raise TypeError("sources.json muss ein JSON-Objekt enthalten.")
         return data
 
     @staticmethod
     def _create_provider(config: dict[str, Any]):
         kind = str(config.get("type") or "builtin_api").lower()
+        provider_id = str(config.get("id") or "").lower()
+        if provider_id == "tmdb" or kind == "tmdb":
+            return TmdbProvider(config)
+        if provider_id == "tvdb" or kind == "tvdb":
+            return TvdbProvider(config)
+        if provider_id == "wikipedia" or kind == "wikipedia":
+            return WikipediaProvider(config)
         if kind == "generic_api":
             return GenericApiProvider(config)
         if kind == "generic_web":

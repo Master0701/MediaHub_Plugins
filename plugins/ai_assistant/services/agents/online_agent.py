@@ -17,7 +17,7 @@ class OnlineAgent:
         provider_results = self.source_manager.execute(query)
         ranking = self.ranker.rank(query, provider_results)
         return {
-            "schema_version": 1,
+            "schema_version": 2,
             "executed": True,
             "query": query,
             "provider_results": provider_results,

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Iterable
 
 
 class ToolResolver:
@@ -34,6 +33,7 @@ class ToolResolver:
     def _names(tool_id: str) -> tuple[str, ...]:
         mapping = {
             "ffprobe": ("ffprobe.exe", "ffprobe"),
+            "ffmpeg": ("ffmpeg.exe", "ffmpeg"),
             "mediainfo": ("mediainfo.exe", "MediaInfo.exe", "mediainfo"),
             "tesseract": ("tesseract.exe", "tesseract"),
             "mkvmerge": ("mkvmerge.exe", "mkvmerge"),
@@ -68,6 +68,7 @@ class ToolResolver:
         return {
             "search_roots": [str(p) for p in self.search_roots],
             "ffprobe": self._entry("ffprobe", True),
+            "ffmpeg": self._entry("ffmpeg", True),
             "mediainfo": self._entry("mediainfo", True),
             "tesseract": self._entry("tesseract", False),
             "mkvmerge": self._entry("mkvmerge", False),

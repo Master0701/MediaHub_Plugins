@@ -3,10 +3,15 @@ from __future__ import annotations
 import json
 
 try:
-    from PySide6.QtCore import Qt
     from PySide6.QtWidgets import (
-        QDialog, QHBoxLayout, QLabel, QPushButton, QPlainTextEdit,
-        QTabWidget, QVBoxLayout, QWidget
+        QDialog,
+        QHBoxLayout,
+        QLabel,
+        QPlainTextEdit,
+        QPushButton,
+        QTabWidget,
+        QVBoxLayout,
+        QWidget,
     )
 except ImportError:  # Die Plugin-Prüfung soll auch ohne gestartete GUI funktionieren.
     QDialog = object

@@ -1,6 +1,8 @@
 from __future__ import annotations
+
 from pathlib import Path
 from typing import Any
+
 
 class DecisionPlanner:
     """Erzeugt einen gemeinsamen, noch nicht ausführenden Änderungsplan."""

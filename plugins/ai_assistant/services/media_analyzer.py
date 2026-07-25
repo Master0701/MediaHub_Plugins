@@ -5,13 +5,16 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from services.tool_resolver import ToolResolver
-from services.filename_identifier import FilenameIdentifier
+from services.agents import InVideoAgent, OnlineAgent, SupervisorAgent
 from services.analysis_cache import AnalysisCache
+from services.decision_engine import DecisionEngine
 from services.decision_planner import DecisionPlanner
+from services.filename_identifier import FilenameIdentifier
+from services.fingerprint_store import FingerprintReferenceStore
+from services.integration_api import AssistantIntegrationAPI
+from services.quality_engine import QualityEngine, QualityProfileStore
 from services.source_manager import SourceManager
-from services.agents import SupervisorAgent, InVideoAgent, OnlineAgent
-
+from services.tool_resolver import ToolResolver
 
 VIDEO_EXTENSIONS = {
     ".mkv", ".mp4", ".avi", ".mov", ".m4v", ".ts", ".m2ts",
@@ -33,7 +36,10 @@ class MediaAnalyzer:
         self.decision_planner = DecisionPlanner()
         self.source_manager = SourceManager(plugin_path) if plugin_path is not None else None
         self.supervisor = SupervisorAgent()
-        self.in_video_agent = InVideoAgent()
+        self.in_video_agent = InVideoAgent(self.tools)
+        self.quality_engine = QualityEngine(QualityProfileStore(knowledge_database_path))
+        self.fingerprint_store = FingerprintReferenceStore(knowledge_database_path)
+        self.decision_engine = DecisionEngine(self.fingerprint_store)
         self.online_agent = OnlineAgent(self.source_manager) if self.source_manager is not None else None
         self.cache = (
             AnalysisCache(knowledge_database_path)
@@ -117,7 +123,7 @@ class MediaAnalyzer:
             result["source_plan"]["reason"] = "Konfigurierte Online-Quellen wurden automatisch ausgeführt."
         else:
             result["online"] = {
-                "schema_version": 1,
+                "schema_version": 2,
                 "executed": False,
                 "reason": (
                     "Keine geeignete konfigurierte Quelle verfügbar."
@@ -126,16 +132,47 @@ class MediaAnalyzer:
                 ),
                 "provider_results": [],
                 "ranking": {
-                    "matches": [], "best_match": None, "match_count": 0,
+                    "schema_version": 2, "matches": [], "best_match": None, "match_count": 0,
                     "confidence": 0.0, "confidence_gap": None, "decision": "not_executed",
+                    "weights": dict(self.online_agent.ranker.WEIGHTS) if self.online_agent is not None else {},
                 },
             }
         result["supervisor"] = self.supervisor.evaluate(result)
-        result["in_video"] = self.in_video_agent.capabilities()
+        in_video_required = any(step.get("agent") == "in_video" and step.get("required") for step in (result["supervisor"].get("next_steps") or []))
+        result["in_video"] = self.in_video_agent.run(result, in_video_required)
+        self._append_in_video_evidence(result)
+        result["quality"] = self.quality_engine.evaluate(result)
+        result["decision"] = self.decision_engine.evaluate(result)
+        result["supervisor"] = self.supervisor.evaluate(result)
         result["change_plan"] = self.decision_planner.build(result)
+        result["integration"] = AssistantIntegrationAPI.build(result)
         if self.cache is not None:
             self.cache.put(path, result)
         return result
+
+
+    @staticmethod
+    def _append_in_video_evidence(result: dict[str, Any]) -> None:
+        agents = ((result.get("in_video") or {}).get("agents") or {})
+        labels = {"frame_agent":"Frames", "subtitle_agent":"Untertitel", "audio_agent":"Audio", "ocr_agent":"OCR", "fingerprint_agent":"Fingerprint", "scene_agent":"Szenen"}
+        for key, label in labels.items():
+            data = agents.get(key) or {}
+            state = data.get("state")
+            if state == "completed":
+                result.setdefault("evidence", []).append({"source": label, "status": "Bestätigt", "detail": "Inhaltsanalyse erfolgreich ausgeführt"})
+                method = key.removesuffix("_agent")
+                if method not in result.setdefault("methods_used", []): result["methods_used"].append(method)
+            elif state in {"unavailable", "failed", "unsupported"}:
+                result.setdefault("warnings", []).append(f"{label}: {data.get('reason') or state}")
+
+    def register_fingerprint_reference(self, analysis: dict[str, Any]) -> dict[str, Any]:
+        agents = ((analysis.get("in_video") or {}).get("agents") or {})
+        fingerprint = (agents.get("fingerprint_agent") or {}).get("video_fingerprint")
+        identity = analysis.get("decision") or analysis.get("identification") or {}
+        return self.fingerprint_store.register(fingerprint, identity, (analysis.get("file") or {}).get("path"))
+
+    def export_integration_payload(self, analysis: dict[str, Any]) -> dict[str, Any]:
+        return AssistantIntegrationAPI.build(analysis)
 
     def clear_cache_for(self, file_path: str | Path) -> int:
         return self.cache.delete(Path(file_path)) if self.cache is not None else 0

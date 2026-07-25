@@ -3,8 +3,9 @@ from __future__ import annotations
 import re
 import sqlite3
 import unicodedata
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 
 def normalize_text(value: str) -> str:

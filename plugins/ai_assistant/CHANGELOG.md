@@ -1,4 +1,59 @@
-# MediaHub KI-Assistent v0.6.0
+# Changelog
+
+## 1.0.0
+
+- Erklärbare KI-Entscheidung mit Gründen, Einschränkungen und Widerspruchserklärung.
+- Lokale SQLite-Fingerprint-Referenzdatenbank ergänzt.
+- Bestätigte Fingerprints können später eindeutige Medienidentitäten liefern.
+- Stabile Integrations-API für Metadata Editor und Universal Renamer ergänzt.
+- Sicherheitsvertrag festgeschrieben: Vorschau und Bestätigung vor jeder Änderung.
+- Finale Supervisor-/Decision-Engine-Zustände vereinheitlicht.
+
+## 0.9.5
+
+- Neue Decision Engine führt Dateiname, Online-Treffer, OCR, Untertitel, Fingerprint und technische Hinweise zusammen.
+- Jede Quelle erhält getrennte Sicherheit, Gewichtung und Begründung.
+- Unabhängige Bestätigungen werden gezählt und zu einer nachvollziehbaren Gesamtsicherheit kombiniert.
+- Titelwidersprüche zwischen Dateiname und Online-/Inhaltsbeweisen werden ausdrücklich gemeldet.
+- Klare Entscheidungsstufen ergänzt: bestätigt, wahrscheinlich, Prüfung empfohlen, unzureichend oder Widerspruch.
+- Supervisor übernimmt jetzt den tatsächlichen Abschlusszustand der In-Video-Agenten statt sie nach erfolgreicher Analyse weiter als ausstehend anzuzeigen.
+- Automatische Änderungen bleiben auch bei bestätigter Identität gesperrt; Vorschau und Benutzerbestätigung bleiben Pflicht.
+
+## 0.9.0
+
+- Begrenzte echte In-Video-Analyse statt bloßer Ausführungsplanung.
+- FrameAgent liest reale Helligkeits-, Kontrast- und Sättigungswerte aus Stichproben.
+- SubtitleAgent extrahiert Text, Schlüsselbegriffe und mögliche Eigennamen aus der ersten Untertitelspur.
+- AudioAgent misst Lautheit, Dynamik und mögliches Clipping in einer begrenzten Audiostichprobe.
+- OCRAgent analysiert ausgewählte Frames mit dem zentral installierten Tesseract.
+- FingerprintAgent erzeugt einen reproduzierbaren Fingerprint aus normalisierten Videoframes.
+- SceneAgent erkennt Szenenwechsel in einem begrenzten Analysefenster.
+- Quality Engine v2 kombiniert technische Daten mit gemessenen Bild- und Audiowerten.
+- Analyseausgabe zeigt Status und Zahl der tatsächlich ausgeführten In-Video-Agenten.
+- Tiefenanalyse bleibt ressourcenschonend begrenzt und verändert keine Mediendateien.
+
+## 0.8.0
+
+- In-Video-Agent von einem Platzhalter zu einer ausführbaren Orchestrierungsbasis erweitert.
+- Frame-, OCR-, Untertitel-, Audio-, Fingerprint-, Szenen- und Quality-Agent als getrennte Stufen definiert.
+- Technische Bildqualitätsbewertung ergänzt.
+- Technische Audioqualitätsbewertung einschließlich Codec, Bitrate, Kanälen und Abtastrate ergänzt.
+- Getrennte Bild-, Ton- und Gesamtbewertung mit nachvollziehbaren Gründen eingeführt.
+- Qualitätsstatus für Bibliotheksmarkierungen vorbereitet.
+- Persönliche Referenzprofile für akzeptable Mindestqualität ergänzt.
+- Qualitätsbewertung führt nie automatisch Änderungen an Medien aus.
+
+## 0.7.0
+
+- Echter ProviderManager mit TMDb, TheTVDB und Wikipedia.
+- Einheitliches Online-Trefferformat eingeführt.
+- Gewichtetes Mehrquellen-Ranking auf Schema-Version 2 erweitert.
+- Staffel, Folge und Laufzeit in die Bewertung aufgenommen.
+- Wikipedia als sofort nutzbare schlüssellose Testquelle aktiviert.
+- Internet-Berechtigung für Online-Provider ergänzt.
+- In-Video-Eskalation unverändert beibehalten.
+
+## 0.6.0
 
 - Kostenmodell für alle Erkennungsagenten ergänzt.
 - Supervisor plant Agenten nach Sicherheit, Nutzen und Aufwand.
@@ -7,7 +62,6 @@
 - Treffer verschiedener Quellen werden vereinheitlicht und gemeinsam bewertet.
 - In-Video-Erkennung bleibt als verpflichtende Eskalationsstufe für unklare Fälle vorgesehen.
 
-# Changelog
 
 ## 0.4.5
 
