@@ -1,33 +1,40 @@
-# MediaHub Plugins – vollständiges Release
+﻿# MediaHub Plugins v0.5.5 – vollständiges Release
 
 ## MediaHub WebRemote v0.13.7
 
-- Eigene Desktop-Weboberfläche bleibt über die normale Plugin-Verwaltung direkt öffnbar.
+- Lokale Desktop-Weboberfläche für PC und Notebook.
+- Browserbasierte Plugin-Verwaltung und zusätzliche Web-Plugin-Oberflächen bleiben verfügbar.
 - WebRemote bleibt aus dem zusätzlichen Bereich „Plugin-Oberflächen“ ausgeblendet.
-- Browserbasierte Plugin-Verwaltung und zusätzliche Web-Plugin-Oberflächen bleiben erhalten.
 
 ## MediaHub Mobile Dashboard v0.1.7
 
-- Eigene mobile Oberfläche für Handy und Tablet bleibt direkt öffnbar.
+- Mobile Oberfläche für Handy und Tablet.
+- Einklappbare linke Sidebar und Geräte-Kopplung bleiben verfügbar.
 - Mobile Dashboard bleibt aus dem zusätzlichen Bereich „Plugin-Oberflächen“ ausgeblendet.
-- Mobile Plugin-Verwaltung und zusätzliche Web-Plugin-Oberflächen bleiben erhalten.
 
 ## MediaHub Metadata Editor v0.3.6
 
 - Desktop- und Weboberfläche bleiben gemeinsam verfügbar.
-- Der Metadata Editor bleibt in WebRemote und Mobile Dashboard als zusätzliche Plugin-Oberfläche sichtbar.
-- Die Weboberfläche öffnet weiterhin in einem neuen Browser-Tab.
+- Bearbeitung von Metadaten, NFO-Dateien und Medienbildern.
+- Integration als zusätzliche Oberfläche in WebRemote und Mobile Dashboard.
 
-## MediaHub KI-Assistent v0.4.1
+## MediaHub KI-Assistent v1.0.0
 
-- KI-Assistent vollständig in den gemeinsamen Plugin-Build und Release aufgenommen.
-- Web-Wissenssuche repariert und lokaler Wissensindex im Browser filterbar gemacht.
-- Suchen nach Titeln, Aliasnamen und Beziehungen funktionieren direkt in der Weboberfläche.
-- Werkzeuganforderungen für FFprobe, MediaInfo, Tesseract OCR und MKVToolNix werden strukturiert über `plugin.json` gemeldet.
-- Erfordert MediaHub v1.0.15 mit zentraler Toolverwaltung und portabler Tool-Installation.
+- Mehrstufige Medienerkennung mit Supervisor-Agent.
+- OCR-, Audio-, Frame-, Szenen-, Untertitel- und Fingerprint-Agenten.
+- Erklärbare Decision Engine zur Bewertung widersprüchlicher Erkennungsergebnisse.
+- Lokale Fingerprint-Referenzdatenbank.
+- Qualitätsbewertung und Referenzvergleich.
+- TMDb-, TVDb- und Wikipedia-Provider.
+- Quellenverwaltung und Online-Ergebnisbewertung.
+- Analyse-Cache und zentrale Werkzeugerkennung.
+- Übergabe-API für Metadata Editor und Smart Renamer.
+- Gemeinsame lokale Weboberflächen-Basis integriert.
+- Erfordert mindestens MediaHub v1.0.15.
 
 ## Gemeinsamer Release-Stand
 
-- Alle vier Plugins werden automatisch erkannt, validiert und vollständig neu gebaut.
-- Für jedes Plugin werden eine `.mhplugin`-Datei und eine `.sha256`-Prüfsumme erzeugt.
-- Der Plugin-Katalog wird beim Build automatisch aus den aktuellen Manifesten aktualisiert.
+- Alle vier veröffentlichten Plugins wurden vollständig neu gebaut.
+- Für jedes Plugin stehen eine `.mhplugin`-Datei und eine `.sha256`-Prüfsumme bereit.
+- Der Plugin-Katalog wird aus den aktuellen Manifesten erzeugt.
+- Geplante Plugins mit Version 0.0.0 werden nicht als installierbare Pakete veröffentlicht.
