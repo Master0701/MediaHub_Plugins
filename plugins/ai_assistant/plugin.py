@@ -7,6 +7,11 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from services.agents_runtime import AgentManager
+from services.backends import BackendManager
+from services.tasks import TaskManager, TaskState
+from services.capability_manager import CapabilityManager
+from services.orchestrator import LocalAIOrchestrator
 from services.knowledge_database import KnowledgeDatabase
 from services.knowledge_engine import KnowledgeEngine
 from services.media_analyzer import MediaAnalyzer
@@ -85,7 +90,7 @@ class WebFileDialogBridge(QObject):
 
 
 class MediaHubAIAssistantPlugin:
-    VERSION = "1.0.0"
+    VERSION = "1.7.0"
 
     def __init__(self, plugin_path: str | Path, mediahub_api: Any = None, **kwargs: Any):
         self.plugin_path = Path(plugin_path)
@@ -105,7 +110,23 @@ class MediaHubAIAssistantPlugin:
         self.knowledge = KnowledgeDatabase(self.knowledge_db_path)
         self.mediahub_reader = MediaHubDatabaseReader(self.mediahub_db_path)
         self.tool_resolver = ToolResolver(self.base_dir)
+        self.capability_manager = CapabilityManager(
+            self.plugin_path,
+            self.tool_resolver,
+        )
+        self.agent_manager = AgentManager(
+            self.capability_manager,
+        )
         self.media_analyzer = MediaAnalyzer(self.base_dir, self.knowledge_db_path, self.plugin_path)
+        self.backend_manager = BackendManager(
+            self.media_analyzer,
+            ai_node_config=self._resolve_ai_node_config(),
+        )
+        self.task_manager = TaskManager(self.backend_manager)
+        self.orchestrator = LocalAIOrchestrator(
+            self.capability_manager,
+            self.task_manager,
+        )
         self.knowledge_engine = KnowledgeEngine(self.knowledge_db_path)
 
         if acquire_shared_server and WebRuntimeSettingsStore:
@@ -114,6 +135,61 @@ class MediaHubAIAssistantPlugin:
                 str(self.base_dir), settings.host, settings.port
             )
             self._register_routes()
+
+    def _resolve_ai_node_config(self) -> dict[str, Any]:
+        """Liest die aktuelle AI-Node-Verbindung aus MediaHub."""
+
+        config = {
+            "host": os.getenv("MEDIAHUB_AI_NODE_HOST", ""),
+            "port": int(os.getenv("MEDIAHUB_AI_NODE_PORT", "8765")),
+            "api_token": os.getenv("MEDIAHUB_AI_NODE_API_TOKEN", ""),
+            "timeout": 4.0,
+        }
+
+        api = self.mediahub_api
+        base_dir = getattr(api, "base_dir", None) if api is not None else None
+
+        if base_dir:
+            settings_file = Path(base_dir) / "config" / "settings.json"
+            try:
+                settings = json.loads(
+                    settings_file.read_text(encoding="utf-8")
+                )
+            except (OSError, json.JSONDecodeError):
+                settings = {}
+
+            ai = settings.get("ai")
+            if isinstance(ai, dict):
+                config.update(
+                    {
+                        "host": str(
+                            ai.get("node_host")
+                            or ai.get("host")
+                            or config["host"]
+                        ).strip(),
+                        "port": int(
+                            ai.get("api_port")
+                            or ai.get("port")
+                            or config["port"]
+                        ),
+                        "api_token": str(
+                            ai.get("api_token")
+                            or config["api_token"]
+                        ).strip(),
+                    }
+                )
+
+        return config
+
+    def _refresh_ai_node_backend(self) -> None:
+        """Aktualisiert den AI-Node ohne Plugin-Neustart."""
+
+        manager = getattr(self, "backend_manager", None)
+        if manager is not None:
+            manager.update_ai_node_config(
+                self._resolve_ai_node_config()
+            )
+
 
     def start(self):
         self.knowledge.initialize()
@@ -150,9 +226,13 @@ class MediaHubAIAssistantPlugin:
             "decision_engine": {"schema_version": 2, "explanations": True, "conflict_detection": True},
             "fingerprints": self.media_analyzer.fingerprint_store.stats(),
             "integration_api": {"schema_version": 1, "targets": ["mediahub.metadata_editor", "mediahub.universal_renamer"]},
+            "backends": self.backend_manager.status(),
+            "tasks": self.task_manager.status(),
+            "orchestrator": self.orchestrator.status(),
         }
 
     def get_status(self):
+        self._refresh_ai_node_backend()
         return {
             "plugin": {
                 "id": "mediahub.ai_assistant",
@@ -166,15 +246,21 @@ class MediaHubAIAssistantPlugin:
                 "knowledge_database": str(self.knowledge_db_path),
             },
             "knowledge_database": self.knowledge.health(),
-            "knowledge_engine": self.knowledge_engine.stats(),
+            "knowledge_engine": self.knowledge_engine.status(),
+            "knowledge_engine_stats": self.knowledge_engine.stats(),
             "mediahub_database": self.mediahub_reader.status(),
             "tools": self.tool_resolver.status(),
+            "capabilities": self.capability_manager.status(),
+            "agents": self.agent_manager.status(),
             "sources": self.media_analyzer.source_manager.status(),
             "in_video": self.media_analyzer.in_video_agent.capabilities(),
             "quality_engine": {"implemented": True, "reference_profiles": True, "audio_quality": True},
             "decision_engine": {"schema_version": 2, "explanations": True, "conflict_detection": True},
             "fingerprints": self.media_analyzer.fingerprint_store.stats(),
             "integration_api": {"schema_version": 1, "targets": ["mediahub.metadata_editor", "mediahub.universal_renamer"]},
+            "backends": self.backend_manager.status(),
+            "tasks": self.task_manager.status(),
+            "orchestrator": self.orchestrator.status(),
             "performance": {
                 "sqlite_wal": True,
                 "indexed_core_tables": True,
@@ -279,7 +365,21 @@ class MediaHubAIAssistantPlugin:
         return self.media_analyzer.export_integration_payload(analysis)
 
     def analyze_media_file(self, file_path, force=False):
-        return self.media_analyzer.analyze(file_path, force=force)
+        self._refresh_ai_node_backend()
+
+        execution = self.orchestrator.run(
+            "media.analyze",
+            {
+                "file_path": str(file_path),
+                "force": bool(force),
+            },
+        )
+
+        result = dict(execution.get("result") or {})
+        result["orchestration"] = dict(
+            execution.get("orchestration") or {}
+        )
+        return result
 
     def clear_analysis_cache(self, file_path=None):
         if file_path:
@@ -811,6 +911,21 @@ class AIAssistantWidget(QWidget):
         status_layout.addWidget(self.status_text)
         tabs.addTab(status_page, "Systemstatus")
 
+        capability_page = QWidget()
+        capability_layout = QVBoxLayout(capability_page)
+
+        capability_hint = QLabel(
+            "Übersicht über Backends, KI-Fähigkeiten und benötigte Werkzeuge."
+        )
+        capability_hint.setWordWrap(True)
+        capability_layout.addWidget(capability_hint)
+
+        self.capability_status_text = QPlainTextEdit()
+        self.capability_status_text.setReadOnly(True)
+        capability_layout.addWidget(self.capability_status_text, 1)
+
+        tabs.addTab(capability_page, "Backends & Fähigkeiten")
+
         roadmap = QPlainTextEdit()
         roadmap.setReadOnly(True)
         roadmap.setPlainText(
@@ -943,10 +1058,301 @@ class AIAssistantWidget(QWidget):
         except Exception as exc:
             self.analysis_text.appendPlainText(f"\nDatei konnte nicht geöffnet werden: {exc}")
 
-    def refresh_status(self):
-        self.status_text.setPlainText(
-            json.dumps(self.plugin.get_status(), ensure_ascii=False, indent=2)
+    @staticmethod
+    def _tool_line(tool_id, item):
+        installed = bool((item or {}).get("installed"))
+        required = bool((item or {}).get("required"))
+        marker = "✔" if installed else "✖"
+        kind = "Pflichtwerkzeug" if required else "optional"
+        path = (item or {}).get("path")
+        suffix = f" – {path}" if path else ""
+        return f"{marker} {tool_id} ({kind}){suffix}"
+
+    @staticmethod
+    def _capability_label(capability_id):
+        labels = {
+            "fingerprint.register": "Fingerprint-Referenzen",
+            "knowledge.search": "Wissensdatenbank",
+            "media.basic_analysis": "Basis-Medienanalyse",
+            "media.frame_analysis": "Frame- und Bildanalyse",
+            "media.mkv_analysis": "MKV-Analyse",
+            "media.mkv_editing": "MKV-Bearbeitung",
+            "media.ocr": "Texterkennung im Video (OCR)",
+            "quality.evaluate": "Qualitätsbewertung",
+        }
+        return labels.get(capability_id, capability_id)
+
+    @staticmethod
+    def _format_value(value, suffix=""):
+        if value is None:
+            return "-"
+        return f"{value}{suffix}"
+
+    def _format_ai_node_details(self, metadata):
+        plugins = dict(metadata.get("plugins") or {})
+        system = dict(metadata.get("system") or {})
+
+        return [
+            "",
+            "AI-NODE-DETAILS",
+            "===============",
+            f"Adresse: {metadata.get('host') or '-'}",
+            f"API-Port: {metadata.get('port') or '-'}",
+            f"Version: {metadata.get('version') or '-'}",
+            "Antwortzeit: "
+            + self._format_value(metadata.get("latency_ms"), " ms"),
+            f"API-Status: {metadata.get('status') or '-'}",
+            "",
+            "AI-Plugins:",
+            f"  Erkannt: {plugins.get('detected', 0)}",
+            f"  Aktiviert: {plugins.get('enabled', 0)}",
+            f"  Geladen: {plugins.get('loaded', 0)}",
+            f"  Fehler: {plugins.get('errors', 0)}",
+            "",
+            "System:",
+            "  CPU: "
+            + self._format_value(system.get("cpu_percent"), " %"),
+            "  RAM-Auslastung: "
+            + self._format_value(system.get("memory_percent"), " %"),
+            "  RAM verfügbar: "
+            + self._format_value(system.get("memory_available_gb"), " GB"),
+            "  Datenträger-Auslastung: "
+            + self._format_value(system.get("disk_percent"), " %"),
+            "  Datenträger frei: "
+            + self._format_value(system.get("disk_free_gb"), " GB"),
+            "  Temperatur: "
+            + self._format_value(system.get("temperature_c"), " °C"),
+        ]
+
+    @staticmethod
+    def _capability_label(capability_id):
+        labels = {
+            "fingerprint.register": "Fingerprint-Referenzen",
+            "knowledge.search": "Wissensdatenbank",
+            "media.basic_analysis": "Basis-Medienanalyse",
+            "media.frame_analysis": "Frame- und Bildanalyse",
+            "media.mkv_analysis": "MKV-Analyse",
+            "media.mkv_editing": "MKV-Bearbeitung",
+            "media.ocr": "Texterkennung im Video (OCR)",
+            "quality.evaluate": "Qualitätsbewertung",
+        }
+        return labels.get(capability_id, capability_id)
+
+    @staticmethod
+    def _format_value(value, suffix=""):
+        if value is None:
+            return "-"
+        return f"{value}{suffix}"
+
+    def _format_ai_node_details(self, metadata):
+        plugins = dict(metadata.get("plugins") or {})
+        system = dict(metadata.get("system") or {})
+
+        return [
+            "",
+            "AI-NODE-DETAILS",
+            "===============",
+            f"Adresse: {metadata.get('host') or '-'}",
+            f"API-Port: {metadata.get('port') or '-'}",
+            f"Version: {metadata.get('version') or '-'}",
+            "Antwortzeit: "
+            + self._format_value(metadata.get("latency_ms"), " ms"),
+            f"API-Status: {metadata.get('status') or '-'}",
+            "",
+            "AI-Plugins:",
+            f"  Erkannt: {plugins.get('detected', 0)}",
+            f"  Aktiviert: {plugins.get('enabled', 0)}",
+            f"  Geladen: {plugins.get('loaded', 0)}",
+            f"  Fehler: {plugins.get('errors', 0)}",
+            "",
+            "System:",
+            "  CPU: "
+            + self._format_value(system.get("cpu_percent"), " %"),
+            "  RAM-Auslastung: "
+            + self._format_value(system.get("memory_percent"), " %"),
+            "  RAM verfügbar: "
+            + self._format_value(system.get("memory_available_gb"), " GB"),
+            "  Datenträger-Auslastung: "
+            + self._format_value(system.get("disk_percent"), " %"),
+            "  Datenträger frei: "
+            + self._format_value(system.get("disk_free_gb"), " GB"),
+            "  Temperatur: "
+            + self._format_value(system.get("temperature_c"), " °C"),
+        ]
+
+    @staticmethod
+    def _capability_label(capability_id):
+        labels = {
+            "fingerprint.register": "Fingerprint-Referenzen",
+            "knowledge.search": "Wissensdatenbank",
+            "media.basic_analysis": "Basis-Medienanalyse",
+            "media.frame_analysis": "Frame- und Bildanalyse",
+            "media.mkv_analysis": "MKV-Analyse",
+            "media.mkv_editing": "MKV-Bearbeitung",
+            "media.ocr": "Texterkennung im Video (OCR)",
+            "quality.evaluate": "Qualitätsbewertung",
+        }
+        return labels.get(capability_id, capability_id)
+
+    @staticmethod
+    def _format_value(value, suffix=""):
+        if value is None:
+            return "-"
+        return f"{value}{suffix}"
+
+    def _format_ai_node_details(self, metadata):
+        plugins = dict(metadata.get("plugins") or {})
+        system = dict(metadata.get("system") or {})
+
+        return [
+            "",
+            "AI-NODE-DETAILS",
+            "===============",
+            f"Adresse: {metadata.get('host') or '-'}",
+            f"API-Port: {metadata.get('port') or '-'}",
+            f"Version: {metadata.get('version') or '-'}",
+            "Antwortzeit: "
+            + self._format_value(metadata.get("latency_ms"), " ms"),
+            f"API-Status: {metadata.get('status') or '-'}",
+            "",
+            "AI-Plugins:",
+            f"  Erkannt: {plugins.get('detected', 0)}",
+            f"  Aktiviert: {plugins.get('enabled', 0)}",
+            f"  Geladen: {plugins.get('loaded', 0)}",
+            f"  Fehler: {plugins.get('errors', 0)}",
+            "",
+            "System:",
+            "  CPU: "
+            + self._format_value(system.get("cpu_percent"), " %"),
+            "  RAM-Auslastung: "
+            + self._format_value(system.get("memory_percent"), " %"),
+            "  RAM verfügbar: "
+            + self._format_value(system.get("memory_available_gb"), " GB"),
+            "  Datenträger-Auslastung: "
+            + self._format_value(system.get("disk_percent"), " %"),
+            "  Datenträger frei: "
+            + self._format_value(system.get("disk_free_gb"), " GB"),
+            "  Temperatur: "
+            + self._format_value(system.get("temperature_c"), " °C"),
+        ]
+
+    def _format_capability_status(self, status):
+        lines = ["BACKENDS", "========"]
+        ai_node_metadata = None
+
+        backend_status = status.get("backends") or {}
+        backends = backend_status.get("backends") or []
+
+        if not backends:
+            lines.append("Keine Backend-Informationen vorhanden.")
+        else:
+            for backend in backends:
+                marker = "✔" if backend.get("available") else "✖"
+                name = backend.get("name") or backend.get("id") or "-"
+                lines.append(f"{marker} {name}")
+
+                message = backend.get("message") or ""
+                if message:
+                    lines.append(f"    {message}")
+
+                if backend.get("id") == "ai_node":
+                    ai_node_metadata = dict(
+                        backend.get("metadata") or {}
+                    )
+
+        if ai_node_metadata and ai_node_metadata.get("version"):
+            lines.extend(
+                self._format_ai_node_details(ai_node_metadata)
+            )
+
+        lines.extend(["", "FÄHIGKEITEN", "============"])
+        capability_status = status.get("capabilities") or {}
+        capabilities = capability_status.get("capabilities") or {}
+
+        if not capabilities:
+            lines.append("Keine Capability-Informationen vorhanden.")
+        else:
+            for capability_id, item in sorted(capabilities.items()):
+                marker = "✔" if (item or {}).get("available") else "✖"
+                lines.append(
+                    f"{marker} {self._capability_label(capability_id)}"
+                )
+
+                missing = list((item or {}).get("missing_tools") or [])
+                if missing:
+                    lines.append(
+                        "    Fehlende Werkzeuge: " + ", ".join(missing)
+                    )
+
+        summary = capability_status.get("summary") or {}
+        if summary:
+            lines.extend([
+                "",
+                "Zusammenfassung:",
+                f"  Verfügbar: {summary.get('available', 0)}",
+                f"  Nicht verfügbar: {summary.get('unavailable', 0)}",
+            ])
+
+        lines.extend(["", "WERKZEUGE", "========="])
+        tools = capability_status.get("tools") or {}
+
+        if not tools:
+            lines.append("Keine Werkzeugdaten vorhanden.")
+        else:
+            for tool_id, item in sorted(tools.items()):
+                lines.append(self._tool_line(tool_id, item))
+
+        required_missing = list(
+            capability_status.get("required_missing") or []
         )
+        optional_missing = list(
+            capability_status.get("optional_missing") or []
+        )
+
+        if required_missing:
+            lines.extend([
+                "",
+                "Fehlende Pflichtwerkzeuge:",
+                *[f"  - {tool_id}" for tool_id in required_missing],
+            ])
+
+        if optional_missing:
+            lines.extend([
+                "",
+                "Fehlende optionale Werkzeuge:",
+                *[f"  - {tool_id}" for tool_id in optional_missing],
+            ])
+
+        lines.extend(["", "TASKS", "====="])
+        tasks = status.get("tasks") or {}
+        lines.append(f"Gesamt: {tasks.get('total', 0)}")
+        lines.append(f"Laufend: {tasks.get('running', 0)}")
+        lines.append(f"Erfolgreich: {tasks.get('completed', 0)}")
+        lines.append(f"Fehlgeschlagen: {tasks.get('failed', 0)}")
+
+        history = list(tasks.get("history") or [])
+        if history:
+            latest = history[0]
+            lines.extend([
+                "",
+                "Letzter Auftrag:",
+                f"  Typ: {latest.get('task_type') or '-'}",
+                f"  Status: {latest.get('state') or '-'}",
+                f"  Backend: {latest.get('selected_backend') or '-'}",
+                f"  Task-ID: {latest.get('id') or '-'}",
+            ])
+
+        return "\n".join(lines)
+
+    def refresh_status(self):
+        status = self.plugin.get_status()
+        self.status_text.setPlainText(
+            json.dumps(status, ensure_ascii=False, indent=2)
+        )
+        if hasattr(self, "capability_status_text"):
+            self.capability_status_text.setPlainText(
+                self._format_capability_status(status)
+            )
 
 
 Plugin = MediaHubAIAssistantPlugin

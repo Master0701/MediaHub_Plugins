@@ -1,3 +1,131 @@
+## 1.6.1
+
+- Online-Agent verwendet den vollständigen Query aus dem Quellenplan.
+- Alle Suchvarianten werden tatsächlich gegen jeden Provider ausgeführt.
+- Providerergebnisse enthalten die ausgeführten Abfragen unter `queries`.
+- Treffer erhalten Suchvariante, Variantengewicht, Herkunft und Begründung.
+- Doppelte Treffer werden variantenübergreifend zusammengeführt.
+- SourceManager.execute() vollständig und eindeutig ersetzt.
+- Interne Strukturprüfung für SourceManager und OnlineAgent ergänzt.
+
+## 1.6.0
+
+- Gewichteten Suchvarianten-Reasoner ergänzt.
+- Technische Dateinamenzusätze und OCR-Rauschen gefiltert.
+- Provider mit mehreren Titelvarianten abgefragt.
+- Treffer mit verwendeter Suchvariante und Gewicht versehen.
+- Doppelte Providertreffer zusammengeführt.
+
+## 1.5.0
+
+- Unbekannte Medientypen für die Online-Recherche freigegeben.
+- Provider anhand vorhandener Titel- und Identitätshinweise ausgewählt.
+- Medientypübergreifende Suche ergänzt.
+- Quellen- und Entscheidungslogik bei alten Cachetreffern neu berechnet.
+- Teure technische und In-Video-Analyse bleibt dabei im Cache.
+- Auswahlmodus und Auswahlbegründung im Quellenplan ergänzt.
+
+## 1.4.0
+
+- Zentrale Provider-Registry eingeführt.
+- Parallele Providerausführung ergänzt.
+- Lokalen Providercache und Diagnosen ergänzt.
+- Kompatibilität mit OnlineAgent und Ranking erhalten.
+
+## 1.3.3
+
+- Wissens-Engine vollständig gegen alle Aufrufe aus `plugin.py` abgeglichen.
+- `stats()`, `all_items()` und `seed_demo_data()` ergänzt.
+- `ensure_schema()`, `initialize()`, `search()` und `status()` vereinheitlicht.
+- Doppelten `knowledge_engine`-Statusschlüssel beseitigt.
+- Separaten Statistikblock `knowledge_engine_stats` ergänzt.
+- Idempotente Beispieldaten mit chronologischer, Veröffentlichungs- und
+  Anschau-Reihenfolge ergänzt.
+- Wissensgraph wird atomar geschrieben.
+- Bestehende `knowledge.sqlite3` bleibt unverändert erhalten.
+
+## 1.3.2
+
+- Fehlende `KnowledgeEngine.ensure_schema()` ergänzt.
+- Kompatiblen `initialize()`-Alias ergänzt.
+- Wissensgraph wird beim Start sicher initialisiert.
+- Pluginstart nach Einführung der Wissens-Engine repariert.
+
+## 1.3.1
+
+- Windows-Fehler 183 beim Start der Wissens-Engine behoben.
+- Vorhandene `knowledge.sqlite3` wird korrekt als Datei erkannt.
+- Neuer Wissensgraph verwendet den separaten Ordner `knowledge_graph`.
+- Bestehende SQLite-Wissensdaten bleiben vollständig erhalten.
+
+## 1.3.0
+
+- Lokale Wissens-Engine mit persistentem Wissensgraph ergänzt.
+- Medienobjekte, Aliase und externe IDs speicherbar gemacht.
+- Franchise-, Universums-, Spin-off-, Prequel-, Sequel- und Crossover-Beziehungen ergänzt.
+- Remake-, Reboot- und alternative Zeitlinien unterstützt.
+- Chronologische Reihenfolge getrennt von Veröffentlichungsreihenfolge gespeichert.
+- Eigene empfohlene Anschau-Reihenfolge ergänzt.
+- Benutzerdefinierte Reihenfolgen vorbereitet.
+- Wissens-Engine-Status in den Plugin-Systemstatus aufgenommen.
+
+## 1.2.1
+
+- Zentralen Agent-Manager ergänzt.
+- Agentenregister mit Fähigkeiten, Werkzeugen und Kategorien eingeführt.
+- Vorhandene lokale Analyseagenten als implementiert registriert.
+- Ausstehende Wissens-, Online- und Supervisor-Agenten sichtbar gemacht.
+- Vorbereitung für parallele Agentenausführung ergänzt.
+- Agentenstatus in den Plugin-Systemstatus aufgenommen.
+
+## 1.2.0
+
+- Zentralen lokalen KI-Orchestrator ergänzt.
+- KI-Anfragen werden in nachvollziehbare Teilschritte zerlegt.
+- Fähigkeiten und benötigte Werkzeuge werden pro Schritt geprüft.
+- Blockierte und noch nicht ausführbare Schritte werden begründet.
+- Bestehende Medienanalyse läuft als erster produktiver Orchestrator-Schritt.
+- Remote- und Cloud-Ausführung bleiben ausdrücklich deaktiviert.
+
+## 1.1.4
+
+- AI-Node-Version wird korrekt vom Root-Endpunkt gelesen.
+- Antwortzeit der Statusabfragen ergänzt.
+- Pluginzahlen des AI-Nodes sichtbar gemacht.
+- CPU-, RAM-, Datenträger- und Temperaturstatus ergänzt.
+- Capability-IDs durch verständliche deutsche Bezeichnungen ersetzt.
+
+## 1.1.4
+
+- AI-Node-Version wird korrekt vom Root-Endpunkt gelesen.
+- Antwortzeit der Statusabfragen ergänzt.
+- Pluginzahlen des AI-Nodes sichtbar gemacht.
+- CPU-, RAM-, Datenträger- und Temperaturstatus ergänzt.
+- Capability-IDs durch verständliche deutsche Bezeichnungen ersetzt.
+
+## 1.1.3
+
+- AI-Node-Verbindungsdaten werden automatisch aus MediaHub übernommen.
+- `config/settings.json` ist die verbindliche Quelle.
+- Host, API-Port und API-Token werden unterstützt.
+- Backend-Konfiguration wird ohne Plugin-Neustart aktualisiert.
+- Lokale KI bleibt Standard und Fallback.
+
+## 1.1.2
+
+- Reiter „Backends & Fähigkeiten“ ergänzt.
+- Backend-Erreichbarkeit sichtbar gemacht.
+- Fähigkeiten und fehlende Werkzeuge verständlich dargestellt.
+- Task-Zähler und letzter Auftrag ergänzt.
+
+## 1.1.1
+
+- Zentrale Capability-Verwaltung ergänzt.
+- KI-Funktionen werden den benötigten Werkzeugen zugeordnet.
+- Fehlende Pflicht- und optionale Werkzeuge werden getrennt ausgewiesen.
+- MKVToolNix wird in MKVMerge und MKVPropEdit aufgelöst.
+- Grundlage für gemeinsame Tool-Verwaltung mit weiteren Plugins und dem AI-Node geschaffen.
+
 # Changelog
 
 ## 1.0.0

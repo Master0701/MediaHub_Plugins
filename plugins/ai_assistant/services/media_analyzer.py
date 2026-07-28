@@ -34,7 +34,7 @@ class MediaAnalyzer:
         self.tools = ToolResolver(mediahub_base)
         self.filename_identifier = FilenameIdentifier()
         self.decision_planner = DecisionPlanner()
-        self.source_manager = SourceManager(plugin_path) if plugin_path is not None else None
+        self.source_manager = SourceManager(plugin_path, knowledge_database_path) if plugin_path is not None else None
         self.supervisor = SupervisorAgent()
         self.in_video_agent = InVideoAgent(self.tools)
         self.quality_engine = QualityEngine(QualityProfileStore(knowledge_database_path))
@@ -58,7 +58,10 @@ class MediaAnalyzer:
         if self.cache is not None and not force:
             cached = self.cache.get(path)
             if cached is not None:
-                return cached
+                return self._refresh_cached_reasoning(
+                    path,
+                    cached,
+                )
 
         result: dict[str, Any] = {
             "file": {
@@ -149,6 +152,89 @@ class MediaAnalyzer:
         if self.cache is not None:
             self.cache.put(path, result)
         return result
+
+
+    def _refresh_cached_reasoning(
+        self,
+        path: Path,
+        cached: dict[str, Any],
+    ) -> dict[str, Any]:
+        result = dict(cached)
+        result["cache"] = {
+            **dict(result.get("cache") or {}),
+            "hit": True,
+            "message": (
+                "Unveränderte Datei – technische und In-Video-Analyse "
+                "aus dem Cache verwendet; Quellen- und "
+                "Entscheidungslogik aktualisiert."
+            ),
+            "reasoning_refreshed": True,
+        }
+
+        if self.source_manager is not None:
+            result["source_plan"] = self.source_manager.plan(result)
+
+        initial_supervisor = self.supervisor.evaluate(result)
+        should_run_online = any(
+            step.get("agent") == "online"
+            and step.get("required")
+            for step in (
+                initial_supervisor.get("next_steps")
+                or []
+            )
+        )
+        has_sources = bool(
+            (result.get("source_plan") or {}).get(
+                "candidate_sources"
+            )
+        )
+
+        if (
+            self.online_agent is not None
+            and should_run_online
+            and has_sources
+        ):
+            result["online"] = self.online_agent.run(result)
+            result["source_plan"]["executed"] = True
+            result["source_plan"]["reason"] = (
+                "Quellenlogik wurde auf Basis der gespeicherten "
+                "lokalen Analyse erneut ausgeführt."
+            )
+        elif should_run_online:
+            result["online"] = {
+                "schema_version": 2,
+                "executed": False,
+                "reason": (
+                    "Keine geeignete konfigurierte Quelle verfügbar."
+                ),
+                "provider_results": [],
+                "ranking": {
+                    "schema_version": 2,
+                    "matches": [],
+                    "best_match": None,
+                    "match_count": 0,
+                    "confidence": 0.0,
+                    "confidence_gap": None,
+                    "decision": "not_executed",
+                    "weights": (
+                        dict(self.online_agent.ranker.WEIGHTS)
+                        if self.online_agent is not None
+                        else {}
+                    ),
+                },
+            }
+
+        result["supervisor"] = self.supervisor.evaluate(result)
+        result["decision"] = self.decision_engine.evaluate(result)
+        result["supervisor"] = self.supervisor.evaluate(result)
+        result["change_plan"] = self.decision_planner.build(result)
+        result["integration"] = AssistantIntegrationAPI.build(result)
+
+        if self.cache is not None:
+            self.cache.put(path, result)
+
+        return result
+
 
 
     @staticmethod

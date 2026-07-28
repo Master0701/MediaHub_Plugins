@@ -10,3 +10,11 @@ Thumbs.db
 
 # Temporäre Release-Notizen
 RELEASE_NOTES_PENDING*.md
+
+release/
+
+*.pyc
+
+.pytest_cache/
+
+.ruff_cache/

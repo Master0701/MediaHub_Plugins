@@ -1,15 +1,22 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "sources": [
     {
       "id": "wikipedia",
       "name": "Wikipedia",
       "type": "wikipedia",
       "enabled": true,
-      "media_types": ["movie", "series", "audiobook"],
+      "media_types": [
+        "movie",
+        "series",
+        "audiobook"
+      ],
       "priority": 55,
       "trust": 0.72,
-      "language": "de"
+      "language": "de",
+      "timeout": 20,
+      "retries": 1,
+      "cache_ttl_seconds": 21600
     },
     {
       "id": "tmdb",
@@ -18,10 +25,16 @@
       "enabled": false,
       "api_key_env": "MEDIAHUB_TMDB_API_KEY",
       "bearer_token_env": "MEDIAHUB_TMDB_BEARER_TOKEN",
-      "media_types": ["movie", "series"],
+      "media_types": [
+        "movie",
+        "series"
+      ],
       "priority": 90,
       "trust": 0.92,
-      "language": "de-DE"
+      "language": "de-DE",
+      "timeout": 20,
+      "retries": 1,
+      "cache_ttl_seconds": 21600
     },
     {
       "id": "tvdb",
@@ -30,20 +43,32 @@
       "enabled": false,
       "api_key_env": "MEDIAHUB_TVDB_API_KEY",
       "subscriber_pin_env": "MEDIAHUB_TVDB_SUBSCRIBER_PIN",
-      "media_types": ["series", "movie"],
+      "media_types": [
+        "series",
+        "movie"
+      ],
       "priority": 90,
       "trust": 0.94,
-      "language": "de-DE"
+      "language": "de-DE",
+      "timeout": 20,
+      "retries": 1,
+      "cache_ttl_seconds": 21600
     },
     {
       "id": "imdb",
       "name": "IMDb",
       "type": "builtin_api",
       "enabled": false,
-      "media_types": ["movie", "series"],
+      "media_types": [
+        "movie",
+        "series"
+      ],
       "priority": 80,
-      "trust": 0.90,
-      "language": "de-DE"
+      "trust": 0.9,
+      "language": "de-DE",
+      "timeout": 20,
+      "retries": 1,
+      "cache_ttl_seconds": 21600
     },
     {
       "id": "custom_api_example",
@@ -51,9 +76,16 @@
       "type": "generic_api",
       "enabled": false,
       "base_url": "",
-      "media_types": ["movie", "series", "audiobook"],
+      "media_types": [
+        "movie",
+        "series",
+        "audiobook"
+      ],
       "priority": 60,
-      "trust": 0.70
+      "trust": 0.7,
+      "timeout": 20,
+      "retries": 1,
+      "cache_ttl_seconds": 21600
     },
     {
       "id": "custom_web_example",
@@ -61,10 +93,17 @@
       "type": "generic_web",
       "enabled": false,
       "search_url": "",
-      "media_types": ["movie", "series", "audiobook"],
+      "media_types": [
+        "movie",
+        "series",
+        "audiobook"
+      ],
       "priority": 50,
-      "trust": 0.60,
-      "rules": {}
+      "trust": 0.6,
+      "rules": {},
+      "timeout": 20,
+      "retries": 1,
+      "cache_ttl_seconds": 21600
     }
   ]
 }

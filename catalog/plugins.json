@@ -4,13 +4,13 @@
     {
       "id": "mediahub.ai_assistant",
       "name": "MediaHub KI-Assistent",
-      "version": "1.0.0",
+      "version": "1.7.0",
       "category": "KI und Analyse",
       "description": "Lokaler MediaHub-KI-Assistent mit Mehrquellen- und In-Video-Erkennung, erklärbarer Decision Engine, lokaler Fingerprint-Referenzdatenbank, Qualitätsbewertung und stabiler Übergabe-API für Metadata Editor und Universal Renamer.",
-      "package": "MediaHub_KI-Assistent_v1.0.0.mhplugin",
-      "minimum_mediahub_version": "1.0.15",
+      "package": "MediaHub_KI-Assistent_v1.7.0.mhplugin",
+      "minimum_mediahub_version": "1.0.17",
       "network_scope": "internet_optional",
-      "minimum_mediahub": "1.0.15"
+      "minimum_mediahub": "1.0.17"
     },
     {
       "id": "mediahub.audiobook_manager",
