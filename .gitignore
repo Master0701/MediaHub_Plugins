@@ -2,19 +2,18 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+
 dist/*
 !dist/.gitkeep
+
+release/
+
+.pytest_cache/
+.ruff_cache/
+
 *.log
 .DS_Store
 Thumbs.db
 
 # Temporäre Release-Notizen
 RELEASE_NOTES_PENDING*.md
-
-release/
-
-*.pyc
-
-.pytest_cache/
-
-.ruff_cache/
