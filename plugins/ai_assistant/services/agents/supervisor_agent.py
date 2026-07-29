@@ -23,9 +23,12 @@ class SupervisorAgent:
         online = analysis.get("online") or {}
         ranking = online.get("ranking") or {}
         online_confidence = float(ranking.get("confidence") or 0.0)
+        ranking_decision = str(ranking.get("decision") or "").strip().lower()
+        online_identity_confirmed = ranking_decision in {"probable_match", "strong_match"}
+        effective_online_confidence = online_confidence if online_identity_confirmed else 0.0
         decision = analysis.get("decision") or {}
         decision_confidence = float(decision.get("confidence") or 0.0)
-        combined_confidence = max(local_confidence, online_confidence, decision_confidence)
+        combined_confidence = max(local_confidence, effective_online_confidence, decision_confidence)
         in_video = analysis.get("in_video") or {}
         in_video_state = str(in_video.get("state") or "")
         in_video_completed = in_video_state == "completed"
@@ -41,10 +44,14 @@ class SupervisorAgent:
         elif online.get("executed"):
             steps.append(self.costs.decorate({
                 "agent": "online", "required": False, "state": "completed",
-                "reason": f"Online-Abgleich ausgeführt; Sicherheit {round(online_confidence * 100)} %.",
+                "reason": (
+                    f"Online-Abgleich bestätigt die Identität mit {round(online_confidence * 100)} %."
+                    if online_identity_confirmed else
+                    f"Online-Abgleich ausgeführt; Treffer nur {ranking_decision or 'unbewertet'} und nicht als Bestätigung verwendet."
+                ),
             }))
 
-        required_by_score = unusable_name or max(local_confidence, online_confidence) < self.IN_VIDEO_THRESHOLD
+        required_by_score = unusable_name or max(local_confidence, effective_online_confidence) < self.IN_VIDEO_THRESHOLD
         if online.get("executed") and ranking.get("decision") in {"no_match", "ambiguous"}:
             required_by_score = True
 
@@ -78,6 +85,8 @@ class SupervisorAgent:
             "schema_version": 3,
             "local_confidence": local_confidence,
             "online_confidence": online_confidence,
+            "effective_online_confidence": effective_online_confidence,
+            "online_identity_confirmed": online_identity_confirmed,
             "decision_confidence": decision_confidence,
             "combined_confidence": combined_confidence,
             "decision_status": decision_status,

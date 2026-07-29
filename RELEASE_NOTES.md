@@ -1,4 +1,4 @@
-﻿# MediaHub Plugins v0.5.5 – vollständiges Release
+# MediaHub Plugins v0.5.5 – vollständiges Release
 
 ## MediaHub WebRemote v0.13.7
 
@@ -18,27 +18,29 @@
 - Bearbeitung von Metadaten, NFO-Dateien und Medienbildern.
 - Integration als zusätzliche Oberfläche in WebRemote und Mobile Dashboard.
 
-## MediaHub KI-Assistent v1.0.0
+## MediaHub KI-Assistent v2.1.9
 
-- Mehrstufige Medienerkennung mit Supervisor-Agent.
+- Mehrstufige Medienerkennung mit Supervisor-Agent und erklärbarer Decision Engine.
+- Semantic Query Pipeline mit intelligenter Suchvarianten-Erzeugung, Qualitätsprüfung und Quellenbewertung.
+- Knowledge Graph mit Franchise-, Universums-, Spin-off-, Prequel-, Sequel-, Crossover-, Episoden- und Reihenfolgebeziehungen.
+- Lernende Wissensdatenbank mit bestätigten Identitäten, Aliasregeln und Fingerprint-Zuordnungen.
+- Analyse-Cache mit Wiederherstellung und Neuberechnung aktueller Entscheidungsdaten.
 - OCR-, Audio-, Frame-, Szenen-, Untertitel- und Fingerprint-Agenten.
-- Erklärbare Decision Engine zur Bewertung widersprüchlicher Erkennungsergebnisse.
-- Lokale Fingerprint-Referenzdatenbank.
-- Qualitätsbewertung und Referenzvergleich.
-- TMDb-, TVDb- und Wikipedia-Provider.
-- Quellenverwaltung und Online-Ergebnisbewertung.
-- Analyse-Cache und zentrale Werkzeugerkennung.
-- Übergabe-API für Metadata Editor und Smart Renamer.
-- Gemeinsame lokale Weboberflächen-Basis integriert.
-- Erfordert mindestens MediaHub v1.0.15.
+- Smart Frame Selection mit Schärfe-, Kontrast-, Schwarzbild- und Duplikatfilterung.
+- Visual Fingerprint und Scene Signature für lokale Inhaltsvergleiche.
+- OCR-/Logo-Fusion mit strenger Filterung unbrauchbarer OCR-Ergebnisse.
+- Anonyme Vorbereitung wiederkehrender visueller Motive ohne biometrische Identifikation.
+- Intro-/Outro-Erkennung und bestätigungsgebundenes Visual Knowledge.
+- Vollständige lokale Visual-Intelligence-Pipeline mit Integritäts- und Datenschutzprüfung.
+- Optionale Online-Visual-Provider-Schnittstelle, standardmäßig deaktiviert und nur nach ausdrücklicher Freigabe ausgewählter Einzelbilder.
+- Lokale Qualitätsbewertung und Referenzvergleich.
+- TMDb-, TVDb- und Wikipedia-Provider sowie erweiterbare Provider-Architektur.
+- Übergabe-API für Metadata Editor, Smart Renamer, Listen & Export und zukünftige Plugins.
+- Erfordert mindestens MediaHub v1.0.17.
 
 ## Gemeinsamer Release-Stand
 
-- Alle vier veröffentlichten Plugins wurden vollständig neu gebaut.
-- Für jedes Plugin stehen eine `.mhplugin`-Datei und eine `.sha256`-Prüfsumme bereit.
-- Der Plugin-Katalog wird aus den aktuellen Manifesten erzeugt.
-- Geplante Plugins mit Version 0.0.0 werden nicht als installierbare Pakete veröffentlicht.
-
-## Commit-Nachricht
-
-MediaHub Plugins v0.5.5 mit KI-Assistent v1.0.0 veröffentlichen
+- Alle veröffentlichten Plugins wurden aus den aktuellen Manifesten vollständig neu gebaut.
+- Für jedes veröffentlichte Plugin stehen eine `.mhplugin`-Datei und eine `.sha256`-Prüfsumme bereit.
+- Der Plugin-Katalog wurde aus den aktuellen Manifesten erzeugt.
+- Geplante Plugins mit Version 0.0.0 bleiben sichtbar, werden aber nicht als installierbare Release-Pakete veröffentlicht.

@@ -1,3 +1,155 @@
+# Changelog
+
+## 2.1.9 – Visual Intelligence Integration
+
+- Vollständige Integrationsprüfung für alle Visual-Intelligence-Bausteine.
+- Smart Frames, Visual Fingerprint, Scene Signature, OCR-/Logo-Fusion, anonyme Motive und Intro-/Outro-Erkennung werden gemeinsam validiert.
+- Datenschutzstatus, nicht-biometrische Verarbeitung und Logo-Heuristik werden automatisch geprüft.
+- Inkonsistente Frameanzahlen oder fehlende Pflichtbereiche werden klar gemeldet.
+- Der Online-Provider bleibt standardmäßig deaktiviert und freigabepflichtig.
+- Diese Version ist der Abschluss des lokalen v2.1.x-Visual-Intelligence-Blocks.
+
+## 2.1.8 – Online Visual Provider
+
+- Neue konfigurierbare Provider-Schnittstelle für visuelle Online-Suchen.
+- Der Provider ist standardmäßig deaktiviert.
+- Jede Übertragung erfordert eine ausdrückliche Benutzerfreigabe.
+- Es werden maximal ausgewählte Einzelbilder übertragen, niemals komplette Videos oder Audiospuren.
+- Frame-Export erfolgt nur temporär und in reduzierter Auflösung.
+- Endpoint, API-Token, Timeout und maximale Frameanzahl sind konfigurierbar.
+- Ohne Freigabe bleibt die gesamte Visual-Intelligence-Pipeline lokal.
+
+## 2.1.7 – Visual Knowledge
+
+- Bestätigte visuelle Signaturen können dauerhaft mit einer Medienidentität verknüpft werden.
+- Visual Fingerprint, Scene Signature, OCR-/Logo-Hinweise, Intro-/Outro-Daten und anonyme Zentralmotive werden gemeinsam gespeichert.
+- Automatische visuelle Funde bleiben Vorschläge und werden ohne Benutzerbestätigung nicht persistiert.
+- Exakte visuelle Signaturen können lokal nachgeschlagen werden.
+- Ein Export-Snapshot bereitet die Übergabe an Knowledge Graph und Listen-&-Export-Plugin vor.
+- Alle Daten bleiben lokal.
+
+## 2.1.6 – Intro-/Outro-Erkennung
+
+- Framepositionen, Szenenrhythmus, OCR-/Logo-Kandidaten und anonyme Zentralmotive werden gemeinsam ausgewertet.
+- Wahrscheinliche Vorspann- und Abspannbereiche erhalten getrennte Vertrauenswerte.
+- Titelkarten und Studiotexte verstärken die jeweiligen Bereichskandidaten.
+- Die Ausgabe bleibt bewusst heuristisch und kennzeichnet ihre Grenzen.
+- Alle Analysen bleiben lokal; es erfolgt keine externe Übertragung.
+
+## 2.1.5 – Character Recognition Preparation
+
+- Der Frame-Agent erzeugt zusätzlich einen lokalen Hash des zentralen Bildbereichs.
+- Wiederkehrende Zentralmotive werden anonym als `subject-001`, `subject-002` usw. gruppiert.
+- Häufigkeit, Positionen und ein lokaler Wichtigkeitswert werden gespeichert.
+- Es findet ausdrücklich keine Gesichtserkennung, biometrische Identifikation oder Namenszuordnung statt.
+- Die bestätigte OCR-Mindestqualitätskorrektur aus v2.1.4 ist enthalten.
+- Alle Daten bleiben lokal und werden nicht extern übertragen.
+
+## 2.1.4 – OCR + Logo Fusion
+
+- OCR-Text wird gemeinsam mit Framequalität, Schärfe, Kontrast und Zeitposition bewertet.
+- Gute Intro- und Abspanntexte werden als Titelkarten-Kandidaten priorisiert.
+- Kurze, saubere und überwiegend großgeschriebene Texte können als Logo-Kandidaten markiert werden.
+- Logo-Kandidaten sind ausdrücklich OCR-/Layout-Heuristiken, noch keine objektbasierte Logoerkennung.
+- OCR-Zeichensalat bleibt als verworfener Diagnosetreffer sichtbar.
+- Doppelte Textkandidaten werden normalisiert zusammengeführt.
+- Alle Auswertungen bleiben lokal.
+
+## 2.1.3 – Scene Signature
+
+- Szenenwechsel werden in normalisierte Segmente umgewandelt.
+- Szenenlängen, Schnittrate und Rhythmus werden laufzeitunabhängig gespeichert.
+- Intro-, Inhalts- und Outro-Segmente werden getrennt ausgewertet.
+- Ausgewählte visuelle Frame-Hashes werden den nächstliegenden Szenen zugeordnet.
+- Szenenstrukturen können tolerant miteinander verglichen werden.
+- Der korrigierte Duplikatfilter aus v2.1.2 ist vollständig enthalten.
+- Alle Daten bleiben lokal; es erfolgt keine externe Übertragung.
+
+## 2.1.2 – Visual Fingerprint
+
+- Jeder ausgewählte Frame erhält einen lokalen Average-Hash und Difference-Hash.
+- Mehrere gute Frames werden zu einem toleranten visuellen Fingerprint zusammengeführt.
+- Der Vergleich berücksichtigt passende Frame-Hashes und ein normalisiertes Bildprofil.
+- Leichte Neukodierung, Skalierung und kleine Helligkeitsabweichungen können toleriert werden.
+- Exakte `visual_signature` und toleranter `visual_fingerprint` bleiben getrennt.
+- Es werden weiterhin keine Frames oder Videos extern übertragen.
+
+## 2.1.1 – Smart Frame Selection
+
+- Zeitliche Stichproben konzentrieren sich gezielt auf Vorspann, Handlung und Abspann.
+- Bis zu 20 kleine lokale Graustufenframes werden effizient bewertet.
+- Neue Messwerte für Schärfe, Bildinhalt, Schwarzbild- und Weißbildanteil.
+- Unscharfe, dunkle, überbelichtete und nahezu identische Frames werden verworfen.
+- Die visuelle Signatur nutzt nur die besten unterschiedlichen Kandidaten.
+- Es findet weiterhin keine externe Bild- oder Videoübertragung statt.
+
+## 2.1.0 – Visual Intelligence Core
+
+- Bewertet Frame-Stichproben nach Helligkeit, Kontrast, Bildinhalt, OCR-Hinweisen und Position im Video.
+- Filtert dunkle und visuell ähnliche Frames aus.
+- Erzeugt eine lokale visuelle Signatur aus den besten Kandidaten.
+- Speichert Datenschutzstatus; keine Bilder oder Ausschnitte werden automatisch extern übertragen.
+- Bereitet eine spätere, ausdrücklich aktivierbare Online-Bild-/Szenensuche vor.
+
+## 2.0.1 – Fingerprint Learning Fix
+
+- Fingerprints werden beim bestätigten Lernen nicht mehr nur an einem festen Analysepfad gesucht.
+- Cache-, Orchestrator- und verschachtelte Analyseergebnisse werden rekursiv durchsucht.
+- Die Lernantwort zeigt mit `fingerprint_detected` und `fingerprint_source`, ob und wo der Fingerprint gefunden wurde.
+- Der bestätigte Fingerprint wird weiterhin mit Identität, Vertrauen, Quelle und Quelldatei gespeichert.
+
+## 2.0.0
+
+- Benutzerbestätigte Identitäten werden dauerhaft gelernt.
+- Korrekturen erzeugen bestätigte Aliasregeln mit Herkunft und Vertrauen.
+- Fingerprints werden mit der bestätigten Wissensidentität verknüpft.
+- Widersprüchliche Aliasregeln werden als Konflikte gespeichert.
+- Lernwissen kann formatneutral für Listen-, PDF-, HTML- und Excel-Exporte ausgegeben werden.
+- Filme, Serien, Episoden, Hörbücher und Bücher werden unterstützt.
+
+# MediaHub KI-Assistent v1.9.2
+
+- Einheitlicher QueryPlan als einzige Quelle für Provider-Suchvarianten.
+- Provider führen ausschließlich freigegebene Varianten samt Qualitäts- und Herkunftsmetadaten aus.
+- Verworfene Varianten bleiben diagnostisch erhalten, erreichen aber keinen Provider.
+- Veraltete Online-Ergebnisse werden bei Cache-Neubewertung zuverlässig entfernt.
+- Regressionstests für die `pso aqua`-/`aqua`-Cache-Umgehung.
+
+# MediaHub KI-Assistent v1.9.1
+
+- Qualitätsprüfung für jede Suchvariante vor Online-Abfragen.
+- OCR-Zeichensalat wird verworfen und separat diagnostiziert.
+- Lokale Wissens- und Aliasvarianten bleiben bevorzugt zugelassen.
+- Erklärbare Qualitätswerte und Ablehnungsgründe im Query-Reasoning.
+- Regressionstests für `pso aqua` und OCR-Rauschen.
+
+# MediaHub KI-Assistent v1.9.0
+
+- Knowledge Graph Intelligence mit erklärbaren, nicht automatisch gespeicherten Ableitungen.
+- Erkennt Franchise-/Universumscluster aus bestehenden Beziehungen.
+- Leitet Spin-off-Beziehungen aus Backdoor-Pilot- und Starts-in-Episode-Ketten ab.
+- Erkennt Lücken in gespeicherten Reihenfolgen.
+- Export-Snapshots enthalten nun Graph-Intelligence-Vorschläge.
+
+# Changelog
+
+## 1.8.1 – Evidence Gate Fix
+
+- Schwache Einzelwort- und mehrdeutige Online-Treffer werden nicht mehr als Identitätsbestätigung gezählt.
+- Nur `probable_match` und `strong_match` dürfen Online-Evidenz positiv bestätigen.
+- Mindestscore, kombinierte Belege und blockierende Ranking-Strafwerte werden geprüft.
+- Supervisor trennt Roh-Onlinekonfidenz von tatsächlich bestätigter Onlinekonfidenz.
+- Regressionstest für `pso aqua2 ts` gegen den Wikipedia-Treffer `Aqua` ergänzt.
+
+## 1.8.0 – Knowledge Graph Core
+
+- Graph-Navigation mit Nachbarschafts- und Tiefensuche ergänzt.
+- Franchise-, Universums-, Spin-off-, Prequel-, Sequel- und Crossover-Auflösung erweitert.
+- Backdoor-Piloten, Starts-in-Episode, erste Auftritte, Episoden- und Staffelbeziehungen vorbereitet.
+- Quellen- und Vertrauensinformationen an Entitäten und Beziehungen unterstützt.
+- Export-Snapshot für Listen & Export mit HTML-, PDF- und Excel-Zielstruktur ergänzt.
+- Filme, Serien, Staffeln, Episoden, Specials, Bücher und Hörbücher als Graph-Entitäten vorbereitet.
+
 ## 1.6.1
 
 - Online-Agent verwendet den vollständigen Query aus dem Quellenplan.

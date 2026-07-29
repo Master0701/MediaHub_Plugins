@@ -6,16 +6,18 @@
     {
       "id": "mediahub.ai_assistant",
       "name": "MediaHub KI-Assistent",
-      "version": "1.0.0",
-      "status": "development",
+      "version": "2.1.9",
+      "status": "available",
       "category": "KI und Analyse",
       "visible": true,
-      "auto_install": false,
-      "manual_only": true,
-      "description": "Lokaler MediaHub-KI-Assistent mit Mehrquellen- und In-Video-Erkennung, erklärbarer Decision Engine, lokaler Fingerprint-Referenzdatenbank, Qualitätsbewertung und stabiler Übergabe-API für Metadata Editor und Universal Renamer.",
-      "minimum_mediahub_version": "1.0.15",
+      "auto_install": true,
+      "manual_only": false,
+      "description": "Lokaler MediaHub-KI-Assistent mit Semantic Query Pipeline, Knowledge Graph, bestätigtem Lernen, mehrstufiger In-Video- und Visual-Intelligence-Analyse, erklärbarer Decision Engine, Qualitätsbewertung und stabilen Übergabe-APIs.",
+      "minimum_mediahub_version": "1.0.17",
       "project_page": "https://github.com/Master0701/MediaHub_Plugins/tree/main/plugins/ai_assistant",
-      "manual_install_message": "Der MediaHub-KI-Assistent läuft direkt in MediaHub und wird nicht automatisch installiert. Lade die aktuelle .mhplugin-Datei manuell von seiner GitHub-Projektseite."
+      "manual_install_message": "",
+      "release_asset": "MediaHub_KI-Assistent_v{version}.mhplugin",
+      "sha256_asset": "MediaHub_KI-Assistent_v{version}.mhplugin.sha256"
     },
     {
       "id": "mediahub.audiobook_manager",

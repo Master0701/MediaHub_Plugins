@@ -8,6 +8,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
+from services.input_quality import evaluate_text
+
 
 @dataclass(frozen=True, slots=True)
 class SearchVariant:
@@ -16,10 +18,13 @@ class SearchVariant:
     source: str
     reasons: tuple[str, ...]
     media_type: str | None = None
+    quality_score: float = 1.0
+    quality_reasons: tuple[str, ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         data = asdict(self)
         data["reasons"] = list(self.reasons)
+        data["quality_reasons"] = list(self.quality_reasons)
         return data
 
 
@@ -76,25 +81,39 @@ class SearchVariantReasoner:
                     expanded.append(SearchVariant(self._clean_title(str(value)), min(score, 1.0), source, (reason,), entity.get("media_type") or media_type))
 
         dedup: dict[str, SearchVariant] = {}
+        rejected: list[dict[str, Any]] = []
         for item in expanded:
             key = self._variant_key(item.title)
             if not key:
                 continue
-            adjusted = item
+            known = item.source.startswith("knowledge_")
+            quality_source = "ocr" if item.source == "ocr" else ("fallback" if "Fallback" in item.reasons else item.source)
+            quality = evaluate_text(item.title, source=quality_source, known_alias=known)
+            adjusted_score = item.score * (0.45 + 0.55 * quality.score)
+            adjusted = SearchVariant(item.title, round(adjusted_score, 3), item.source, item.reasons, item.media_type, quality.score, quality.reasons)
             if len(key.split()) == 1:
-                adjusted = SearchVariant(item.title, round(item.score * self._single_word_factor(key), 3), item.source, item.reasons + ("Einzelwort-Suche vorsichtig gewichtet",), item.media_type)
+                adjusted = SearchVariant(adjusted.title, round(adjusted.score * self._single_word_factor(key), 3), adjusted.source, adjusted.reasons + ("Einzelwort-Suche vorsichtig gewichtet",), adjusted.media_type, adjusted.quality_score, adjusted.quality_reasons)
+            is_fallback = any("Fallback" in reason for reason in item.reasons)
+            fallback_too_weak = is_fallback and not known and (len(key.split()) < 3 or quality.score < 0.82)
+            if (not quality.accepted or fallback_too_weak) and not known:
+                reasons = list(quality.reasons)
+                if fallback_too_weak:
+                    reasons.append("Gekürzte Fallback-Variante ohne Wissensbeleg gesperrt")
+                rejected.append({"title": item.title, "source": item.source, "quality_score": quality.score, "reasons": reasons})
+                continue
             previous = dedup.get(key)
             if previous is None or adjusted.score > previous.score:
                 dedup[key] = adjusted
 
-        variants = sorted(dedup.values(), key=lambda x: (x.score, len(x.title)), reverse=True)[:20]
+        variants = sorted(dedup.values(), key=lambda x: (x.score, x.quality_score, len(x.title)), reverse=True)[:20]
         return {
             "schema_version": 2,
             "primary_title": variants[0].title if variants else str(identification.get("title_candidate") or ""),
             "variant_count": len(variants),
             "variants": [item.as_dict() for item in variants],
             "knowledge_matches": len(knowledge_matches),
-            "strategy": "query_reasoner_2" if variants else "no_searchable_title",
+            "strategy": "query_reasoner_2_quality_gate" if variants else "no_searchable_title",
+            "quality_gate": {"schema_version": 1, "accepted": len(variants), "rejected": rejected[:20]},
         }
 
     @staticmethod
@@ -127,10 +146,11 @@ class SearchVariantReasoner:
         result = []
         for finding in findings:
             text = str(finding.get("text") or "").strip()
-            if 3 <= len(text) <= 100 and sum(c.isalpha() for c in text) >= 3:
+            if 3 <= len(text) <= 100:
                 cleaned = self._clean_title(text)
-                if cleaned:
-                    result.append(SearchVariant(cleaned, 0.68, "ocr", ("OCR-Titelhinweis",), media_type))
+                quality = evaluate_text(cleaned, source="ocr")
+                if cleaned and quality.accepted:
+                    result.append(SearchVariant(cleaned, round(0.68 * quality.score, 3), "ocr", ("OCR-Titelhinweis", "OCR-Qualitätsprüfung bestanden"), media_type, quality.score, quality.reasons))
         return result
 
     def _clean_title(self, value: str) -> str:

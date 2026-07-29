@@ -7,9 +7,11 @@ from services.knowledge_engine.models import (
     RelationType,
 )
 from services.knowledge_engine.service import KnowledgeEngine
+from services.knowledge_engine.graph_reasoner import GraphReasoner
 
 __all__ = [
     "KnowledgeEngine",
+    "GraphReasoner",
     "KnowledgeEntity",
     "KnowledgeOrder",
     "KnowledgeRelation",

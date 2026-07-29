@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from services.query_plan import accepted_variants
+
 
 class MultiQueryProviderRunner:
     """Führt alle gewichteten Suchvarianten gegen alle Provider aus."""
@@ -87,26 +89,9 @@ class MultiQueryProviderRunner:
         return results
 
     @staticmethod
-    def _variants(
-        query: dict[str, Any],
-    ) -> list[dict[str, Any]]:
-        variants = [
-            dict(item)
-            for item in query.get("search_variants") or []
-            if isinstance(item, dict)
-        ]
-
-        if not variants:
-            variants = [
-                {
-                    "title": query.get("title"),
-                    "score": 1.0,
-                    "source": "primary",
-                    "reasons": [],
-                }
-            ]
-
-        return variants
+    def _variants(query: dict[str, Any]) -> list[dict[str, Any]]:
+        # Provider dürfen ausschließlich die zentral freigegebenen Varianten ausführen.
+        return accepted_variants(query)
 
     @staticmethod
     def _merge_result(
@@ -164,6 +149,10 @@ class MultiQueryProviderRunner:
                     variant.get("score") or 0.0
                 ),
                 "source": variant.get("source"),
+                "quality_score": float(variant.get("quality_score") or 0.0),
+                "priority": variant.get("priority"),
+                "fallback": bool(variant.get("fallback")),
+                "query_plan_id": ((variant.get("query_plan_id")) or None),
                 "status": result.get("status"),
                 "match_count": len(
                     result.get("matches") or []
@@ -209,9 +198,10 @@ class MultiQueryProviderRunner:
                     "search_variant_source": (
                         variant.get("source")
                     ),
-                    "search_variant_reasons": list(
-                        variant.get("reasons") or []
-                    ),
+                    "search_variant_reasons": list(variant.get("reasons") or []),
+                    "search_variant_quality": float(variant.get("quality_score") or 0.0),
+                    "search_variant_priority": variant.get("priority"),
+                    "search_variant_fallback": bool(variant.get("fallback")),
                 }
             )
 

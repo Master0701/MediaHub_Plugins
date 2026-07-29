@@ -17,3 +17,20 @@ Thumbs.db
 
 # Temporäre Release-Notizen
 RELEASE_NOTES_PENDING*.md
+
+# Lokale MediaHub-KI-Laufzeitdaten
+plugins/ai_assistant/cache/
+config/*.db
+config/*.sqlite
+config/*.sqlite3
+config/knowledge_graph/
+
+# Lokale Analyseausgaben
+TEST_KI_*_AUSGABE.*
+KI_*_AUSGABE.*
+*_FORCE_ANALYSE.json
+
+# Entpackte Patch- und Sicherungsordner
+_*/
+backup_*/
+files/

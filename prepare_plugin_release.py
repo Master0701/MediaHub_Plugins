@@ -88,8 +88,9 @@ Offizielles Erweiterungs-Repository für MediaHub.
 
 - `plugins/` – getrennte, einzeln installierbare Plugins
 - `shared/` – gemeinsam genutzte Laufzeiten, APIs und Design-Bausteine
-- `catalog/` – zukünftiger Download- und Updatekatalog
+- `catalog/` – Plugin-Store- und Updatekataloge
 - `docs/` – Architektur-, Design- und Entwicklungsunterlagen
+- `tools/dev/` – dauerhaft nützliche Entwickler- und Diagnosetools
 - `release/` – lokal und in GitHub Actions erzeugte Plugin-Pakete
 
 Jedes Plugin bleibt optional und kann einzeln installiert, aktualisiert und entfernt werden.
@@ -102,13 +103,27 @@ Alle Plugins sauber neu erstellen:
 python build_plugins.py all --clean
 ```
 
-Nur WebRemote erstellen:
+Nur den KI-Assistenten erstellen:
 
 ```powershell
-python build_plugins.py web_remote --clean
+python build_plugins.py ai_assistant --clean
 ```
 
 Die fertigen `.mhplugin`-Dateien und `.sha256`-Prüfsummen liegen anschließend unter `release/`.
+
+## Tests
+
+Alle Tests des KI-Assistenten ausführen:
+
+```powershell
+python -m pytest plugins/ai_assistant/tests -q
+```
+
+Python-Dateien zusätzlich kompilieren:
+
+```powershell
+python -m compileall plugins/ai_assistant
+```
 
 ## Release vorbereiten
 

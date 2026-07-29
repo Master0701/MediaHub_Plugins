@@ -7,7 +7,7 @@ from typing import Any
 class AssistantIntegrationAPI:
     """Stabile, schreibgeschützte Übergabe an Metadata Editor und Universal Renamer."""
 
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 2
 
     @classmethod
     def build(cls, analysis: dict[str, Any]) -> dict[str, Any]:
@@ -17,7 +17,7 @@ class AssistantIntegrationAPI:
         return {
             "schema_version": cls.SCHEMA_VERSION,
             "producer": "mediahub.ai_assistant",
-            "producer_version": "1.0.0",
+            "producer_version": "2.0.0",
             "source": deepcopy(analysis.get("file") or {}),
             "identity": {
                 "media_type": decision.get("media_type") or identification.get("media_type"),

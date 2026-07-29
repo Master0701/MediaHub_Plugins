@@ -29,11 +29,17 @@ class FingerprintReferenceStore:
                     edition TEXT,
                     source_path TEXT,
                     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    knowledge_identity_id INTEGER,
+                    confidence REAL NOT NULL DEFAULT 1.0,
+                    source TEXT NOT NULL DEFAULT 'user_confirmation'
                 )
                 """
             )
             db.execute("CREATE INDEX IF NOT EXISTS idx_ai_fp_title ON ai_fingerprint_references(title)")
+            columns={row[1] for row in db.execute("PRAGMA table_info(ai_fingerprint_references)").fetchall()}
+            for name, ddl in (("knowledge_identity_id","INTEGER"),("confidence","REAL NOT NULL DEFAULT 1.0"),("source","TEXT NOT NULL DEFAULT 'user_confirmation'")):
+                if name not in columns: db.execute(f"ALTER TABLE ai_fingerprint_references ADD COLUMN {name} {ddl}")
 
     def lookup(self, fingerprint: str | None) -> dict[str, Any] | None:
         if not fingerprint or self.database_path is None:
@@ -65,13 +71,16 @@ class FingerprintReferenceStore:
             episode,
             identity.get("edition") or identity.get("edition_candidate"),
             source_path,
+            identity.get("knowledge_identity_id"),
+            float(identity.get("confidence", 1.0)),
+            str(identity.get("source") or "user_confirmation"),
         )
         with sqlite3.connect(self.database_path) as db:
             db.execute(
                 """
                 INSERT INTO ai_fingerprint_references
-                (fingerprint, media_type, title, year, season, episode, edition, source_path)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                (fingerprint, media_type, title, year, season, episode, edition, source_path, knowledge_identity_id, confidence, source)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(fingerprint) DO UPDATE SET
                     media_type=excluded.media_type,
                     title=excluded.title,
@@ -80,6 +89,9 @@ class FingerprintReferenceStore:
                     episode=excluded.episode,
                     edition=excluded.edition,
                     source_path=excluded.source_path,
+                    knowledge_identity_id=excluded.knowledge_identity_id,
+                    confidence=excluded.confidence,
+                    source=excluded.source,
                     updated_at=CURRENT_TIMESTAMP
                 """,
                 values,

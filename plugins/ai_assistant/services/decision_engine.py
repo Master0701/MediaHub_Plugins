@@ -47,21 +47,55 @@ class DecisionEngine:
                 detail="Titel- und Episodenmuster aus Datei- oder Ordnernamen.",
             ))
 
-        best = ((online.get("ranking") or {}).get("best_match") or {})
+        ranking = online.get("ranking") or {}
+        best = ranking.get("best_match") or {}
         if best:
             candidate = str(best.get("title") or "").strip()
-            candidate_conf = self._clamp(float(best.get("score") or best.get("provider_confidence") or 0.0))
+            candidate_conf = self._clamp(float(best.get("score") or 0.0))
             similarity = self._similarity(normalized_title, self._normalize(candidate)) if title else 0.0
-            supports = similarity >= 0.45
+            ranking_decision = str(ranking.get("decision") or "").strip().lower()
+            penalties = {str(item) for item in (best.get("penalties") or [])}
+            evidence_count = int(best.get("evidence_count") or 0)
+            blocking_penalties = {
+                "weak_single_word_variant",
+                "insufficient_combined_evidence",
+            }
+            identity_supported = (
+                ranking_decision in {"probable_match", "strong_match"}
+                and candidate_conf >= 0.65
+                and evidence_count >= 2
+                and not penalties.intersection(blocking_penalties)
+                and similarity >= 0.45
+            )
+            if identity_supported:
+                detail = (
+                    "Online-Treffer bestätigt die Identität; "
+                    f"Ranking {ranking_decision}, {evidence_count} Belege und "
+                    f"Titelähnlichkeit {round(similarity * 100)} %."
+                )
+            else:
+                blockers: list[str] = []
+                if ranking_decision not in {"probable_match", "strong_match"}:
+                    blockers.append(f"Ranking-Entscheidung {ranking_decision or 'unbekannt'}")
+                if candidate_conf < 0.65:
+                    blockers.append(f"Score nur {round(candidate_conf * 100)} %")
+                if evidence_count < 2:
+                    blockers.append("zu wenig kombinierte Belege")
+                if penalties.intersection(blocking_penalties):
+                    blockers.append("gesperrte Strafwerte: " + ", ".join(sorted(penalties.intersection(blocking_penalties))))
+                detail = (
+                    "Online-Treffer gefunden, aber nicht als Identitätsbestätigung verwendet"
+                    + (": " + "; ".join(blockers) if blockers else ".")
+                )
             evidence.append(self._item(
                 source="online",
                 label=str(best.get("provider_name") or "Online"),
                 value=candidate,
-                confidence=max(candidate_conf, similarity),
-                supports=supports,
-                detail=f"Online-Treffer; Titelähnlichkeit {round(similarity * 100)} %.",
+                confidence=candidate_conf,
+                supports=identity_supported,
+                detail=detail,
             ))
-            if title and similarity < 0.35:
+            if title and similarity < 0.35 and candidate_conf >= 0.65:
                 conflicts.append(self._conflict("title", "Dateiname", title, "Online", candidate, "hoch"))
 
         subtitle = agents.get("subtitle_agent") or {}
@@ -168,7 +202,7 @@ class DecisionEngine:
         explanation = self._build_explanation(title, confirmed, weak, conflicts, status)
 
         return {
-            "schema_version": 2,
+            "schema_version": 3,
             "status": status,
             "title_candidate": title or None,
             "media_type": identification.get("media_type"),

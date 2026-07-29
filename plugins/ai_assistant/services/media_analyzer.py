@@ -31,7 +31,7 @@ class MediaAnalyzer:
         knowledge_database_path: Path | None = None,
         plugin_path: Path | None = None,
     ):
-        self.tools = ToolResolver(mediahub_base)
+        self.tools = ToolResolver(mediahub_base, plugin_path)
         self.filename_identifier = FilenameIdentifier()
         self.decision_planner = DecisionPlanner()
         self.source_manager = SourceManager(plugin_path, knowledge_database_path) if plugin_path is not None else None
@@ -221,6 +221,25 @@ class MediaAnalyzer:
                         if self.online_agent is not None
                         else {}
                     ),
+                },
+            }
+
+        if not bool((result.get("source_plan") or {}).get("executed")):
+            result["online"] = {
+                "schema_version": 4,
+                "executed": False,
+                "reason": (
+                    "Keine geeignete konfigurierte Quelle verfügbar."
+                    if should_run_online
+                    else "Aktualisierter QueryPlan erfordert derzeit keinen Online-Abgleich; alte Online-Ergebnisse wurden verworfen."
+                ),
+                "query": (result.get("source_plan") or {}).get("query") or {},
+                "provider_results": [],
+                "ranking": {
+                    "schema_version": 3, "matches": [], "best_match": None,
+                    "match_count": 0, "confidence": 0.0, "confidence_gap": None,
+                    "decision": "not_executed",
+                    "weights": dict(self.online_agent.ranker.WEIGHTS) if self.online_agent is not None else {},
                 },
             }
 

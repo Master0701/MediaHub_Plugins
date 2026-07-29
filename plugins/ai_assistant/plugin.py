@@ -14,6 +14,7 @@ from services.capability_manager import CapabilityManager
 from services.orchestrator import LocalAIOrchestrator
 from services.knowledge_database import KnowledgeDatabase
 from services.knowledge_engine import KnowledgeEngine
+from services.knowledge_learning import KnowledgeLearningService
 from services.media_analyzer import MediaAnalyzer
 from services.mediahub_reader import MediaHubDatabaseReader
 from services.paths import resolve_database_paths
@@ -90,7 +91,7 @@ class WebFileDialogBridge(QObject):
 
 
 class MediaHubAIAssistantPlugin:
-    VERSION = "1.7.0"
+    VERSION = "2.1.9"
 
     def __init__(self, plugin_path: str | Path, mediahub_api: Any = None, **kwargs: Any):
         self.plugin_path = Path(plugin_path)
@@ -109,7 +110,7 @@ class MediaHubAIAssistantPlugin:
         )
         self.knowledge = KnowledgeDatabase(self.knowledge_db_path)
         self.mediahub_reader = MediaHubDatabaseReader(self.mediahub_db_path)
-        self.tool_resolver = ToolResolver(self.base_dir)
+        self.tool_resolver = ToolResolver(self.base_dir, self.plugin_path)
         self.capability_manager = CapabilityManager(
             self.plugin_path,
             self.tool_resolver,
@@ -128,6 +129,7 @@ class MediaHubAIAssistantPlugin:
             self.task_manager,
         )
         self.knowledge_engine = KnowledgeEngine(self.knowledge_db_path)
+        self.knowledge_learning = KnowledgeLearningService(self.knowledge_db_path)
 
         if acquire_shared_server and WebRuntimeSettingsStore:
             settings = WebRuntimeSettingsStore(self.base_dir).load()
@@ -359,6 +361,19 @@ class MediaHubAIAssistantPlugin:
     def register_fingerprint_reference(self, analysis):
         """Speichert einen vom Benutzer bestätigten Fingerprint als lokale Referenz."""
         return self.media_analyzer.register_fingerprint_reference(analysis)
+
+    def confirm_and_learn_identity(self, analysis, corrected_identity=None):
+        """Speichert eine ausdrücklich bestätigte Identität, Aliase und Fingerprint-Zuordnung."""
+        return self.knowledge_learning.confirm(analysis, corrected_identity)
+
+    def search_learned_knowledge(self, query):
+        return self.knowledge_learning.lookup(query)
+
+    def get_knowledge_conflicts(self):
+        return self.knowledge_learning.conflicts()
+
+    def export_learning_snapshot(self):
+        return self.knowledge_learning.export_snapshot()
 
     def get_integration_payload(self, analysis):
         """Stabile Übergabe an Metadata Editor und Universal Renamer."""

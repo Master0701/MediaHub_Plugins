@@ -148,6 +148,31 @@ class KnowledgeStore:
             )
         ]
 
+
+    def outgoing_relations(self, entity_id: str, relation_type: str | None = None) -> list[dict[str, Any]]:
+        result = []
+        for relation in self.all_relations():
+            if relation.get("source_id") != str(entity_id):
+                continue
+            if relation_type and relation.get("relation_type") != str(relation_type):
+                continue
+            result.append(relation)
+        return result
+
+    def incoming_relations(self, entity_id: str, relation_type: str | None = None) -> list[dict[str, Any]]:
+        result = []
+        for relation in self.all_relations():
+            if relation.get("target_id") != str(entity_id):
+                continue
+            if relation_type and relation.get("relation_type") != str(relation_type):
+                continue
+            result.append(relation)
+        return result
+
+    def get_order(self, order_id: str) -> dict[str, Any] | None:
+        item = self._data["orders"].get(str(order_id))
+        return dict(item) if isinstance(item, dict) else None
+
     def orders_for_entity(self, entity_id: str) -> list[dict[str, Any]]:
         result = []
         for order in self._data["orders"].values():

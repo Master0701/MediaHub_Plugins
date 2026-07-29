@@ -1,13 +1,12 @@
-﻿from pathlib import Path
-import sys
+﻿import sys
 from pathlib import Path
 
-SERVICES_DIR = Path(__file__).resolve().parents[1] / "services"
-if str(SERVICES_DIR) not in sys.path:
-    sys.path.insert(0, str(SERVICES_DIR))
+PLUGIN_DIR = Path(__file__).resolve().parents[1]
+if str(PLUGIN_DIR) not in sys.path:
+    sys.path.insert(0, str(PLUGIN_DIR))
 
-from search_variant_reasoner import SearchVariantReasoner
-from online_result_ranker import OnlineResultRanker
+from services.search_variant_reasoner import SearchVariantReasoner
+from services.online_result_ranker import OnlineResultRanker
 
 def test_cleanup_and_compound_split():
     result=SearchVariantReasoner().build({"identification":{"title_candidate":"NCISLA.S01E02.1080p.WEB-DL-GROUP","media_type":"series"},"file":{}})
@@ -28,4 +27,6 @@ def test_exact_alias_plus_type_is_probable():
     result=OnlineResultRanker().rank(query,providers)
     assert result["best_match"]["evidence_count"] >= 2
     assert result["decision"] in {"probable_match","strong_match"}
+
+
 

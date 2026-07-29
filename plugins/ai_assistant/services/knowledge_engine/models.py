@@ -18,6 +18,16 @@ class RelationType(StrEnum):
     ALTERNATE_TIMELINE = "alternate_timeline"
     CONTINUES_IN = "continues_in"
     STARTS_IN = "starts_in"
+    BACKDOOR_PILOT = "backdoor_pilot"
+    STARTS_IN_EPISODE = "starts_in_episode"
+    FIRST_APPEARANCE = "first_appearance"
+    SHARED_CHARACTER = "shared_character"
+    SHARED_LOCATION = "shared_location"
+    CROSSOVER_EVENT = "crossover_event"
+    EPISODE_OF = "episode_of"
+    SEASON_OF = "season_of"
+    ADAPTATION = "adaptation"
+    PART_OF = "part_of"
 
 
 class OrderType(StrEnum):
@@ -35,6 +45,7 @@ class KnowledgeEntity:
     external_ids: dict[str, str] = field(default_factory=dict)
     aliases: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+    sources: list[dict[str, Any]] = field(default_factory=list)
     id: str = field(default_factory=lambda: uuid4().hex)
 
     def as_dict(self) -> dict[str, Any]:
@@ -49,6 +60,7 @@ class KnowledgeRelation:
     label: str = ""
     confidence: float = 1.0
     metadata: dict[str, Any] = field(default_factory=dict)
+    sources: list[dict[str, Any]] = field(default_factory=list)
     id: str = field(default_factory=lambda: uuid4().hex)
 
     def as_dict(self) -> dict[str, Any]:

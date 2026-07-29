@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from services.multi_query_provider_runner import MultiQueryProviderRunner
+from services.query_plan import build_query_plan
 
 from services.search_variant_reasoner import SearchVariantReasoner
 from services.source_selection_policy import SourceSelectionPolicy
@@ -91,12 +92,10 @@ class SourceManager:
         summary = analysis.get("summary") or {}
         reasoning = self.query_reasoner.build(analysis)
 
-        return {
+        query = {
+            "schema_version": 4,
             "media_type": identification.get("media_type"),
-            "title": (
-                reasoning.get("primary_title")
-                or identification.get("title_candidate")
-            ),
+            "title": (reasoning.get("primary_title") or identification.get("title_candidate")),
             "search_variants": reasoning.get("variants") or [],
             "query_reasoning": reasoning,
             "year": identification.get("year"),
@@ -104,6 +103,8 @@ class SourceManager:
             "episodes": identification.get("episodes") or [],
             "duration_seconds": summary.get("duration_seconds"),
         }
+        query["query_plan"] = build_query_plan(query)
+        return query
 
     def _supports_query(
         self,
