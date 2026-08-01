@@ -1,4 +1,28 @@
-﻿# Changelog
+# Changelog
+
+## 4.5.2 – Wikipedia Chronology Title Boundary Fix
+
+- Behält mehrteilige Chronologietitel wie Blue Beetle vollständig bei.
+- Schneidet Wikipedia-Text gezielt vor dem aktuellen Haupttitel ab.
+- Verhindert fehlerhafte Knoten wie movie:blue.
+- Ergänzt Regressionstests für zwei- und dreiwortige Medientitel.
+## 4.5.1 – Wikipedia Chronology & Installment Phrase Fix
+
+- Erkennt Wikipedia-Chronologiepfeile wie Chronologie ← Blue Beetle.
+- Unterstützt Unicode- und ASCII-Pfeile.
+- Erkennt Formulierungen wie der 15. und letzte Film des DC Extended Universe.
+- Behält automatische Imports deaktiviert und alle Vorschläge bestätigungspflichtig.
+## 4.5.0 – Timeline Order Intelligence Bundle
+
+- Erkennt chronologisch vor und chronologisch nach.
+- Erkennt Veröffentlichungen vor und nach anderen Medien.
+- Erkennt explizite Vorgänger- und Nachfolgerangaben.
+- Extrahiert chronologische Reihenfolgelisten.
+- Extrahiert Veröffentlichungs- und Produktionsreihenfolgen.
+- Speichert Reihenfolgepositionen als bestätigungspflichtige Graph-Kanten.
+- Erkennt explizite Teilnummern innerhalb einer Reihe.
+- Integriert die Ergebnisse in Graph-Validator, Knowledge Graph, Reasoning Context und Scan-Ausgabe.
+- Automatischer Import bleibt deaktiviert.
 
 ## 4.4.2 – German Parallel Continuity Declension Fix
 

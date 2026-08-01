@@ -1,7 +1,7 @@
 {
   "id": "mediahub.ai_assistant",
   "name": "MediaHub KI-Assistent",
-  "version": "4.4.2",
+  "version": "4.5.2",
   "author": "Master0701",
   "description": "Lokaler MediaHub-KI-Assistent mit Semantic Identity Candidate Builder, Semantic Query Pipeline, Knowledge Graph, bestätigtem Lernen, Visual Intelligence, erklärbarer Decision Engine und stabilen Übergabe-APIs.",
   "type": "tool",
@@ -140,6 +140,7 @@
     "character_person_resolution",
     "character_relationship_engine",
     "chronological_order",
+    "chronological_predecessor_relations",
     "chronology_ordering",
     "complete_graph_validation_groups",
     "confirmed_fingerprint_learning",
@@ -195,6 +196,8 @@
     "explainable_execution_plan",
     "explainable_hint_quality",
     "explainable_relation_proposals",
+    "explicit_chronological_order",
+    "explicit_release_order",
     "explicit_single_installment_franchise",
     "family_relation_detection",
     "family_relationship_extraction",
@@ -243,6 +246,7 @@
     "identity_reference_repair",
     "input_quality_gate",
     "installment_of_relations",
+    "installment_position_detection",
     "intro_detection",
     "junior_suffix_event_support",
     "junior_suffix_identity_protection",
@@ -367,6 +371,7 @@
     "orchestrator_fingerprint_learning",
     "order_gap_detection",
     "order_supported_inference",
+    "ordered_media_lists",
     "outro_detection",
     "parallel_agent_preparation",
     "parallel_legacy_knowledge_database",
@@ -388,6 +393,7 @@
     "plot_section_event_isolation",
     "portrayed_by_relations",
     "predecessor_classification",
+    "predecessor_successor_relations",
     "prequel_relation_resolution",
     "primary_entity_type_detection",
     "privacy_safe_visual_preparation",
@@ -426,6 +432,7 @@
     "relationship_subject_parser_rewrite",
     "release_order",
     "release_ordering",
+    "release_predecessor_relations",
     "release_year_classification",
     "remake_relations",
     "rescue_and_kidnap_relations",
@@ -537,6 +544,8 @@
     "team_membership_relations",
     "technical_token_filtering",
     "timeline_membership",
+    "timeline_order_intelligence",
+    "wikipedia_chronology_arrow",
     "title_card_candidates",
     "toc_heading_avoidance",
     "tool_availability",
@@ -589,4 +598,3 @@
     }
   }
 }
-

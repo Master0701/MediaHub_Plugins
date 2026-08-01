@@ -43,6 +43,7 @@ from services.relationship_identity_map_builder import RelationshipIdentityMapBu
 from services.character_alias_identity_fusion import CharacterAliasIdentityFusion
 from services.franchise_collection_intelligence import FranchiseCollectionIntelligence
 from services.franchise_relation_intelligence import FranchiseRelationIntelligence
+from services.timeline_order_intelligence import TimelineOrderIntelligence
 from services.knowledge_engine.knowledge_graph_merge_validator import KnowledgeGraphMergeValidator
 from services.event_intelligence import EventIntelligence
 from services.knowledge_graph_builder import KnowledgeGraphBuilder
@@ -132,7 +133,7 @@ class WebFileDialogBridge(QObject):
 
 
 class MediaHubAIAssistantPlugin:
-    VERSION = "4.4.2"
+    VERSION = "4.5.2"
 
     def __init__(self, plugin_path: str | Path, mediahub_api: Any = None, **kwargs: Any):
         self.plugin_path = Path(plugin_path)
@@ -198,6 +199,7 @@ class MediaHubAIAssistantPlugin:
         self.event_intelligence = EventIntelligence()
         self.knowledge_graph_builder = KnowledgeGraphBuilder()
         self.universe_franchise_builder = UniverseFranchiseBuilder()
+        self.timeline_order_intelligence = TimelineOrderIntelligence()
         self.learning_status = LearningStatusService(self.knowledge_db_path)
 
         if acquire_shared_server and WebRuntimeSettingsStore:
@@ -1179,6 +1181,16 @@ class MediaHubAIAssistantPlugin:
             franchise_collection=franchise_collection,
         )
 
+        timeline_order_intelligence = (
+            self.timeline_order_intelligence.analyze(
+                main_node=main_graph_node,
+                text=str(scan.get("text_preview") or ""),
+                source=dict(source),
+                franchise_collection=franchise_collection,
+                franchise_relations=franchise_relations,
+            )
+        )
+
 
         graph_validation_groups = [
             group
@@ -1194,6 +1206,7 @@ class MediaHubAIAssistantPlugin:
                 universe_franchise_proposal,
                 franchise_collection,
                 franchise_relations,
+                timeline_order_intelligence,
             )
             if isinstance(group, dict)
         ]
@@ -1345,6 +1358,21 @@ class MediaHubAIAssistantPlugin:
                 graph_proposal.setdefault("edges", []).append(item)
                 edge_keys.add(key)
 
+        for item in timeline_order_intelligence.get("nodes") or []:
+            if item.get("key") not in node_keys:
+                graph_proposal.setdefault("nodes", []).append(item)
+                node_keys.add(item.get("key"))
+
+        for item in timeline_order_intelligence.get("edges") or []:
+            key = (
+                item.get("edge_type"),
+                item.get("source_node_key"),
+                item.get("target_node_key"),
+            )
+            if key not in edge_keys:
+                graph_proposal.setdefault("edges", []).append(item)
+                edge_keys.add(key)
+
 
         knowledge_graph = self.knowledge_graph_builder.build(
             node_groups=[
@@ -1377,6 +1405,10 @@ class MediaHubAIAssistantPlugin:
                     franchise_relations.get("nodes")
                     or []
                 ),
+                list(
+                    timeline_order_intelligence.get("nodes")
+                    or []
+                ),
             ],
             edge_groups=[
                 list(graph_proposal.get("edges") or []),
@@ -1406,6 +1438,10 @@ class MediaHubAIAssistantPlugin:
                 ),
                 list(
                     franchise_relations.get("edges")
+                    or []
+                ),
+                list(
+                    timeline_order_intelligence.get("edges")
                     or []
                 ),
             ],
@@ -1448,6 +1484,7 @@ class MediaHubAIAssistantPlugin:
         context.document["universe_franchise_proposal"] = universe_franchise_proposal
         context.document["franchise_collection"] = franchise_collection
         context.document["franchise_relations"] = franchise_relations
+        context.document["timeline_order_intelligence"] = timeline_order_intelligence
         context.document["graph_validation"] = graph_validation
         context.entities = list(knowledge.get("entity_proposals") or [])
         context.relations = list(knowledge.get("relation_proposals") or [])
@@ -1542,6 +1579,7 @@ class MediaHubAIAssistantPlugin:
             "universe_franchise_proposal": universe_franchise_proposal,
             "franchise_collection": franchise_collection,
             "franchise_relations": franchise_relations,
+            "timeline_order_intelligence": timeline_order_intelligence,
             "graph_validation": graph_validation,
             "reasoning_context": context.to_dict(),
         }
@@ -1571,6 +1609,7 @@ class MediaHubAIAssistantPlugin:
             "universe_franchise_proposal": universe_franchise_proposal,
             "franchise_collection": franchise_collection,
             "franchise_relations": franchise_relations,
+            "timeline_order_intelligence": timeline_order_intelligence,
             "graph_validation": graph_validation,
             "reasoning_context": context.to_dict(),
             "reasoning_context_path": str(context_path),

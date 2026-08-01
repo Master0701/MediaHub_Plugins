@@ -26,6 +26,7 @@ EXPECTED_GROUPS = {
     "universe_franchise_proposal",
     "franchise_collection",
     "franchise_relations",
+    "timeline_order_intelligence",
 }
 
 
