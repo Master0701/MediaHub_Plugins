@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import re
 from typing import Any
@@ -7,7 +7,7 @@ from typing import Any
 class FranchiseRelationIntelligence:
     """Erkennt Franchise-, Editions- und Kontinuitätsbeziehungen."""
 
-    STRATEGY = "franchise_relation_intelligence_v441"
+    STRATEGY = "franchise_relation_intelligence_v442"
 
     RELATION_PATTERNS = (
         (
@@ -88,7 +88,7 @@ class FranchiseRelationIntelligence:
         ("canon_status", r"\bkanon(?:isch)?\b", "canon", 0.90),
         ("canon_status", r"\bnon[- ]?canon\b|\bnicht[- ]kanonisch\b", "non_canon", 0.92),
         ("timeline", r"\balternative\s+zeitlinie\b", "alternate_timeline", 0.90),
-        ("timeline", r"\bparallel(?:e|es)?\s+(?:zeitlinie|universum)\b", "parallel_universe", 0.90),
+        ("timeline", r"\bparallel(?:e|en|er|es)?\s+(?:zeitlinie|universum)\b", "parallel_universe", 0.90),
         ("timeline", r"\bprime\s+timeline\b", "prime_timeline", 0.94),
         ("timeline", r"\bkelvin\s+timeline\b", "kelvin_timeline", 0.94),
     )
@@ -428,3 +428,4 @@ class FranchiseRelationIntelligence:
             "automatic_import": False,
             "requires_confirmation": True,
         }
+

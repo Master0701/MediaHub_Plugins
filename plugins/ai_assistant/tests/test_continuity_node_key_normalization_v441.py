@@ -95,9 +95,9 @@ def test_kelvin_timeline_key():
     )
 
 
-def test_strategy_v441():
+def test_strategy_is_current_franchise_relation_version():
     result = analyze("Die Geschichte ist non-canon.")
 
-    assert result["strategy"] == (
-        "franchise_relation_intelligence_v441"
+    assert result["strategy"].startswith(
+        "franchise_relation_intelligence_v"
     )

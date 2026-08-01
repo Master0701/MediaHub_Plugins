@@ -132,7 +132,7 @@ class WebFileDialogBridge(QObject):
 
 
 class MediaHubAIAssistantPlugin:
-    VERSION = "4.4.1"
+    VERSION = "4.4.2"
 
     def __init__(self, plugin_path: str | Path, mediahub_api: Any = None, **kwargs: Any):
         self.plugin_path = Path(plugin_path)
@@ -5643,3 +5643,4 @@ class AIAssistantWidget(QWidget):
 
 
 Plugin = MediaHubAIAssistantPlugin
+

@@ -1,5 +1,12 @@
-# Changelog
+﻿# Changelog
 
+## 4.4.2 – German Parallel Continuity Declension Fix
+
+- Ergänzt die deutschen Formen parallel, parallele, parallelen, paralleler und paralleles.
+- Behebt die fehlende Erkennung von „in einem parallelen Universum“.
+- Behält den normalisierten Knotenschlüssel 	imeline:parallel-universe.
+- Produktive Änderungen wurden als echter Diff gegen den GitHub-Branch work/ai-assistant-v4.4 erstellt.
+- Automatischer Import bleibt deaktiviert und alle Vorschläge bleiben bestätigungspflichtig.
 ## 4.4.1 – Continuity Node Key Normalization Fix
 
 - Behebt Unterstriche in Canon- und Timeline-Knotenschlüsseln.
@@ -1396,3 +1403,4 @@
 - Supervisor-Agent ergänzt, der Online- und In-Video-Tiefenanalyse anhand der lokalen Sicherheit plant.
 - In-Video-Agent als verbindliche Pipeline für OCR, Untertitel, Audio, Fingerprints und Schnittfassungserkennung angelegt.
 - Bestehende technische Analyse, Cache-Funktion, Desktop-Fenster und Plugin-Einstellungen bleiben erhalten.
+

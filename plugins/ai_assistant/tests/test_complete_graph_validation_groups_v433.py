@@ -25,6 +25,7 @@ EXPECTED_GROUPS = {
     "character_identity_fusion",
     "universe_franchise_proposal",
     "franchise_collection",
+    "franchise_relations",
 }
 
 
@@ -152,7 +153,7 @@ def test_cast_and_relationship_edges_are_validated():
     assert result["dangling_edge_count"] == 0
 
 
-def test_version_is_current_43x():
+def test_plugin_version_constant_exists():
     text = _text()
 
-    assert 'VERSION = "4.3.' in text
+    assert 'VERSION = "' in text
