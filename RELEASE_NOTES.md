@@ -18,7 +18,7 @@
 - Bearbeitung von Metadaten, NFO-Dateien und Medienbildern.
 - Integration als zusätzliche Oberfläche in WebRemote und Mobile Dashboard.
 
-## MediaHub KI-Assistent v2.1.9
+## MediaHub KI-Assistent v4.5.2
 
 - Mehrstufige Medienerkennung mit Supervisor-Agent und erklärbarer Decision Engine.
 - Semantic Query Pipeline mit intelligenter Suchvarianten-Erzeugung, Qualitätsprüfung und Quellenbewertung.
