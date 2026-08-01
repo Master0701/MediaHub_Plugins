@@ -4,10 +4,10 @@
     {
       "id": "mediahub.ai_assistant",
       "name": "MediaHub KI-Assistent",
-      "version": "2.1.9",
+      "version": "4.4.2",
       "category": "KI und Analyse",
-      "description": "Lokaler MediaHub-KI-Assistent mit Semantic Query Pipeline, Knowledge Graph, bestätigtem Lernen, mehrstufiger In-Video- und Visual-Intelligence-Analyse, erklärbarer Decision Engine, Qualitätsbewertung und stabilen Übergabe-APIs.",
-      "package": "MediaHub_KI-Assistent_v2.1.9.mhplugin",
+      "description": "Lokaler MediaHub-KI-Assistent mit Semantic Identity Candidate Builder, Semantic Query Pipeline, Knowledge Graph, bestätigtem Lernen, Visual Intelligence, erklärbarer Decision Engine und stabilen Übergabe-APIs.",
+      "package": "MediaHub_KI-Assistent_v4.4.2.mhplugin",
       "minimum_mediahub_version": "1.0.17",
       "network_scope": "internet_optional",
       "minimum_mediahub": "1.0.17"
