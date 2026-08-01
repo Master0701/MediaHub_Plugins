@@ -15,6 +15,7 @@ def normalize_text(value: str) -> str:
     value = re.sub(r"[^a-z0-9]+", " ", value)
     return re.sub(r"\s+", " ", value).strip()
 from services.fingerprint_store import FingerprintReferenceStore
+from services.visual_knowledge import VisualKnowledgeStore
 
 
 def _walk_dicts(value: Any, path: str = "analysis"):
@@ -93,6 +94,7 @@ class KnowledgeLearningService:
     def __init__(self, database_path: Path):
         self.database_path = Path(database_path)
         self.fingerprints = FingerprintReferenceStore(self.database_path)
+        self.visual_knowledge = VisualKnowledgeStore(self.database_path)
         self.ensure_schema()
 
     def _connect(self) -> sqlite3.Connection:
@@ -213,8 +215,27 @@ class KnowledgeLearningService:
                 },
                 source_path or None,
             )
+        visual_record = None
+        visual = analysis.get('visual_intelligence')
+        if not isinstance(visual, dict):
+            visual = (analysis.get('in_video') or {}).get('visual_intelligence')
+        if not isinstance(visual, dict):
+            for nested_path, nested in _walk_dicts(analysis):
+                candidate = nested.get('visual_intelligence')
+                if isinstance(candidate, dict):
+                    visual = candidate
+                    break
+        if isinstance(visual, dict):
+            visual_record = self.visual_knowledge.register_confirmed(
+                identity_id,
+                visual,
+                source=source,
+                confidence=confidence,
+                confirmed_by_user=True,
+            )
+
         return {
-            'schema_version':2,
+            'schema_version':3,
             'status':'confirmed_and_learned',
             'identity_id':identity_id,
             'identity':{
@@ -229,6 +250,9 @@ class KnowledgeLearningService:
             'fingerprint':fp_record,
             'fingerprint_detected':bool(fingerprint),
             'fingerprint_source':fingerprint_source,
+            'visual_knowledge':visual_record,
+            'visual_knowledge_detected':bool(visual_record and visual_record.get('persisted')),
+            'database_path':str(self.database_path.resolve()),
             'conflicts':conflicts,
             'source':source,
             'confidence':confidence,

@@ -12,6 +12,14 @@ from services.decision_planner import DecisionPlanner
 from services.filename_identifier import FilenameIdentifier
 from services.fingerprint_store import FingerprintReferenceStore
 from services.integration_api import AssistantIntegrationAPI
+from services.semantic_identity import (
+    IdentityCandidateBuilder,
+    IdentityEvidenceCollector,
+    IdentityContradictionDetector,
+    IdentityConfidenceCalculator,
+    IdentityDecisionExplainer,
+    SemanticIdentityEngine,
+)
 from services.quality_engine import QualityEngine, QualityProfileStore
 from services.source_manager import SourceManager
 from services.tool_resolver import ToolResolver
@@ -40,6 +48,12 @@ class MediaAnalyzer:
         self.quality_engine = QualityEngine(QualityProfileStore(knowledge_database_path))
         self.fingerprint_store = FingerprintReferenceStore(knowledge_database_path)
         self.decision_engine = DecisionEngine(self.fingerprint_store)
+        self.identity_candidate_builder = IdentityCandidateBuilder(knowledge_database_path)
+        self.identity_evidence_collector = IdentityEvidenceCollector()
+        self.identity_contradiction_detector = IdentityContradictionDetector()
+        self.identity_confidence_calculator = IdentityConfidenceCalculator()
+        self.identity_decision_explainer = IdentityDecisionExplainer()
+        self.semantic_identity_engine = SemanticIdentityEngine()
         self.online_agent = OnlineAgent(self.source_manager) if self.source_manager is not None else None
         self.cache = (
             AnalysisCache(knowledge_database_path)
@@ -145,6 +159,27 @@ class MediaAnalyzer:
         result["in_video"] = self.in_video_agent.run(result, in_video_required)
         self._append_in_video_evidence(result)
         result["quality"] = self.quality_engine.evaluate(result)
+        semantic_candidates = self.identity_candidate_builder.build(result)
+        semantic_evidence = self.identity_evidence_collector.collect(
+            semantic_candidates,
+            result,
+        )
+        semantic_contradictions = self.identity_contradiction_detector.detect(
+            semantic_evidence,
+            result,
+        )
+        semantic_confidence = self.identity_confidence_calculator.calculate(
+            semantic_contradictions,
+            result,
+        )
+        semantic_explanation = self.identity_decision_explainer.explain(
+            semantic_confidence,
+            result,
+        )
+        result["semantic_identity"] = self.semantic_identity_engine.finalize(
+            semantic_explanation,
+            result,
+        )
         result["decision"] = self.decision_engine.evaluate(result)
         result["supervisor"] = self.supervisor.evaluate(result)
         result["change_plan"] = self.decision_planner.build(result)
@@ -183,6 +218,12 @@ class MediaAnalyzer:
                 or []
             )
         )
+        previous_semantic_status = str(
+            (result.get("semantic_identity") or {}).get("final_status")
+            or "unknown"
+        )
+        if previous_semantic_status != "confirmed":
+            should_run_online = True
         has_sources = bool(
             (result.get("source_plan") or {}).get(
                 "candidate_sources"
@@ -244,6 +285,27 @@ class MediaAnalyzer:
             }
 
         result["supervisor"] = self.supervisor.evaluate(result)
+        semantic_candidates = self.identity_candidate_builder.build(result)
+        semantic_evidence = self.identity_evidence_collector.collect(
+            semantic_candidates,
+            result,
+        )
+        semantic_contradictions = self.identity_contradiction_detector.detect(
+            semantic_evidence,
+            result,
+        )
+        semantic_confidence = self.identity_confidence_calculator.calculate(
+            semantic_contradictions,
+            result,
+        )
+        semantic_explanation = self.identity_decision_explainer.explain(
+            semantic_confidence,
+            result,
+        )
+        result["semantic_identity"] = self.semantic_identity_engine.finalize(
+            semantic_explanation,
+            result,
+        )
         result["decision"] = self.decision_engine.evaluate(result)
         result["supervisor"] = self.supervisor.evaluate(result)
         result["change_plan"] = self.decision_planner.build(result)

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
@@ -13,16 +13,18 @@ from services.knowledge_engine.models import (
 )
 from services.knowledge_engine.store import KnowledgeStore
 from services.knowledge_engine.graph_reasoner import GraphReasoner
+from services.knowledge_engine.builder import KnowledgeGraphBuilder
 
 
 class KnowledgeEngine:
     """Kompatible Fassade für alten Wissensindex und neuen Wissensgraph."""
 
-    API_VERSION = 4
+    API_VERSION = 5
 
     def __init__(self, base_dir: Path):
         self.store = KnowledgeStore(base_dir)
         self.reasoner = GraphReasoner(self.store)
+        self.builder = KnowledgeGraphBuilder(self)
 
     def ensure_schema(self) -> None:
         """Legt die persistente Graph-Struktur sicher und zerstörungsfrei an."""
@@ -214,6 +216,53 @@ class KnowledgeEngine:
         return {"query": str(query_or_id), "root": direct, **graph, "orders": orders}
 
 
+    def upsert_identity(
+        self,
+        identity: dict[str, Any],
+        *,
+        source: str = "confirmed_identity",
+        confirmed_by_user: bool = False,
+    ) -> dict[str, Any]:
+        return self.builder.upsert_identity(
+            identity,
+            source=source,
+            confirmed_by_user=confirmed_by_user,
+        )
+
+    def connect_confirmed(
+        self,
+        source_id: str,
+        target_id: str,
+        relation_type: str,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        return self.builder.connect_confirmed(
+            source_id,
+            target_id,
+            relation_type,
+            **kwargs,
+        )
+
+    def create_or_get_order(
+        self,
+        name: str,
+        order_type: str,
+        entity_ids: list[str],
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        return self.builder.create_or_get_order(
+            name,
+            order_type,
+            entity_ids,
+            **kwargs,
+        )
+
+    def propose_relationships(
+        self,
+        identities: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        return self.builder.propose_relationships(identities)
+
     def infer_relations(self, query_or_id: str | None = None, *, max_depth: int = 8) -> dict[str, Any]:
         """Erzeugt erklärbare Vorschläge, ohne sie automatisch zu speichern."""
         return self.reasoner.analyze(query_or_id, max_depth=max_depth)
@@ -287,6 +336,10 @@ class KnowledgeEngine:
                 "resolve_franchise",
                 "export_snapshot",
                 "infer_relations",
+                "upsert_identity",
+                "connect_confirmed",
+                "create_or_get_order",
+                "propose_relationships",
             ],
         }
 
@@ -399,3 +452,4 @@ class KnowledgeEngine:
             "orders": created_orders,
             "stats": self.stats(),
         }
+

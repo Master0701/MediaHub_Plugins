@@ -7,27 +7,35 @@ from typing import Any
 class AssistantIntegrationAPI:
     """Stabile, schreibgeschützte Übergabe an Metadata Editor und Universal Renamer."""
 
-    SCHEMA_VERSION = 2
+    SCHEMA_VERSION = 3
 
     @classmethod
     def build(cls, analysis: dict[str, Any]) -> dict[str, Any]:
         identification = analysis.get("identification") or {}
         decision = analysis.get("decision") or {}
         quality = analysis.get("quality") or {}
+        semantic = analysis.get("semantic_identity") or {}
+        semantic_identity = semantic.get("identity") or {}
         return {
             "schema_version": cls.SCHEMA_VERSION,
             "producer": "mediahub.ai_assistant",
-            "producer_version": "2.0.0",
+            "producer_version": "2.2.9",
             "source": deepcopy(analysis.get("file") or {}),
             "identity": {
-                "media_type": decision.get("media_type") or identification.get("media_type"),
-                "title": decision.get("title_candidate") or identification.get("title_candidate"),
-                "year": identification.get("year"),
-                "season": decision.get("season"),
-                "episodes": deepcopy(decision.get("episodes") or []),
-                "edition": identification.get("edition_candidate"),
-                "confidence": decision.get("confidence"),
-                "status": decision.get("status"),
+                "media_type": semantic_identity.get("media_type") or decision.get("media_type") or identification.get("media_type"),
+                "title": semantic_identity.get("title") or decision.get("title_candidate") or identification.get("title_candidate"),
+                "year": semantic_identity.get("year") or identification.get("year"),
+                "season": semantic_identity.get("season") or decision.get("season"),
+                "episodes": (
+                    [semantic_identity.get("episode")]
+                    if semantic_identity.get("episode") is not None
+                    else deepcopy(decision.get("episodes") or [])
+                ),
+                "edition": semantic_identity.get("edition") or identification.get("edition_candidate"),
+                "confidence": semantic.get("confidence") if semantic else decision.get("confidence"),
+                "status": semantic.get("final_status") if semantic else decision.get("status"),
+                "needs_user_confirmation": semantic.get("needs_user_confirmation"),
+                "allow_learning": semantic.get("allow_learning"),
             },
             "explanation": deepcopy(decision.get("explanation") or {}),
             "quality": {
