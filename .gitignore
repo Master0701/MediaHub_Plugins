@@ -53,3 +53,19 @@ backup_*
 *.old
 *.orig
 *.tmp
+
+# Temporary patch, backup and release helper files
+MediaHub_*_Patch*.zip
+MediaHub_*_Patch*.zip.sha256
+*_Patch*.zip
+*_Patch*.zip.sha256
+_ai_v*/
+_patch_backup_*/
+_release_preflight_patch*/
+_release_cleanup_*/
+patch/
+patch_files/
+
+# Lokale Release-Cleanup-Pakete
+MediaHub_*_Release_Cleanup*.zip
+MediaHub_*_Release_Cleanup*.zip.sha256

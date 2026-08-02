@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import json
 import re
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -297,72 +298,139 @@ def verify_artifacts(plugins: list[Plugin]) -> None:
         )
 
 
-def _untracked_files() -> list[Path]:
-    output = git(
-        "ls-files",
-        "--others",
-        "--exclude-standard",
-        capture=True,
+TEMP_FILE_PATTERNS = (
+    re.compile(
+        r"^MediaHub_.*_Patch.*\.(?:zip|7z|rar)(?:\.sha256)?$",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"^.*_Patch.*\.(?:zip|7z|rar)(?:\.sha256)?$",
+        re.IGNORECASE,
+    ),
+    re.compile(r"^release_report.*\.(?:json|txt)$", re.IGNORECASE),
+)
+
+TEMP_DIR_PATTERNS = (
+    re.compile(r"^_ai_v.*$", re.IGNORECASE),
+    re.compile(r"^_patch_backup_.*$", re.IGNORECASE),
+    re.compile(r"^_release_preflight_patch.*$", re.IGNORECASE),
+    re.compile(r"^_release_cleanup_.*$", re.IGNORECASE),
+    re.compile(r"^patch$", re.IGNORECASE),
+    re.compile(r"^patch_files$", re.IGNORECASE),
+    re.compile(r"^backup_.*$", re.IGNORECASE),
+)
+
+
+def _matches_any(name: str, patterns: tuple[re.Pattern[str], ...]) -> bool:
+    return any(pattern.match(name) for pattern in patterns)
+
+
+def _tracked_paths() -> list[str]:
+    output = git("ls-files", "-z", capture=True)
+    return [
+        item.replace("\\", "/")
+        for item in output.split("\0")
+        if item.strip()
+    ]
+
+
+def _remove_temp_path(path: Path, *, tracked: bool) -> None:
+    relative = path.relative_to(ROOT).as_posix()
+
+    if tracked:
+        run(
+            "git",
+            "rm",
+            "-r",
+            "-f",
+            "--ignore-unmatch",
+            "--",
+            relative,
+        )
+        return
+
+    if path.is_dir():
+        shutil.rmtree(path)
+    elif path.exists():
+        path.unlink()
+
+
+def _commit_cleanup_if_needed() -> bool:
+    result = subprocess.run(
+        ["git", "diff", "--cached", "--quiet"],
+        cwd=ROOT,
     )
-    return [ROOT / line for line in output.splitlines() if line.strip()]
+
+    if result.returncode == 0:
+        return False
+    if result.returncode != 1:
+        raise RuntimeError("Could not inspect staged cleanup changes.")
+
+    run(
+        "git",
+        "commit",
+        "-m",
+        "Remove temporary release and patch files",
+    )
+    return True
 
 
 def cleanup_preflight(*, assume_yes: bool = False) -> None:
-    """Bereinigt lokale Hilfsdateien vor der Git- und Release-PrÃ¼fung."""
-    untracked = _untracked_files()
+    del assume_yes
 
-    patch_patterns = (
-        re.compile(r"^MediaHub_.*_Patch\.zip(?:\.sha256)?$", re.IGNORECASE),
-        re.compile(r"^.*_Patch\.zip(?:\.sha256)?$", re.IGNORECASE),
-    )
-    backup_patterns = (
-        re.compile(r"^backup_.*", re.IGNORECASE),
-        re.compile(r"^.*_backup(?:\..*)?$", re.IGNORECASE),
-        re.compile(r"^.*\.(?:bak|old|orig|tmp)$", re.IGNORECASE),
-        re.compile(r"^Kopie von .*", re.IGNORECASE),
-    )
+    tracked_paths = _tracked_paths()
+    tracked_top_levels = {
+        item.split("/", 1)[0]
+        for item in tracked_paths
+    }
 
-    patch_files: list[Path] = []
-    backup_files: list[Path] = []
+    candidates: dict[str, bool] = {}
 
-    for path in untracked:
+    for name in tracked_top_levels:
+        path = ROOT / name
+
+        if path.is_file() and _matches_any(name, TEMP_FILE_PATTERNS):
+            candidates[name] = True
+        elif path.is_dir() and _matches_any(name, TEMP_DIR_PATTERNS):
+            candidates[name] = True
+
+    for path in ROOT.iterdir():
         name = path.name
-        if any(pattern.match(name) for pattern in patch_patterns):
-            patch_files.append(path)
-        elif any(pattern.match(name) for pattern in backup_patterns):
-            backup_files.append(path)
 
-    for path in patch_files:
-        if path.exists():
-            path.unlink()
-            print(f"TemporÃ¤re Patch-Datei entfernt: {path.relative_to(ROOT)}")
+        if path.is_file() and _matches_any(name, TEMP_FILE_PATTERNS):
+            candidates.setdefault(name, name in tracked_top_levels)
+        elif path.is_dir() and _matches_any(name, TEMP_DIR_PATTERNS):
+            candidates.setdefault(name, name in tracked_top_levels)
 
-    if backup_files:
-        print("\nGefundene lokale Backup-Dateien:")
-        for path in backup_files:
-            print(f"  - {path.relative_to(ROOT)}")
+    removed_files = 0
+    removed_dirs = 0
 
-        if assume_yes:
-            choice = "L"
+    for name, tracked in sorted(candidates.items()):
+        path = ROOT / name
+
+        if path.is_dir():
+            removed_dirs += 1
         else:
-            choice = input(
-                "Backup-Dateien [L]Ã¶schen, [I]gnorieren oder [A]bbrechen? "
-            ).strip().upper() or "A"
+            removed_files += 1
 
-        if choice == "L":
-            for path in backup_files:
-                if path.exists():
-                    path.unlink()
-                    print(f"Backup-Datei entfernt: {path.relative_to(ROOT)}")
-        elif choice == "I":
-            print("Backup-Dateien werden fÃ¼r diesen Lauf ignoriert.")
-        else:
-            raise RuntimeError("Release wegen lokaler Backup-Dateien abgebrochen.")
+        state = "tracked" if tracked else "local"
+        print(f"[CLEAN] Removing {state} release helper: {name}")
+        _remove_temp_path(path, tracked=tracked)
 
-    print("\n===== Release-Preflight =====")
-    print(f"âœ“ TemporÃ¤re Patch-Dateien entfernt: {len(patch_files)}")
-    print(f"âœ“ Backup-Dateien gefunden: {len(backup_files)}")
-    print("âœ“ Verfolgte Git-Ã„nderungen werden weiterhin streng geprÃ¼ft")
+    cleanup_commit = _commit_cleanup_if_needed()
+
+    print("")
+    print("===== Release Preflight =====")
+    print(f"[OK] Temporary patch/archive files removed: {removed_files}")
+    print(f"[OK] Temporary work/backup folders removed: {removed_dirs}")
+
+    if cleanup_commit:
+        print("[OK] Cleanup changes committed automatically")
+    else:
+        print("[OK] No tracked helper files required cleanup")
+
+    print("[OK] Strict Git worktree check follows")
+
 
 def ensure_clean_before_start() -> None:
     status = git("status", "--porcelain", capture=True)
@@ -496,5 +564,3 @@ if __name__ == "__main__":
     except Exception as exc:
         print(f"\nFEHLER: {exc}", file=sys.stderr)
         raise SystemExit(1)
-
-
