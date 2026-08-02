@@ -48,6 +48,7 @@ from services.franchise_connection_intelligence import FranchiseConnectionIntell
 from services.universe_intelligence import UniverseIntelligence
 from services.character_role_intelligence import CharacterRoleIntelligence
 from services.character_relationship_intelligence import CharacterRelationshipIntelligence
+from services.entity_intelligence import EntityIntelligence
 from services.knowledge_engine.knowledge_graph_merge_validator import KnowledgeGraphMergeValidator
 from services.event_intelligence import EventIntelligence
 from services.knowledge_graph_builder import KnowledgeGraphBuilder
@@ -137,7 +138,7 @@ class WebFileDialogBridge(QObject):
 
 
 class MediaHubAIAssistantPlugin:
-    VERSION = "4.6.0"
+    VERSION = "5.0.0"
 
     def __init__(self, plugin_path: str | Path, mediahub_api: Any = None, **kwargs: Any):
         self.plugin_path = Path(plugin_path)
@@ -208,6 +209,7 @@ class MediaHubAIAssistantPlugin:
         self.universe_intelligence = UniverseIntelligence()
         self.character_role_intelligence = CharacterRoleIntelligence()
         self.character_relationship_intelligence = CharacterRelationshipIntelligence()
+        self.entity_intelligence = EntityIntelligence()
         self.learning_status = LearningStatusService(self.knowledge_db_path)
 
         if acquire_shared_server and WebRuntimeSettingsStore:
@@ -1230,6 +1232,12 @@ class MediaHubAIAssistantPlugin:
             source=dict(source),
             character_roles=character_role_intelligence,
         )
+        entity_intelligence = self.entity_intelligence.analyze(
+            main_node=main_graph_node,
+            text=str(scan.get("text_preview") or ""),
+            source=dict(source),
+            character_roles=character_role_intelligence,
+        )
 
 
         graph_validation_groups = [
@@ -1251,6 +1259,7 @@ class MediaHubAIAssistantPlugin:
                 universe_intelligence,
                 character_role_intelligence,
                 character_relationship_intelligence,
+                entity_intelligence,
             )
             if isinstance(group, dict)
         ]
@@ -1462,6 +1471,21 @@ class MediaHubAIAssistantPlugin:
                 edge_keys.add(key)
 
 
+        for item in entity_intelligence.get("nodes") or []:
+            if item.get("key") not in node_keys:
+                graph_proposal.setdefault("nodes", []).append(item)
+                node_keys.add(item.get("key"))
+
+        for item in entity_intelligence.get("edges") or []:
+            key = (
+                item.get("edge_type"),
+                item.get("source_node_key"),
+                item.get("target_node_key"),
+            )
+            if key not in edge_keys:
+                graph_proposal.setdefault("edges", []).append(item)
+                edge_keys.add(key)
+
         knowledge_graph = self.knowledge_graph_builder.build(
             node_groups=[
                 list(graph_proposal.get("nodes") or []),
@@ -1501,6 +1525,7 @@ class MediaHubAIAssistantPlugin:
                 list(universe_intelligence.get("nodes") or []),
                 list(character_role_intelligence.get("nodes") or []),
                 list(character_relationship_intelligence.get("nodes") or []),
+                list(entity_intelligence.get("nodes") or []),
             ],
             edge_groups=[
                 list(graph_proposal.get("edges") or []),
@@ -1540,6 +1565,7 @@ class MediaHubAIAssistantPlugin:
                 list(universe_intelligence.get("edges") or []),
                 list(character_role_intelligence.get("edges") or []),
                 list(character_relationship_intelligence.get("edges") or []),
+                list(entity_intelligence.get("edges") or []),
             ],
             source=dict(source),
             knowledge_result=knowledge,
@@ -1585,6 +1611,7 @@ class MediaHubAIAssistantPlugin:
         context.document["universe_intelligence"] = universe_intelligence
         context.document["character_role_intelligence"] = character_role_intelligence
         context.document["character_relationship_intelligence"] = character_relationship_intelligence
+        context.document["entity_intelligence"] = entity_intelligence
         context.document["graph_validation"] = graph_validation
         context.entities = list(knowledge.get("entity_proposals") or [])
         context.relations = list(knowledge.get("relation_proposals") or [])
@@ -1684,6 +1711,7 @@ class MediaHubAIAssistantPlugin:
             "universe_intelligence": universe_intelligence,
             "character_role_intelligence": character_role_intelligence,
             "character_relationship_intelligence": character_relationship_intelligence,
+            "entity_intelligence": entity_intelligence,
             "graph_validation": graph_validation,
             "reasoning_context": context.to_dict(),
         }
@@ -1718,6 +1746,7 @@ class MediaHubAIAssistantPlugin:
             "universe_intelligence": universe_intelligence,
             "character_role_intelligence": character_role_intelligence,
             "character_relationship_intelligence": character_relationship_intelligence,
+            "entity_intelligence": entity_intelligence,
             "graph_validation": graph_validation,
             "reasoning_context": context.to_dict(),
             "reasoning_context_path": str(context_path),

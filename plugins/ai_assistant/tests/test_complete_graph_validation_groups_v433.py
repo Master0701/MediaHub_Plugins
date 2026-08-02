@@ -27,6 +27,7 @@ EXPECTED_GROUPS = {
     "universe_intelligence",
     "character_role_intelligence",
     "character_relationship_intelligence",
+    "entity_intelligence",
     "franchise_collection",
     "franchise_relations",
     "timeline_order_intelligence",
