@@ -1,10 +1,10 @@
-# MediaHub Plugins
+﻿# MediaHub Plugins
 
 Offizielles Erweiterungs-Repository für MediaHub.
 
 ## Aktueller Stand
 
-- **MediaHub KI-Assistent 4.5.2**
+- **MediaHub KI-Assistent 4.9.0**
 - **MediaHub Hörbuchverwaltung 0.0.0**
 - **MediaHub Listen & Export 0.0.0**
 - **MediaHub Metadata Editor 0.3.6**
@@ -32,7 +32,7 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - Bearbeitung von Metadaten, NFO-Dateien und Medienbildern.
 - Integration als zusätzliche Oberfläche in WebRemote und Mobile Dashboard.
 
-## MediaHub KI-Assistent v4.5.2
+## MediaHub KI-Assistent v4.9.0
 
 - Mehrstufige Medienerkennung mit Supervisor-Agent und erklärbarer Decision Engine.
 - Semantic Query Pipeline mit intelligenter Suchvarianten-Erzeugung, Qualitätsprüfung und Quellenbewertung.
@@ -61,7 +61,7 @@ Offizielles Erweiterungs-Repository für MediaHub.
 
 ## Kompatibilität
 
-- **MediaHub KI-Assistent 4.5.2** – mindestens MediaHub v1.0.17
+- **MediaHub KI-Assistent 4.9.0** – mindestens MediaHub v1.0.17
 - **MediaHub Hörbuchverwaltung 0.0.0** – mindestens MediaHub v1.0.17
 - **MediaHub Listen & Export 0.0.0** – mindestens MediaHub v1.0.17
 - **MediaHub Metadata Editor 0.3.6** – mindestens MediaHub v1.0.5
@@ -119,3 +119,5 @@ python prepare_plugin_release.py
 Dieser Befehl übernimmt `RELEASE_NOTES_PENDING.md` in die verfolgte Datei
 `RELEASE_NOTES.md` und aktualisiert diese README. Die temporäre Pending-Datei
 bleibt lokal und wird nicht in Git aufgenommen.
+
+
