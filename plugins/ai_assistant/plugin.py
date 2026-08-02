@@ -57,6 +57,7 @@ from services.temporal_causal_intelligence import TemporalCausalIntelligence
 from services.narrative_intelligence import NarrativeIntelligence
 from services.narrative_extractor import NarrativeExtractor
 from services.story_arc_linker import StoryArcLinker
+from services.story_timeline_builder import StoryTimelineBuilder
 from services.knowledge_engine.knowledge_graph_merge_validator import KnowledgeGraphMergeValidator
 from services.event_intelligence import EventIntelligence
 from services.knowledge_graph_builder import KnowledgeGraphBuilder
@@ -146,7 +147,7 @@ class WebFileDialogBridge(QObject):
 
 
 class MediaHubAIAssistantPlugin:
-    VERSION = "5.7.0"
+    VERSION = "5.8.0"
 
     def __init__(self, plugin_path: str | Path, mediahub_api: Any = None, **kwargs: Any):
         self.plugin_path = Path(plugin_path)
@@ -226,6 +227,7 @@ class MediaHubAIAssistantPlugin:
         self.narrative_intelligence = NarrativeIntelligence()
         self.narrative_extractor = NarrativeExtractor()
         self.story_arc_linker = StoryArcLinker()
+        self.story_timeline_builder = StoryTimelineBuilder()
         self.last_pipeline_debug_snapshot = None
         self.learning_status = LearningStatusService(self.knowledge_db_path)
 
@@ -1686,6 +1688,12 @@ class MediaHubAIAssistantPlugin:
             source=dict(source),
         )
 
+        story_timeline = self.story_timeline_builder.build(
+            narrative_extraction=narrative_extraction,
+            story_arc_linking=story_arc_linking,
+            source=dict(source),
+        )
+
         pipeline_debug = self.pipeline_debug_monitor.build(
             modules={
                 "scan": scan,
@@ -1719,6 +1727,7 @@ class MediaHubAIAssistantPlugin:
                 "narrative_extraction": narrative_extraction,
                 "narrative_intelligence": narrative_intelligence,
                 "story_arc_linking": story_arc_linking,
+                "story_timeline": story_timeline,
                 "graph_validation": graph_validation,
             },
             source=dict(source),
@@ -1765,6 +1774,7 @@ class MediaHubAIAssistantPlugin:
         context.document["narrative_extraction"] = narrative_extraction
         context.document["narrative_intelligence"] = narrative_intelligence
         context.document["story_arc_linking"] = story_arc_linking
+        context.document["story_timeline"] = story_timeline
         context.document["pipeline_debug"] = pipeline_debug
         context.document["graph_validation"] = graph_validation
         context.entities = list(knowledge.get("entity_proposals") or [])
@@ -1873,6 +1883,7 @@ class MediaHubAIAssistantPlugin:
             "narrative_extraction": narrative_extraction,
             "narrative_intelligence": narrative_intelligence,
             "story_arc_linking": story_arc_linking,
+            "story_timeline": story_timeline,
             "pipeline_debug": pipeline_debug,
             "graph_validation": graph_validation,
             "reasoning_context": context.to_dict(),
@@ -1916,6 +1927,7 @@ class MediaHubAIAssistantPlugin:
             "narrative_extraction": narrative_extraction,
             "narrative_intelligence": narrative_intelligence,
             "story_arc_linking": story_arc_linking,
+            "story_timeline": story_timeline,
             "pipeline_debug": pipeline_debug,
             "graph_validation": graph_validation,
             "reasoning_context": context.to_dict(),

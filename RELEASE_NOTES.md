@@ -1,6 +1,6 @@
 # MediaHub Plugins v0.5.5 – vollständiges Release
 
-## MediaHub KI-Assistent v5.7.0
+## MediaHub KI-Assistent v5.8.0
 
 - Mehrstufige Medienerkennung mit Supervisor-Agent und erklärbarer Decision Engine.
 - Semantic Query Pipeline mit intelligenter Suchvarianten-Erzeugung, Qualitätsprüfung und Quellenbewertung.
