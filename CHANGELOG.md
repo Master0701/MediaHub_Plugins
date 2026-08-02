@@ -1,8 +1,8 @@
-# Changelog
+﻿# Changelog
 
 ## v0.5.5
 
-### MediaHub KI-Assistent v2.1.9
+### MediaHub KI-Assistent v4.9.0
 
 - Semantic Query Pipeline, Input Quality Gate und sichere Online-Evidenzbewertung ergänzt.
 - Persistenten Knowledge Graph, Graph-Reasoning und bestätigungsgebundenes Lernen integriert.
@@ -28,3 +28,4 @@
 - SHA-256-Prüfsummen und internes Dateimanifest.
 - GitHub-Release-Workflow ohne Setup- oder Portable-Paket.
 - Kompatibilitätsbasis für MediaHub 1.0.3.
+

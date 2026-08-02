@@ -12,7 +12,7 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - **MediaHub Smart Renamer 0.0.0**
 - **MediaHub WebRemote 0.13.7**
 
-# MediaHub Plugins v0.5.5 – vollständiges Release
+﻿# MediaHub Plugins v0.5.5 – vollständiges Release
 
 ## MediaHub WebRemote v0.13.7
 
@@ -32,7 +32,7 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - Bearbeitung von Metadaten, NFO-Dateien und Medienbildern.
 - Integration als zusätzliche Oberfläche in WebRemote und Mobile Dashboard.
 
-## MediaHub KI-Assistent v2.1.9
+## MediaHub KI-Assistent v4.9.0
 
 - Mehrstufige Medienerkennung mit Supervisor-Agent und erklärbarer Decision Engine.
 - Semantic Query Pipeline mit intelligenter Suchvarianten-Erzeugung, Qualitätsprüfung und Quellenbewertung.

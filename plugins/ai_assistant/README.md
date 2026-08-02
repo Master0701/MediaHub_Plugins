@@ -1,4 +1,4 @@
-# MediaHub KI-Assistent v2.1.9
+﻿# MediaHub KI-Assistent v4.9.0
 
 Der MediaHub KI-Assistent ist die zentrale lokale Orchestrierungs- und Entscheidungsinstanz für Medienanalyse, Wissensabgleich, Qualitätsbewertung und die Zusammenarbeit mit weiteren MediaHub-Plugins.
 
@@ -90,7 +90,8 @@ python build_plugins.py ai_assistant --clean
 
 ## Kompatibilität
 
-- Plugin-Version: **2.1.9**
+- Plugin-Version: **4.9.0**
 - Mindestens erforderlich: **MediaHub v1.0.17**
 - Internetzugriff: optional
 - Lokale Medien- und Wissensdaten werden nicht automatisch extern übertragen.
+
