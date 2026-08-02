@@ -447,7 +447,6 @@ ALLOWED_RELEASE_FILES = {
     "README.md",
     "CHANGELOG.md",
     "RELEASE_NOTES.md",
-    "RELEASE_NOTES_PENDING.md",
     "THIRD_PARTY_LICENSES.md",
     "build_plugins.py",
     "prepare_plugin_release.py",
