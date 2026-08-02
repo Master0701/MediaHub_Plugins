@@ -1,4 +1,4 @@
-name: Plugin Release
+﻿name: Plugin Release
 
 on:
   push:
@@ -202,19 +202,18 @@ jobs:
               );
             }
 
-            const manifests = fs
-              .readdirSync("plugins", { withFileTypes: true })
-              .filter((entry) => entry.isDirectory())
-              .map((entry) => path.join("plugins", entry.name, "plugin.json"))
-              .filter((manifestPath) => fs.existsSync(manifestPath))
-              .map((manifestPath) => JSON.parse(fs.readFileSync(manifestPath, "utf8")));
+            const catalog = JSON.parse(
+              fs.readFileSync("catalog/plugins.json", "utf8")
+            );
 
             const expected = new Set();
-            for (const manifest of manifests) {
-              const packageName = String(manifest.package_name || manifest.name)
-                .replaceAll(" ", "")
-                .replace(/[^A-Za-z0-9ÄÖÜäöüß_-]+/g, "");
-              const base = `MediaHub_${packageName}_v${manifest.version}.mhplugin`;
+            for (const product of catalog.products || []) {
+              const base = String(product.package || "");
+              if (!base.endsWith(".mhplugin")) {
+                throw new Error(
+                  `Ungültiger Paketname im Katalog für ${product.name}: ${base}`
+                );
+              }
               expected.add(base);
               expected.add(`${base}.sha256`);
             }
@@ -242,3 +241,5 @@ jobs:
             core.info(
               `Release ${tag} wurde mit ${assets.length} aktuellen Assets geprüft.`
             );
+
+
