@@ -48,6 +48,7 @@ class PipelineDebugMonitor:
         "character_evolution",
         "character_memory",
         "canonical_conflicts",
+        "cross_franchise",
         "graph_validation",
     )
 

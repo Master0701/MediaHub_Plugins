@@ -67,6 +67,7 @@ from services.character_timeline_engine import CharacterTimelineEngine
 from services.character_evolution_engine import CharacterEvolutionEngine
 from services.character_memory_engine import CharacterMemoryEngine
 from services.canonical_conflict_resolver import CanonicalConflictResolver
+from services.cross_franchise_resolver import CrossFranchiseResolver
 from services.knowledge_engine.knowledge_graph_merge_validator import KnowledgeGraphMergeValidator
 from services.event_intelligence import EventIntelligence
 from services.knowledge_graph_builder import KnowledgeGraphBuilder
@@ -156,7 +157,7 @@ class WebFileDialogBridge(QObject):
 
 
 class MediaHubAIAssistantPlugin:
-    VERSION = "6.6.0"
+    VERSION = "6.7.0"
 
     def __init__(self, plugin_path: str | Path, mediahub_api: Any = None, **kwargs: Any):
         self.plugin_path = Path(plugin_path)
@@ -245,6 +246,7 @@ class MediaHubAIAssistantPlugin:
         self.character_evolution_engine = CharacterEvolutionEngine()
         self.character_memory_engine = CharacterMemoryEngine()
         self.canonical_conflict_resolver = CanonicalConflictResolver()
+        self.cross_franchise_resolver = CrossFranchiseResolver()
         self.last_pipeline_debug_snapshot = None
         self.learning_status = LearningStatusService(self.knowledge_db_path)
 
@@ -1787,6 +1789,15 @@ class MediaHubAIAssistantPlugin:
             source=dict(source),
         )
 
+        cross_franchise = self.cross_franchise_resolver.build(
+            franchise_knowledge_graph=franchise_knowledge_graph,
+            entity_resolution_graph=entity_resolution_graph,
+            canonical_conflicts=canonical_conflicts,
+            story_arc_linking=story_arc_linking,
+            semantic_result=semantic,
+            source=dict(source),
+        )
+
         pipeline_debug = self.pipeline_debug_monitor.build(
             modules={
                 "scan": scan,
@@ -1829,6 +1840,7 @@ class MediaHubAIAssistantPlugin:
                 "character_evolution": character_evolution,
                 "character_memory": character_memory,
                 "canonical_conflicts": canonical_conflicts,
+                "cross_franchise": cross_franchise,
                 "graph_validation": graph_validation,
             },
             source=dict(source),
@@ -1884,6 +1896,7 @@ class MediaHubAIAssistantPlugin:
         context.document["character_evolution"] = character_evolution
         context.document["character_memory"] = character_memory
         context.document["canonical_conflicts"] = canonical_conflicts
+        context.document["cross_franchise"] = cross_franchise
         context.document["pipeline_debug"] = pipeline_debug
         context.document["graph_validation"] = graph_validation
         context.entities = list(knowledge.get("entity_proposals") or [])
@@ -2001,6 +2014,7 @@ class MediaHubAIAssistantPlugin:
             "character_evolution": character_evolution,
             "character_memory": character_memory,
             "canonical_conflicts": canonical_conflicts,
+            "cross_franchise": cross_franchise,
             "pipeline_debug": pipeline_debug,
             "graph_validation": graph_validation,
             "reasoning_context": context.to_dict(),
@@ -2053,6 +2067,7 @@ class MediaHubAIAssistantPlugin:
             "character_evolution": character_evolution,
             "character_memory": character_memory,
             "canonical_conflicts": canonical_conflicts,
+            "cross_franchise": cross_franchise,
             "pipeline_debug": pipeline_debug,
             "graph_validation": graph_validation,
             "reasoning_context": context.to_dict(),
