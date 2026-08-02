@@ -50,6 +50,8 @@ from services.character_role_intelligence import CharacterRoleIntelligence
 from services.character_relationship_intelligence import CharacterRelationshipIntelligence
 from services.entity_intelligence import EntityIntelligence
 from services.reasoning_intelligence import ReasoningIntelligence
+from services.multi_source_fusion import MultiSourceFusion
+from services.pipeline_debug_monitor import PipelineDebugMonitor
 from services.knowledge_engine.knowledge_graph_merge_validator import KnowledgeGraphMergeValidator
 from services.event_intelligence import EventIntelligence
 from services.knowledge_graph_builder import KnowledgeGraphBuilder
@@ -139,7 +141,7 @@ class WebFileDialogBridge(QObject):
 
 
 class MediaHubAIAssistantPlugin:
-    VERSION = "5.1.0"
+    VERSION = "5.2.1"
 
     def __init__(self, plugin_path: str | Path, mediahub_api: Any = None, **kwargs: Any):
         self.plugin_path = Path(plugin_path)
@@ -212,6 +214,9 @@ class MediaHubAIAssistantPlugin:
         self.character_relationship_intelligence = CharacterRelationshipIntelligence()
         self.entity_intelligence = EntityIntelligence()
         self.reasoning_intelligence = ReasoningIntelligence()
+        self.multi_source_fusion = MultiSourceFusion()
+        self.pipeline_debug_monitor = PipelineDebugMonitor()
+        self.last_pipeline_debug_snapshot = None
         self.learning_status = LearningStatusService(self.knowledge_db_path)
 
         if acquire_shared_server and WebRuntimeSettingsStore:
@@ -566,6 +571,14 @@ class MediaHubAIAssistantPlugin:
 
     def get_knowledge_graph_status(self):
         return self.knowledge_engine.status()
+
+    def get_pipeline_debug_snapshot(self):
+        return dict(self.last_pipeline_debug_snapshot or {})
+
+    def get_pipeline_debug_text(self):
+        return self.pipeline_debug_monitor.format_text(
+            self.last_pipeline_debug_snapshot
+        )
 
     def create_knowledge_graph_entity(self, identity):
         result = self.knowledge_engine.upsert_identity(
@@ -1599,6 +1612,53 @@ class MediaHubAIAssistantPlugin:
             source=dict(source),
             graph_validation=graph_validation,
         )
+        multi_source_fusion = self.multi_source_fusion.fuse(
+            sources={
+                "semantic_engine": dict(semantic),
+                "knowledge_extractor": dict(knowledge),
+                "relationship_intelligence": dict(relationship_intelligence),
+                "event_intelligence": dict(event_intelligence),
+                "universe_intelligence": dict(universe_intelligence),
+                "character_role_intelligence": dict(character_role_intelligence),
+                "character_relationship_intelligence": dict(character_relationship_intelligence),
+                "entity_intelligence": dict(entity_intelligence),
+                "reasoning_intelligence": dict(reasoning_intelligence),
+            },
+        )
+
+        pipeline_debug = self.pipeline_debug_monitor.build(
+            modules={
+                "scan": scan,
+                "structured_preview": structured,
+                "parser_result": parsed,
+                "semantic_result": semantic,
+                "classified_fields": classified_fields,
+                "graph_proposal": graph_proposal,
+                "graph_merge_preview": graph_merge_preview,
+                "relationship_proposal": relationship_proposal,
+                "cast_resolution": cast_resolution,
+                "character_intelligence": character_intelligence,
+                "relationship_intelligence": relationship_intelligence,
+                "character_relationships": character_relationships,
+                "character_identity_fusion": character_identity_fusion,
+                "event_intelligence": event_intelligence,
+                "knowledge_graph": knowledge_graph,
+                "universe_franchise_proposal": universe_franchise_proposal,
+                "franchise_collection": franchise_collection,
+                "franchise_relations": franchise_relations,
+                "timeline_order_intelligence": timeline_order_intelligence,
+                "franchise_connection_intelligence": franchise_connection_intelligence,
+                "universe_intelligence": universe_intelligence,
+                "character_role_intelligence": character_role_intelligence,
+                "character_relationship_intelligence": character_relationship_intelligence,
+                "entity_intelligence": entity_intelligence,
+                "reasoning_intelligence": reasoning_intelligence,
+                "multi_source_fusion": multi_source_fusion,
+                "graph_validation": graph_validation,
+            },
+            source=dict(source),
+        )
+        self.last_pipeline_debug_snapshot = pipeline_debug
 
         context = ReasoningContext.create(dict(source))
         context.document = {
@@ -1634,6 +1694,8 @@ class MediaHubAIAssistantPlugin:
         context.document["character_relationship_intelligence"] = character_relationship_intelligence
         context.document["entity_intelligence"] = entity_intelligence
         context.document["reasoning_intelligence"] = reasoning_intelligence
+        context.document["multi_source_fusion"] = multi_source_fusion
+        context.document["pipeline_debug"] = pipeline_debug
         context.document["graph_validation"] = graph_validation
         context.entities = list(knowledge.get("entity_proposals") or [])
         context.relations = list(knowledge.get("relation_proposals") or [])
@@ -1735,6 +1797,8 @@ class MediaHubAIAssistantPlugin:
             "character_relationship_intelligence": character_relationship_intelligence,
             "entity_intelligence": entity_intelligence,
             "reasoning_intelligence": reasoning_intelligence,
+            "multi_source_fusion": multi_source_fusion,
+            "pipeline_debug": pipeline_debug,
             "graph_validation": graph_validation,
             "reasoning_context": context.to_dict(),
         }
@@ -1771,6 +1835,8 @@ class MediaHubAIAssistantPlugin:
             "character_relationship_intelligence": character_relationship_intelligence,
             "entity_intelligence": entity_intelligence,
             "reasoning_intelligence": reasoning_intelligence,
+            "multi_source_fusion": multi_source_fusion,
+            "pipeline_debug": pipeline_debug,
             "graph_validation": graph_validation,
             "reasoning_context": context.to_dict(),
             "reasoning_context_path": str(context_path),

@@ -477,7 +477,7 @@ def is_allowed_release_path(path: str) -> bool:
 
 def worktree_entries() -> list[tuple[str, str]]:
     output = git("status", "--porcelain=v1", "-z", capture=True)
-    parts = output.split("\\0")
+    parts = output.split("\0")
     entries: list[tuple[str, str]] = []
     index = 0
 
@@ -548,7 +548,7 @@ def stage_release_changes() -> list[str]:
     )
     paths = [
         normalize_status_path(item)
-        for item in staged.split("\\0")
+        for item in staged.split("\0")
         if item.strip()
     ]
 
