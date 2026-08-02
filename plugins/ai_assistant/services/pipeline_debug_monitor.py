@@ -40,6 +40,7 @@ class PipelineDebugMonitor:
         "narrative_intelligence",
         "story_arc_linking",
         "story_timeline",
+        "franchise_knowledge_graph",
         "graph_validation",
     )
 
