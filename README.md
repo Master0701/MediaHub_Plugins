@@ -12,7 +12,7 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - **MediaHub Smart Renamer 0.0.0**
 - **MediaHub WebRemote 0.13.7**
 
-# MediaHub Plugins v0.5.6 – vollständiges Release
+# MediaHub Plugins v0.5.5 – vollständiges Release
 
 ## MediaHub KI-Assistent v5.7.0
 

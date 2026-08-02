@@ -605,7 +605,25 @@ def update_tag(tag: str) -> None:
     run("git", "push", "origin", tag)
 
 
+
+
+# MediaHub AI archive cleanup v2
+def cleanup_mediahub_ai_archives() -> int:
+    removed = 0
+    for archive in sorted(ROOT.glob("MediaHub_AI_*.zip")):
+        if not archive.is_file():
+            continue
+        print(
+            "[CLEAN] Removing local release helper: "
+            + archive.name
+        )
+        archive.unlink()
+        removed += 1
+    return removed
+
+
 def main() -> int:
+    cleanup_mediahub_ai_archives()
     parser = argparse.ArgumentParser(
         description="Universeller MediaHub-Plugin-Release-Assistent v3"
     )
