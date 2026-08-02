@@ -1,4 +1,4 @@
-import ast
+﻿import ast
 import sys
 from pathlib import Path
 
@@ -25,6 +25,7 @@ EXPECTED_GROUPS = {
     "character_identity_fusion",
     "universe_franchise_proposal",
     "universe_intelligence",
+    "character_role_intelligence",
     "franchise_collection",
     "franchise_relations",
     "timeline_order_intelligence",
@@ -160,3 +161,6 @@ def test_plugin_version_constant_exists():
     text = _text()
 
     assert 'VERSION = "' in text
+
+
+
