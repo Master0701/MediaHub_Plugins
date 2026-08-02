@@ -35,6 +35,7 @@ class PipelineDebugMonitor:
         "reasoning_intelligence",
         "multi_source_fusion",
         "semantic_reasoning",
+        "temporal_causal_intelligence",
         "graph_validation",
     )
 
