@@ -55,6 +55,7 @@ from services.pipeline_debug_monitor import PipelineDebugMonitor
 from services.semantic_reasoning_engine import SemanticReasoningEngine
 from services.temporal_causal_intelligence import TemporalCausalIntelligence
 from services.narrative_intelligence import NarrativeIntelligence
+from services.narrative_extractor import NarrativeExtractor
 from services.knowledge_engine.knowledge_graph_merge_validator import KnowledgeGraphMergeValidator
 from services.event_intelligence import EventIntelligence
 from services.knowledge_graph_builder import KnowledgeGraphBuilder
@@ -144,7 +145,7 @@ class WebFileDialogBridge(QObject):
 
 
 class MediaHubAIAssistantPlugin:
-    VERSION = "5.5.0"
+    VERSION = "5.6.0"
 
     def __init__(self, plugin_path: str | Path, mediahub_api: Any = None, **kwargs: Any):
         self.plugin_path = Path(plugin_path)
@@ -222,6 +223,7 @@ class MediaHubAIAssistantPlugin:
         self.semantic_reasoning_engine = SemanticReasoningEngine()
         self.temporal_causal_intelligence = TemporalCausalIntelligence()
         self.narrative_intelligence = NarrativeIntelligence()
+        self.narrative_extractor = NarrativeExtractor()
         self.last_pipeline_debug_snapshot = None
         self.learning_status = LearningStatusService(self.knowledge_db_path)
 
@@ -1632,6 +1634,14 @@ class MediaHubAIAssistantPlugin:
             },
         )
 
+        narrative_extraction = self.narrative_extractor.extract(
+            text=str(scan.get("text_preview") or ""),
+            source=dict(source),
+            primary_title=str(
+                semantic.get("primary_title") or ""
+            ),
+        )
+
         semantic_reasoning = self.semantic_reasoning_engine.analyze(
             fusion_result=multi_source_fusion,
             source=dict(source),
@@ -1643,8 +1653,26 @@ class MediaHubAIAssistantPlugin:
             source=dict(source),
         )
 
+        narrative_fusion_input = dict(multi_source_fusion)
+        narrative_fused_fields = dict(
+            narrative_fusion_input.get("fused_fields") or {}
+        )
+        for index, relation in enumerate(
+            narrative_extraction.get("relations") or []
+        ):
+            narrative_fused_fields[
+                f"narrative_extraction:{index}"
+            ] = {
+                "value": dict(relation),
+                "confidence": relation.get("confidence", 0.5),
+                "sources": ["narrative_extractor_v560"],
+            }
+        narrative_fusion_input["fused_fields"] = (
+            narrative_fused_fields
+        )
+
         narrative_intelligence = self.narrative_intelligence.analyze(
-            fusion_result=multi_source_fusion,
+            fusion_result=narrative_fusion_input,
             semantic_reasoning=semantic_reasoning,
             temporal_causal_intelligence=temporal_causal_intelligence,
             source=dict(source),
@@ -1680,6 +1708,7 @@ class MediaHubAIAssistantPlugin:
                 "multi_source_fusion": multi_source_fusion,
                 "semantic_reasoning": semantic_reasoning,
                 "temporal_causal_intelligence": temporal_causal_intelligence,
+                "narrative_extraction": narrative_extraction,
                 "narrative_intelligence": narrative_intelligence,
                 "graph_validation": graph_validation,
             },
@@ -1724,6 +1753,7 @@ class MediaHubAIAssistantPlugin:
         context.document["multi_source_fusion"] = multi_source_fusion
         context.document["semantic_reasoning"] = semantic_reasoning
         context.document["temporal_causal_intelligence"] = temporal_causal_intelligence
+        context.document["narrative_extraction"] = narrative_extraction
         context.document["narrative_intelligence"] = narrative_intelligence
         context.document["pipeline_debug"] = pipeline_debug
         context.document["graph_validation"] = graph_validation
@@ -1830,6 +1860,7 @@ class MediaHubAIAssistantPlugin:
             "multi_source_fusion": multi_source_fusion,
             "semantic_reasoning": semantic_reasoning,
             "temporal_causal_intelligence": temporal_causal_intelligence,
+            "narrative_extraction": narrative_extraction,
             "narrative_intelligence": narrative_intelligence,
             "pipeline_debug": pipeline_debug,
             "graph_validation": graph_validation,
@@ -1871,6 +1902,7 @@ class MediaHubAIAssistantPlugin:
             "multi_source_fusion": multi_source_fusion,
             "semantic_reasoning": semantic_reasoning,
             "temporal_causal_intelligence": temporal_causal_intelligence,
+            "narrative_extraction": narrative_extraction,
             "narrative_intelligence": narrative_intelligence,
             "pipeline_debug": pipeline_debug,
             "graph_validation": graph_validation,
