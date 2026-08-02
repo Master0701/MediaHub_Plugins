@@ -50,6 +50,7 @@ class PipelineDebugMonitor:
         "canonical_conflicts",
         "cross_franchise",
         "canonical_decisions",
+        "global_knowledge",
         "graph_validation",
     )
 
