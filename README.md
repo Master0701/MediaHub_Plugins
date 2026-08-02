@@ -4,7 +4,7 @@ Offizielles Erweiterungs-Repository für MediaHub.
 
 ## Aktueller Stand
 
-- **MediaHub KI-Assistent 7.0.3**
+- **MediaHub KI-Assistent 7.0.4**
 - **MediaHub Hörbuchverwaltung 0.0.0**
 - **MediaHub Listen & Export 0.0.0**
 - **MediaHub Metadata Editor 0.3.6**
@@ -14,7 +14,7 @@ Offizielles Erweiterungs-Repository für MediaHub.
 
 # MediaHub Plugins v0.5.6 – vollständiges Release
 
-## MediaHub KI-Assistent v7.0.3
+## MediaHub KI-Assistent v7.0.4
 
 - Mehrstufige Medienerkennung mit Supervisor-Agent und erklärbarer Decision Engine.
 - Semantic Query Pipeline mit intelligenter Suchvarianten-Erzeugung, Qualitätsprüfung und Quellenbewertung.
@@ -61,7 +61,7 @@ Offizielles Erweiterungs-Repository für MediaHub.
 
 ## Kompatibilität
 
-- **MediaHub KI-Assistent 7.0.3** – mindestens MediaHub v1.0.17
+- **MediaHub KI-Assistent 7.0.4** – mindestens MediaHub v1.0.17
 - **MediaHub Hörbuchverwaltung 0.0.0** – mindestens MediaHub v1.0.17
 - **MediaHub Listen & Export 0.0.0** – mindestens MediaHub v1.0.17
 - **MediaHub Metadata Editor 0.3.6** – mindestens MediaHub v1.0.5

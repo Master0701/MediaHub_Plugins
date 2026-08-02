@@ -73,6 +73,7 @@ from services.global_knowledge_fusion import GlobalKnowledgeFusion
 from services.ai_architecture_validator import AIArchitectureValidator
 from services.knowledge_graph_validator import KnowledgeGraphValidator
 from services.missing_entity_resolver import MissingEntityResolver
+from services.relationship_consistency_checker import RelationshipConsistencyChecker
 from services.knowledge_engine.knowledge_graph_merge_validator import KnowledgeGraphMergeValidator
 from services.event_intelligence import EventIntelligence
 from services.knowledge_graph_builder import KnowledgeGraphBuilder
@@ -162,7 +163,7 @@ class WebFileDialogBridge(QObject):
 
 
 class MediaHubAIAssistantPlugin:
-    VERSION = "7.0.3"
+    VERSION = "7.0.4"
 
     def __init__(self, plugin_path: str | Path, mediahub_api: Any = None, **kwargs: Any):
         self.plugin_path = Path(plugin_path)
@@ -257,6 +258,7 @@ class MediaHubAIAssistantPlugin:
         self.ai_architecture_validator = AIArchitectureValidator()
         self.knowledge_graph_validator = KnowledgeGraphValidator()
         self.missing_entity_resolver = MissingEntityResolver()
+        self.relationship_consistency_checker = RelationshipConsistencyChecker()
         self.last_pipeline_debug_snapshot = None
         self.learning_status = LearningStatusService(self.knowledge_db_path)
 
@@ -1866,6 +1868,13 @@ class MediaHubAIAssistantPlugin:
             source=dict(source),
         )
 
+        relationship_consistency = self.relationship_consistency_checker.build(
+            global_knowledge=global_knowledge,
+            knowledge_graph_validation=knowledge_graph_validation,
+            missing_entity_resolution=missing_entity_resolution,
+            source=dict(source),
+        )
+
         architecture_validation = self.ai_architecture_validator.build(
             pipeline_document={
                 "semantic_result": semantic,
@@ -1881,6 +1890,7 @@ class MediaHubAIAssistantPlugin:
                 "global_knowledge": global_knowledge,
                 "knowledge_graph_validation": knowledge_graph_validation,
                 "missing_entity_resolution": missing_entity_resolution,
+                "relationship_consistency": relationship_consistency,
                 "architecture_validation": architecture_validation,
                 "graph_validation": graph_validation,
                 "pipeline_debug": {},
@@ -1957,6 +1967,7 @@ class MediaHubAIAssistantPlugin:
                 "global_knowledge": global_knowledge,
                 "knowledge_graph_validation": knowledge_graph_validation,
                 "missing_entity_resolution": missing_entity_resolution,
+                "relationship_consistency": relationship_consistency,
                 "architecture_validation": architecture_validation,
                 "graph_validation": graph_validation,
             },
@@ -2018,6 +2029,7 @@ class MediaHubAIAssistantPlugin:
         context.document["global_knowledge"] = global_knowledge
         context.document["knowledge_graph_validation"] = knowledge_graph_validation
         context.document["missing_entity_resolution"] = missing_entity_resolution
+        context.document["relationship_consistency"] = relationship_consistency
         context.document["architecture_validation"] = architecture_validation
         context.document["pipeline_debug"] = pipeline_debug
         context.document["graph_validation"] = graph_validation
