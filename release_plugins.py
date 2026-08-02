@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import argparse
 import hashlib
@@ -51,7 +51,7 @@ def run(*args: str, capture: bool = False) -> str:
         errors="replace",
         capture_output=capture,
     )
-    return result.stdout.strip() if capture else ""
+    return result.stdout.rstrip("\r\n") if capture else ""
 
 
 def git(*args: str, capture: bool = False) -> str:
@@ -428,3 +428,4 @@ if __name__ == "__main__":
     except Exception as exc:
         print(f"\nFEHLER: {exc}", file=sys.stderr)
         raise SystemExit(1)
+
