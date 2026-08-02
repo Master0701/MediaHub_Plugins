@@ -52,6 +52,7 @@ class PipelineDebugMonitor:
         "canonical_decisions",
         "global_knowledge",
         "knowledge_graph_validation",
+        "missing_entity_resolution",
         "architecture_validation",
         "graph_validation",
     )
