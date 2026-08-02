@@ -52,6 +52,7 @@ from services.entity_intelligence import EntityIntelligence
 from services.reasoning_intelligence import ReasoningIntelligence
 from services.multi_source_fusion import MultiSourceFusion
 from services.pipeline_debug_monitor import PipelineDebugMonitor
+from services.semantic_reasoning_engine import SemanticReasoningEngine
 from services.knowledge_engine.knowledge_graph_merge_validator import KnowledgeGraphMergeValidator
 from services.event_intelligence import EventIntelligence
 from services.knowledge_graph_builder import KnowledgeGraphBuilder
@@ -141,7 +142,7 @@ class WebFileDialogBridge(QObject):
 
 
 class MediaHubAIAssistantPlugin:
-    VERSION = "5.2.1"
+    VERSION = "5.3.0"
 
     def __init__(self, plugin_path: str | Path, mediahub_api: Any = None, **kwargs: Any):
         self.plugin_path = Path(plugin_path)
@@ -216,6 +217,7 @@ class MediaHubAIAssistantPlugin:
         self.reasoning_intelligence = ReasoningIntelligence()
         self.multi_source_fusion = MultiSourceFusion()
         self.pipeline_debug_monitor = PipelineDebugMonitor()
+        self.semantic_reasoning_engine = SemanticReasoningEngine()
         self.last_pipeline_debug_snapshot = None
         self.learning_status = LearningStatusService(self.knowledge_db_path)
 
@@ -1626,6 +1628,11 @@ class MediaHubAIAssistantPlugin:
             },
         )
 
+        semantic_reasoning = self.semantic_reasoning_engine.analyze(
+            fusion_result=multi_source_fusion,
+            source=dict(source),
+        )
+
         pipeline_debug = self.pipeline_debug_monitor.build(
             modules={
                 "scan": scan,
@@ -1654,6 +1661,7 @@ class MediaHubAIAssistantPlugin:
                 "entity_intelligence": entity_intelligence,
                 "reasoning_intelligence": reasoning_intelligence,
                 "multi_source_fusion": multi_source_fusion,
+                "semantic_reasoning": semantic_reasoning,
                 "graph_validation": graph_validation,
             },
             source=dict(source),
@@ -1695,6 +1703,7 @@ class MediaHubAIAssistantPlugin:
         context.document["entity_intelligence"] = entity_intelligence
         context.document["reasoning_intelligence"] = reasoning_intelligence
         context.document["multi_source_fusion"] = multi_source_fusion
+        context.document["semantic_reasoning"] = semantic_reasoning
         context.document["pipeline_debug"] = pipeline_debug
         context.document["graph_validation"] = graph_validation
         context.entities = list(knowledge.get("entity_proposals") or [])
@@ -1798,6 +1807,7 @@ class MediaHubAIAssistantPlugin:
             "entity_intelligence": entity_intelligence,
             "reasoning_intelligence": reasoning_intelligence,
             "multi_source_fusion": multi_source_fusion,
+            "semantic_reasoning": semantic_reasoning,
             "pipeline_debug": pipeline_debug,
             "graph_validation": graph_validation,
             "reasoning_context": context.to_dict(),
@@ -1836,6 +1846,7 @@ class MediaHubAIAssistantPlugin:
             "entity_intelligence": entity_intelligence,
             "reasoning_intelligence": reasoning_intelligence,
             "multi_source_fusion": multi_source_fusion,
+            "semantic_reasoning": semantic_reasoning,
             "pipeline_debug": pipeline_debug,
             "graph_validation": graph_validation,
             "reasoning_context": context.to_dict(),
