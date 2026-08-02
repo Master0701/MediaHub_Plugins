@@ -63,6 +63,7 @@ from services.character_relationship_graph import CharacterRelationshipGraph
 from services.character_entity_filter import CharacterEntityFilter
 from services.entity_resolution_graph import EntityResolutionGraph
 from services.relationship_confidence_engine import RelationshipConfidenceEngine
+from services.character_timeline_engine import CharacterTimelineEngine
 from services.knowledge_engine.knowledge_graph_merge_validator import KnowledgeGraphMergeValidator
 from services.event_intelligence import EventIntelligence
 from services.knowledge_graph_builder import KnowledgeGraphBuilder
@@ -152,7 +153,7 @@ class WebFileDialogBridge(QObject):
 
 
 class MediaHubAIAssistantPlugin:
-    VERSION = "6.2.0"
+    VERSION = "6.3.0"
 
     def __init__(self, plugin_path: str | Path, mediahub_api: Any = None, **kwargs: Any):
         self.plugin_path = Path(plugin_path)
@@ -237,6 +238,7 @@ class MediaHubAIAssistantPlugin:
         self.character_relationship_graph = CharacterRelationshipGraph()
         self.entity_resolution_graph = EntityResolutionGraph()
         self.relationship_confidence_engine = RelationshipConfidenceEngine()
+        self.character_timeline_engine = CharacterTimelineEngine()
         self.last_pipeline_debug_snapshot = None
         self.learning_status = LearningStatusService(self.knowledge_db_path)
 
@@ -1743,6 +1745,15 @@ class MediaHubAIAssistantPlugin:
             source=dict(source),
         )
 
+        character_timeline = self.character_timeline_engine.build(
+            character_relationship_graph=character_relationship_graph,
+            story_timeline=story_timeline,
+            relationship_confidence=relationship_confidence,
+            narrative_intelligence=narrative_intelligence,
+            event_intelligence=event_intelligence,
+            source=dict(source),
+        )
+
         pipeline_debug = self.pipeline_debug_monitor.build(
             modules={
                 "scan": scan,
@@ -1781,6 +1792,7 @@ class MediaHubAIAssistantPlugin:
                 "character_relationship_graph": character_relationship_graph,
                 "entity_resolution_graph": entity_resolution_graph,
                 "relationship_confidence": relationship_confidence,
+                "character_timeline": character_timeline,
                 "graph_validation": graph_validation,
             },
             source=dict(source),
@@ -1832,6 +1844,7 @@ class MediaHubAIAssistantPlugin:
         context.document["character_relationship_graph"] = character_relationship_graph
         context.document["entity_resolution_graph"] = entity_resolution_graph
         context.document["relationship_confidence"] = relationship_confidence
+        context.document["character_timeline"] = character_timeline
         context.document["pipeline_debug"] = pipeline_debug
         context.document["graph_validation"] = graph_validation
         context.entities = list(knowledge.get("entity_proposals") or [])
@@ -1945,6 +1958,7 @@ class MediaHubAIAssistantPlugin:
             "character_relationship_graph": character_relationship_graph,
             "entity_resolution_graph": entity_resolution_graph,
             "relationship_confidence": relationship_confidence,
+            "character_timeline": character_timeline,
             "pipeline_debug": pipeline_debug,
             "graph_validation": graph_validation,
             "reasoning_context": context.to_dict(),
@@ -1993,6 +2007,7 @@ class MediaHubAIAssistantPlugin:
             "character_relationship_graph": character_relationship_graph,
             "entity_resolution_graph": entity_resolution_graph,
             "relationship_confidence": relationship_confidence,
+            "character_timeline": character_timeline,
             "pipeline_debug": pipeline_debug,
             "graph_validation": graph_validation,
             "reasoning_context": context.to_dict(),
