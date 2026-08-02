@@ -59,6 +59,7 @@ from services.narrative_extractor import NarrativeExtractor
 from services.story_arc_linker import StoryArcLinker
 from services.story_timeline_builder import StoryTimelineBuilder
 from services.franchise_knowledge_graph import FranchiseKnowledgeGraph
+from services.character_relationship_graph import CharacterRelationshipGraph
 from services.knowledge_engine.knowledge_graph_merge_validator import KnowledgeGraphMergeValidator
 from services.event_intelligence import EventIntelligence
 from services.knowledge_graph_builder import KnowledgeGraphBuilder
@@ -148,7 +149,7 @@ class WebFileDialogBridge(QObject):
 
 
 class MediaHubAIAssistantPlugin:
-    VERSION = "5.9.0"
+    VERSION = "6.0.0"
 
     def __init__(self, plugin_path: str | Path, mediahub_api: Any = None, **kwargs: Any):
         self.plugin_path = Path(plugin_path)
@@ -230,6 +231,7 @@ class MediaHubAIAssistantPlugin:
         self.story_arc_linker = StoryArcLinker()
         self.story_timeline_builder = StoryTimelineBuilder()
         self.franchise_knowledge_graph = FranchiseKnowledgeGraph()
+        self.character_relationship_graph = CharacterRelationshipGraph()
         self.last_pipeline_debug_snapshot = None
         self.learning_status = LearningStatusService(self.knowledge_db_path)
 
@@ -1706,6 +1708,14 @@ class MediaHubAIAssistantPlugin:
             source=dict(source),
         )
 
+        character_relationship_graph = self.character_relationship_graph.build(
+            relationship_intelligence=relationship_intelligence,
+            character_relationship_intelligence=character_relationship_intelligence,
+            character_relationship_engine=character_relationships,
+            franchise_knowledge_graph=franchise_knowledge_graph,
+            source=dict(source),
+        )
+
         pipeline_debug = self.pipeline_debug_monitor.build(
             modules={
                 "scan": scan,
@@ -1741,6 +1751,7 @@ class MediaHubAIAssistantPlugin:
                 "story_arc_linking": story_arc_linking,
                 "story_timeline": story_timeline,
                 "franchise_knowledge_graph": franchise_knowledge_graph,
+                "character_relationship_graph": character_relationship_graph,
                 "graph_validation": graph_validation,
             },
             source=dict(source),
@@ -1789,6 +1800,7 @@ class MediaHubAIAssistantPlugin:
         context.document["story_arc_linking"] = story_arc_linking
         context.document["story_timeline"] = story_timeline
         context.document["franchise_knowledge_graph"] = franchise_knowledge_graph
+        context.document["character_relationship_graph"] = character_relationship_graph
         context.document["pipeline_debug"] = pipeline_debug
         context.document["graph_validation"] = graph_validation
         context.entities = list(knowledge.get("entity_proposals") or [])
@@ -1899,6 +1911,7 @@ class MediaHubAIAssistantPlugin:
             "story_arc_linking": story_arc_linking,
             "story_timeline": story_timeline,
             "franchise_knowledge_graph": franchise_knowledge_graph,
+            "character_relationship_graph": character_relationship_graph,
             "pipeline_debug": pipeline_debug,
             "graph_validation": graph_validation,
             "reasoning_context": context.to_dict(),
@@ -1944,6 +1957,7 @@ class MediaHubAIAssistantPlugin:
             "story_arc_linking": story_arc_linking,
             "story_timeline": story_timeline,
             "franchise_knowledge_graph": franchise_knowledge_graph,
+            "character_relationship_graph": character_relationship_graph,
             "pipeline_debug": pipeline_debug,
             "graph_validation": graph_validation,
             "reasoning_context": context.to_dict(),
