@@ -70,6 +70,7 @@ from services.canonical_conflict_resolver import CanonicalConflictResolver
 from services.cross_franchise_resolver import CrossFranchiseResolver
 from services.canonical_decision_engine import CanonicalDecisionEngine
 from services.global_knowledge_fusion import GlobalKnowledgeFusion
+from services.ai_architecture_validator import AIArchitectureValidator
 from services.knowledge_engine.knowledge_graph_merge_validator import KnowledgeGraphMergeValidator
 from services.event_intelligence import EventIntelligence
 from services.knowledge_graph_builder import KnowledgeGraphBuilder
@@ -159,7 +160,7 @@ class WebFileDialogBridge(QObject):
 
 
 class MediaHubAIAssistantPlugin:
-    VERSION = "6.9.0"
+    VERSION = "7.0.1"
 
     def __init__(self, plugin_path: str | Path, mediahub_api: Any = None, **kwargs: Any):
         self.plugin_path = Path(plugin_path)
@@ -251,6 +252,7 @@ class MediaHubAIAssistantPlugin:
         self.cross_franchise_resolver = CrossFranchiseResolver()
         self.canonical_decision_engine = CanonicalDecisionEngine()
         self.global_knowledge_fusion = GlobalKnowledgeFusion()
+        self.ai_architecture_validator = AIArchitectureValidator()
         self.last_pipeline_debug_snapshot = None
         self.learning_status = LearningStatusService(self.knowledge_db_path)
 
@@ -1811,6 +1813,28 @@ class MediaHubAIAssistantPlugin:
             source=dict(source),
         )
 
+        architecture_validation = {
+            "schema_version": 1,
+            "strategy": "ai_architecture_validator_v701",
+            "status": "not_run",
+            "checks": {},
+            "summary": {
+                "required_service_count": 0,
+                "import_error_count": 0,
+                "missing_pipeline_module_count": 0,
+                "duplicate_strategy_count": 0,
+                "initialization_error_count": 0,
+                "error_count": 0,
+                "warning_count": 1,
+            },
+            "errors": [],
+            "warnings": [
+                "architecture_validation_not_available_in_this_execution_path"
+            ],
+            "automatic_import": False,
+            "requires_confirmation": True,
+        }
+
         global_knowledge = self.global_knowledge_fusion.build(
             semantic_result=semantic,
             entity_resolution_graph=entity_resolution_graph,
@@ -1824,6 +1848,48 @@ class MediaHubAIAssistantPlugin:
             canonical_conflicts=canonical_conflicts,
             canonical_decisions=canonical_decisions,
             graph_validation=graph_validation,
+            source=dict(source),
+        )
+
+        architecture_validation = self.ai_architecture_validator.build(
+            pipeline_document={
+                "semantic_result": semantic,
+                "entity_resolution_graph": entity_resolution_graph,
+                "relationship_confidence": relationship_confidence,
+                "character_relationship_graph": character_relationship_graph,
+                "character_timeline": character_timeline,
+                "character_evolution": character_evolution,
+                "character_memory": character_memory,
+                "canonical_conflicts": canonical_conflicts,
+                "cross_franchise": cross_franchise,
+                "canonical_decisions": canonical_decisions,
+                "global_knowledge": global_knowledge,
+                "architecture_validation": architecture_validation,
+                "graph_validation": graph_validation,
+                "pipeline_debug": {},
+            },
+            strategy_map={
+                "relationship_confidence": relationship_confidence.get("strategy"),
+                "character_relationship_graph": character_relationship_graph.get("strategy"),
+                "character_timeline": character_timeline.get("strategy"),
+                "character_evolution": character_evolution.get("strategy"),
+                "character_memory": character_memory.get("strategy"),
+                "canonical_conflicts": canonical_conflicts.get("strategy"),
+                "cross_franchise": cross_franchise.get("strategy"),
+                "canonical_decisions": canonical_decisions.get("strategy"),
+                "global_knowledge": global_knowledge.get("strategy"),
+            },
+            initialization_order=[
+                "relationship_confidence",
+                "character_relationship_graph",
+                "character_timeline",
+                "character_evolution",
+                "character_memory",
+                "canonical_conflicts",
+                "cross_franchise",
+                "canonical_decisions",
+                "global_knowledge",
+            ],
             source=dict(source),
         )
 
@@ -1872,6 +1938,7 @@ class MediaHubAIAssistantPlugin:
                 "cross_franchise": cross_franchise,
                 "canonical_decisions": canonical_decisions,
                 "global_knowledge": global_knowledge,
+                "architecture_validation": architecture_validation,
                 "graph_validation": graph_validation,
             },
             source=dict(source),
@@ -1930,6 +1997,7 @@ class MediaHubAIAssistantPlugin:
         context.document["cross_franchise"] = cross_franchise
         context.document["canonical_decisions"] = canonical_decisions
         context.document["global_knowledge"] = global_knowledge
+        context.document["architecture_validation"] = architecture_validation
         context.document["pipeline_debug"] = pipeline_debug
         context.document["graph_validation"] = graph_validation
         context.entities = list(knowledge.get("entity_proposals") or [])
@@ -2050,6 +2118,7 @@ class MediaHubAIAssistantPlugin:
             "cross_franchise": cross_franchise,
             "canonical_decisions": canonical_decisions,
             "global_knowledge": global_knowledge,
+            "architecture_validation": architecture_validation,
             "pipeline_debug": pipeline_debug,
             "graph_validation": graph_validation,
             "reasoning_context": context.to_dict(),
@@ -2105,6 +2174,7 @@ class MediaHubAIAssistantPlugin:
             "cross_franchise": cross_franchise,
             "canonical_decisions": canonical_decisions,
             "global_knowledge": global_knowledge,
+            "architecture_validation": architecture_validation,
             "pipeline_debug": pipeline_debug,
             "graph_validation": graph_validation,
             "reasoning_context": context.to_dict(),
