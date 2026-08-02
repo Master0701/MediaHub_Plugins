@@ -43,6 +43,7 @@ class PipelineDebugMonitor:
         "franchise_knowledge_graph",
         "character_relationship_graph",
         "entity_resolution_graph",
+        "relationship_confidence",
         "graph_validation",
     )
 
