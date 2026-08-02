@@ -1,7 +1,7 @@
 {
   "id": "mediahub.ai_assistant",
   "name": "MediaHub KI-Assistent",
-  "version": "4.8.0",
+  "version": "4.9.0",
   "author": "Master0701",
   "description": "Lokaler MediaHub-KI-Assistent mit Semantic Identity Candidate Builder, Semantic Query Pipeline, Knowledge Graph, bestätigtem Lernen, Visual Intelligence, erklärbarer Decision Engine und stabilen Übergabe-APIs.",
   "type": "tool",
