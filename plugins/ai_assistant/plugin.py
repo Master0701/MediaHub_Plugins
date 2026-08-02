@@ -49,6 +49,7 @@ from services.universe_intelligence import UniverseIntelligence
 from services.character_role_intelligence import CharacterRoleIntelligence
 from services.character_relationship_intelligence import CharacterRelationshipIntelligence
 from services.entity_intelligence import EntityIntelligence
+from services.reasoning_intelligence import ReasoningIntelligence
 from services.knowledge_engine.knowledge_graph_merge_validator import KnowledgeGraphMergeValidator
 from services.event_intelligence import EventIntelligence
 from services.knowledge_graph_builder import KnowledgeGraphBuilder
@@ -138,7 +139,7 @@ class WebFileDialogBridge(QObject):
 
 
 class MediaHubAIAssistantPlugin:
-    VERSION = "5.0.0"
+    VERSION = "5.1.0"
 
     def __init__(self, plugin_path: str | Path, mediahub_api: Any = None, **kwargs: Any):
         self.plugin_path = Path(plugin_path)
@@ -210,6 +211,7 @@ class MediaHubAIAssistantPlugin:
         self.character_role_intelligence = CharacterRoleIntelligence()
         self.character_relationship_intelligence = CharacterRelationshipIntelligence()
         self.entity_intelligence = EntityIntelligence()
+        self.reasoning_intelligence = ReasoningIntelligence()
         self.learning_status = LearningStatusService(self.knowledge_db_path)
 
         if acquire_shared_server and WebRuntimeSettingsStore:
@@ -1579,6 +1581,25 @@ class MediaHubAIAssistantPlugin:
             graph_proposal
         )
 
+        reasoning_intelligence = self.reasoning_intelligence.analyze(
+            main_node=main_graph_node,
+            groups={
+                "relationship_intelligence": relationship_intelligence,
+                "event_intelligence": event_intelligence,
+                "character_relationships": character_relationships,
+                "universe_franchise": universe_franchise_proposal,
+                "franchise_relations": franchise_relations,
+                "timeline_order": timeline_order_intelligence,
+                "franchise_connections": franchise_connection_intelligence,
+                "universe_intelligence": universe_intelligence,
+                "character_roles": character_role_intelligence,
+                "character_relationship_intelligence": character_relationship_intelligence,
+                "entity_intelligence": entity_intelligence,
+            },
+            source=dict(source),
+            graph_validation=graph_validation,
+        )
+
         context = ReasoningContext.create(dict(source))
         context.document = {
             "url": scan.get("url"),
@@ -1612,6 +1633,7 @@ class MediaHubAIAssistantPlugin:
         context.document["character_role_intelligence"] = character_role_intelligence
         context.document["character_relationship_intelligence"] = character_relationship_intelligence
         context.document["entity_intelligence"] = entity_intelligence
+        context.document["reasoning_intelligence"] = reasoning_intelligence
         context.document["graph_validation"] = graph_validation
         context.entities = list(knowledge.get("entity_proposals") or [])
         context.relations = list(knowledge.get("relation_proposals") or [])
@@ -1712,6 +1734,7 @@ class MediaHubAIAssistantPlugin:
             "character_role_intelligence": character_role_intelligence,
             "character_relationship_intelligence": character_relationship_intelligence,
             "entity_intelligence": entity_intelligence,
+            "reasoning_intelligence": reasoning_intelligence,
             "graph_validation": graph_validation,
             "reasoning_context": context.to_dict(),
         }
@@ -1747,6 +1770,7 @@ class MediaHubAIAssistantPlugin:
             "character_role_intelligence": character_role_intelligence,
             "character_relationship_intelligence": character_relationship_intelligence,
             "entity_intelligence": entity_intelligence,
+            "reasoning_intelligence": reasoning_intelligence,
             "graph_validation": graph_validation,
             "reasoning_context": context.to_dict(),
             "reasoning_context_path": str(context_path),
