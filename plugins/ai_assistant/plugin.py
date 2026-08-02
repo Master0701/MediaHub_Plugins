@@ -71,6 +71,7 @@ from services.cross_franchise_resolver import CrossFranchiseResolver
 from services.canonical_decision_engine import CanonicalDecisionEngine
 from services.global_knowledge_fusion import GlobalKnowledgeFusion
 from services.ai_architecture_validator import AIArchitectureValidator
+from services.knowledge_graph_validator import KnowledgeGraphValidator
 from services.knowledge_engine.knowledge_graph_merge_validator import KnowledgeGraphMergeValidator
 from services.event_intelligence import EventIntelligence
 from services.knowledge_graph_builder import KnowledgeGraphBuilder
@@ -160,7 +161,7 @@ class WebFileDialogBridge(QObject):
 
 
 class MediaHubAIAssistantPlugin:
-    VERSION = "7.0.1"
+    VERSION = "7.0.2"
 
     def __init__(self, plugin_path: str | Path, mediahub_api: Any = None, **kwargs: Any):
         self.plugin_path = Path(plugin_path)
@@ -253,6 +254,7 @@ class MediaHubAIAssistantPlugin:
         self.canonical_decision_engine = CanonicalDecisionEngine()
         self.global_knowledge_fusion = GlobalKnowledgeFusion()
         self.ai_architecture_validator = AIArchitectureValidator()
+        self.knowledge_graph_validator = KnowledgeGraphValidator()
         self.last_pipeline_debug_snapshot = None
         self.learning_status = LearningStatusService(self.knowledge_db_path)
 
@@ -1851,6 +1853,11 @@ class MediaHubAIAssistantPlugin:
             source=dict(source),
         )
 
+        knowledge_graph_validation = self.knowledge_graph_validator.build(
+            global_knowledge=global_knowledge,
+            source=dict(source),
+        )
+
         architecture_validation = self.ai_architecture_validator.build(
             pipeline_document={
                 "semantic_result": semantic,
@@ -1864,6 +1871,7 @@ class MediaHubAIAssistantPlugin:
                 "cross_franchise": cross_franchise,
                 "canonical_decisions": canonical_decisions,
                 "global_knowledge": global_knowledge,
+                "knowledge_graph_validation": knowledge_graph_validation,
                 "architecture_validation": architecture_validation,
                 "graph_validation": graph_validation,
                 "pipeline_debug": {},
@@ -1938,6 +1946,7 @@ class MediaHubAIAssistantPlugin:
                 "cross_franchise": cross_franchise,
                 "canonical_decisions": canonical_decisions,
                 "global_knowledge": global_knowledge,
+                "knowledge_graph_validation": knowledge_graph_validation,
                 "architecture_validation": architecture_validation,
                 "graph_validation": graph_validation,
             },
@@ -1997,6 +2006,7 @@ class MediaHubAIAssistantPlugin:
         context.document["cross_franchise"] = cross_franchise
         context.document["canonical_decisions"] = canonical_decisions
         context.document["global_knowledge"] = global_knowledge
+        context.document["knowledge_graph_validation"] = knowledge_graph_validation
         context.document["architecture_validation"] = architecture_validation
         context.document["pipeline_debug"] = pipeline_debug
         context.document["graph_validation"] = graph_validation
@@ -2118,6 +2128,7 @@ class MediaHubAIAssistantPlugin:
             "cross_franchise": cross_franchise,
             "canonical_decisions": canonical_decisions,
             "global_knowledge": global_knowledge,
+            "knowledge_graph_validation": knowledge_graph_validation,
             "architecture_validation": architecture_validation,
             "pipeline_debug": pipeline_debug,
             "graph_validation": graph_validation,
@@ -2174,6 +2185,7 @@ class MediaHubAIAssistantPlugin:
             "cross_franchise": cross_franchise,
             "canonical_decisions": canonical_decisions,
             "global_knowledge": global_knowledge,
+            "knowledge_graph_validation": knowledge_graph_validation,
             "architecture_validation": architecture_validation,
             "pipeline_debug": pipeline_debug,
             "graph_validation": graph_validation,

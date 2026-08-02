@@ -51,6 +51,7 @@ class PipelineDebugMonitor:
         "cross_franchise",
         "canonical_decisions",
         "global_knowledge",
+        "knowledge_graph_validation",
         "architecture_validation",
         "graph_validation",
     )
