@@ -42,6 +42,7 @@ class PipelineDebugMonitor:
         "story_timeline",
         "franchise_knowledge_graph",
         "character_relationship_graph",
+        "entity_resolution_graph",
         "graph_validation",
     )
 
