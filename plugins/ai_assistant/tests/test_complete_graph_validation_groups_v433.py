@@ -24,9 +24,11 @@ EXPECTED_GROUPS = {
     "character_relationships",
     "character_identity_fusion",
     "universe_franchise_proposal",
+    "universe_intelligence",
     "franchise_collection",
     "franchise_relations",
     "timeline_order_intelligence",
+    "franchise_connection_intelligence",
 }
 
 
