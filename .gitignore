@@ -44,3 +44,12 @@ release_plugins.local.ps1
 MediaHub_*_Patch.zip
 MediaHub_*_Patch.zip.sha256
 MediaHub_*_Patch.zip.sha256
+MediaHub_*_Patch.zip.sha256
+*_Patch.zip
+*_Patch.zip.sha256
+backup_*
+*_backup.*
+*.bak
+*.old
+*.orig
+*.tmp

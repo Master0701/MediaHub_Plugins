@@ -297,6 +297,73 @@ def verify_artifacts(plugins: list[Plugin]) -> None:
         )
 
 
+def _untracked_files() -> list[Path]:
+    output = git(
+        "ls-files",
+        "--others",
+        "--exclude-standard",
+        capture=True,
+    )
+    return [ROOT / line for line in output.splitlines() if line.strip()]
+
+
+def cleanup_preflight(*, assume_yes: bool = False) -> None:
+    """Bereinigt lokale Hilfsdateien vor der Git- und Release-PrÃ¼fung."""
+    untracked = _untracked_files()
+
+    patch_patterns = (
+        re.compile(r"^MediaHub_.*_Patch\.zip(?:\.sha256)?$", re.IGNORECASE),
+        re.compile(r"^.*_Patch\.zip(?:\.sha256)?$", re.IGNORECASE),
+    )
+    backup_patterns = (
+        re.compile(r"^backup_.*", re.IGNORECASE),
+        re.compile(r"^.*_backup(?:\..*)?$", re.IGNORECASE),
+        re.compile(r"^.*\.(?:bak|old|orig|tmp)$", re.IGNORECASE),
+        re.compile(r"^Kopie von .*", re.IGNORECASE),
+    )
+
+    patch_files: list[Path] = []
+    backup_files: list[Path] = []
+
+    for path in untracked:
+        name = path.name
+        if any(pattern.match(name) for pattern in patch_patterns):
+            patch_files.append(path)
+        elif any(pattern.match(name) for pattern in backup_patterns):
+            backup_files.append(path)
+
+    for path in patch_files:
+        if path.exists():
+            path.unlink()
+            print(f"TemporÃ¤re Patch-Datei entfernt: {path.relative_to(ROOT)}")
+
+    if backup_files:
+        print("\nGefundene lokale Backup-Dateien:")
+        for path in backup_files:
+            print(f"  - {path.relative_to(ROOT)}")
+
+        if assume_yes:
+            choice = "L"
+        else:
+            choice = input(
+                "Backup-Dateien [L]Ã¶schen, [I]gnorieren oder [A]bbrechen? "
+            ).strip().upper() or "A"
+
+        if choice == "L":
+            for path in backup_files:
+                if path.exists():
+                    path.unlink()
+                    print(f"Backup-Datei entfernt: {path.relative_to(ROOT)}")
+        elif choice == "I":
+            print("Backup-Dateien werden fÃ¼r diesen Lauf ignoriert.")
+        else:
+            raise RuntimeError("Release wegen lokaler Backup-Dateien abgebrochen.")
+
+    print("\n===== Release-Preflight =====")
+    print(f"âœ“ TemporÃ¤re Patch-Dateien entfernt: {len(patch_files)}")
+    print(f"âœ“ Backup-Dateien gefunden: {len(backup_files)}")
+    print("âœ“ Verfolgte Git-Ã„nderungen werden weiterhin streng geprÃ¼ft")
+
 def ensure_clean_before_start() -> None:
     status = git("status", "--porcelain", capture=True)
     allowed = {
@@ -352,6 +419,7 @@ def main() -> int:
     parser.add_argument("--yes", action="store_true")
     args = parser.parse_args()
 
+    cleanup_preflight(assume_yes=args.yes)
     ensure_clean_before_start()
     plugins = load_plugins()
 
@@ -428,4 +496,5 @@ if __name__ == "__main__":
     except Exception as exc:
         print(f"\nFEHLER: {exc}", file=sys.stderr)
         raise SystemExit(1)
+
 
