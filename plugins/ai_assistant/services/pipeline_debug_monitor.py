@@ -45,6 +45,8 @@ class PipelineDebugMonitor:
         "entity_resolution_graph",
         "relationship_confidence",
         "character_timeline",
+        "character_evolution",
+        "character_memory",
         "graph_validation",
     )
 
