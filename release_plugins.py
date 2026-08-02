@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import argparse
 import hashlib
@@ -432,40 +432,170 @@ def cleanup_preflight(*, assume_yes: bool = False) -> None:
     print("[OK] Strict Git worktree check follows")
 
 
-def ensure_clean_before_start() -> None:
-    status = git("status", "--porcelain", capture=True)
-    allowed = {
-        "RELEASE_NOTES_PENDING.md",
-        "README.md",
-        "RELEASE_NOTES.md",
-        "catalog/plugins.json",
-    }
+ALLOWED_RELEASE_ROOTS = (
+    "plugins/",
+    "shared/",
+    "src/",
+    "tools/",
+    "docs/",
+    "catalog/",
+    ".github/",
+)
 
-    unexpected: list[str] = []
-    for line in status.splitlines():
-        path = line[3:].strip().strip('"')
-        if path and path not in allowed:
-            unexpected.append(line)
+ALLOWED_RELEASE_FILES = {
+    ".gitignore",
+    "README.md",
+    "CHANGELOG.md",
+    "RELEASE_NOTES.md",
+    "RELEASE_NOTES_PENDING.md",
+    "THIRD_PARTY_LICENSES.md",
+    "build_plugins.py",
+    "prepare_plugin_release.py",
+    "release_plugins.py",
+    "release_plugins.ps1",
+    "release_plugins.cmd",
+    "validate_plugins.py",
+}
+
+
+def normalize_status_path(raw: str) -> str:
+    path = raw.strip().strip('"').replace("\\\\", "/")
+    if " -> " in path:
+        path = path.split(" -> ", 1)[1].strip().strip('"')
+    return path
+
+
+def is_allowed_release_path(path: str) -> bool:
+    normalized = normalize_status_path(path)
+    return (
+        normalized in ALLOWED_RELEASE_FILES
+        or any(
+            normalized.startswith(root)
+            for root in ALLOWED_RELEASE_ROOTS
+        )
+    )
+
+
+def worktree_entries() -> list[tuple[str, str]]:
+    output = git("status", "--porcelain=v1", "-z", capture=True)
+    parts = output.split("\\0")
+    entries: list[tuple[str, str]] = []
+    index = 0
+
+    while index < len(parts):
+        item = parts[index]
+        index += 1
+        if not item:
+            continue
+
+        status = item[:2]
+        path = item[3:] if len(item) > 3 else ""
+
+        if status[0] in {"R", "C"} and index < len(parts):
+            path = parts[index]
+            index += 1
+
+        entries.append((status, normalize_status_path(path)))
+
+    return entries
+
+
+def validate_release_worktree() -> list[tuple[str, str]]:
+    entries = worktree_entries()
+    unexpected = [
+        f"{status} {path}"
+        for status, path in entries
+        if not is_allowed_release_path(path)
+    ]
 
     if unexpected:
         raise RuntimeError(
-            "Unerwartete Änderungen im Arbeitsbaum. Erst prüfen oder committen:\n"
-            + "\n".join(unexpected)
+            "Unerwartete Dateien im Arbeitsbaum. "
+            "Release wurde gestoppt:\\n"
+            + "\\n".join(unexpected)
         )
 
+    if entries:
+        print("")
+        print("Erwartete Projektaenderungen erkannt:")
+        for status, path in entries:
+            print(f"  {status} {path}")
+    else:
+        print("[OK] Keine offenen Projektaenderungen vor dem Release.")
 
-def commit_generated_files(tag: str) -> None:
-    tracked = ["README.md", "RELEASE_NOTES.md", "catalog/plugins.json"]
-    run("git", "add", *tracked)
-    result = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=ROOT)
+    return entries
 
-    if result.returncode == 0:
-        print("Keine neuen verfolgten Release-Dateien zu committen.")
+
+def stage_release_changes() -> list[str]:
+    candidates = [
+        *ALLOWED_RELEASE_ROOTS,
+        *sorted(ALLOWED_RELEASE_FILES),
+    ]
+    existing = [
+        item
+        for item in candidates
+        if (ROOT / item.rstrip("/")).exists()
+        or item in ALLOWED_RELEASE_FILES
+    ]
+
+    run("git", "add", "-A", "--", *existing)
+
+    staged = git(
+        "diff",
+        "--cached",
+        "--name-only",
+        "--diff-filter=ACDMRTUXB",
+        "-z",
+        capture=True,
+    )
+    paths = [
+        normalize_status_path(item)
+        for item in staged.split("\\0")
+        if item.strip()
+    ]
+
+    unexpected = [
+        path for path in paths
+        if not is_allowed_release_path(path)
+    ]
+    if unexpected:
+        run("git", "reset", "--", *unexpected)
+        raise RuntimeError(
+            "Unerwartete Dateien wurden aus dem Release-Commit entfernt:\\n"
+            + "\\n".join(unexpected)
+        )
+
+    return paths
+
+
+def commit_release_changes(tag: str) -> None:
+    staged = stage_release_changes()
+
+    if not staged:
+        print("Keine Quellcode- oder Release-Aenderungen zu committen.")
         return
-    if result.returncode != 1:
-        raise RuntimeError("Git-Diff konnte nicht geprüft werden.")
 
-    run("git", "commit", "-m", f"Prepare MediaHub Plugins {tag} release")
+    print("")
+    print("Dateien im Release-Commit:")
+    for path in staged:
+        print(f"  - {path}")
+
+    run(
+        "git",
+        "commit",
+        "-m",
+        f"Prepare MediaHub Plugins {tag} release",
+    )
+
+
+def ensure_clean_before_publish() -> None:
+    status = git("status", "--porcelain=v1", capture=True)
+    if status:
+        raise RuntimeError(
+            "Der Arbeitsbaum ist nach dem Release-Commit nicht sauber:\\n"
+            + status
+        )
+    print("[OK] Arbeitsbaum ist nach dem Release-Commit sauber.")
 
 
 def update_tag(tag: str) -> None:
@@ -488,7 +618,7 @@ def main() -> int:
     args = parser.parse_args()
 
     cleanup_preflight(assume_yes=args.yes)
-    ensure_clean_before_start()
+    validate_release_worktree()
     plugins = load_plugins()
 
     pending_text = PENDING.read_text(encoding="utf-8")
@@ -529,7 +659,8 @@ def main() -> int:
     verify_catalog(plugins)
     verify_artifacts(plugins)
 
-    commit_generated_files(tag)
+    commit_release_changes(tag)
+    ensure_clean_before_publish()
 
     if args.no_push:
         print("Lokaler Release-Lauf abgeschlossen (--no-push).")
