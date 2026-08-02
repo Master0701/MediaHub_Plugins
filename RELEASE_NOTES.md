@@ -1,4 +1,4 @@
-﻿# MediaHub Plugins v0.5.5 – vollständiges Release
+# MediaHub Plugins v0.5.5 – vollständiges Release
 
 ## MediaHub WebRemote v0.13.7
 
@@ -18,7 +18,7 @@
 - Bearbeitung von Metadaten, NFO-Dateien und Medienbildern.
 - Integration als zusätzliche Oberfläche in WebRemote und Mobile Dashboard.
 
-## MediaHub KI-Assistent v4.9.0
+## MediaHub KI-Assistent v2.1.9
 
 - Mehrstufige Medienerkennung mit Supervisor-Agent und erklärbarer Decision Engine.
 - Semantic Query Pipeline mit intelligenter Suchvarianten-Erzeugung, Qualitätsprüfung und Quellenbewertung.
@@ -44,4 +44,3 @@
 - Für jedes veröffentlichte Plugin stehen eine `.mhplugin`-Datei und eine `.sha256`-Prüfsumme bereit.
 - Der Plugin-Katalog wurde aus den aktuellen Manifesten erzeugt.
 - Geplante Plugins mit Version 0.0.0 bleiben sichtbar, werden aber nicht als installierbare Release-Pakete veröffentlicht.
-
