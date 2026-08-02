@@ -208,12 +208,20 @@ jobs:
 
             const expected = new Set();
             for (const product of catalog.products || []) {
+              if (String(product.version || "") === "0.0.0") {
+                core.info(
+                  `Überspringe Platzhalter-Plugin: ${product.name} v0.0.0`
+                );
+                continue;
+              }
+
               const base = String(product.package || "");
               if (!base.endsWith(".mhplugin")) {
                 throw new Error(
                   `Ungültiger Paketname im Katalog für ${product.name}: ${base}`
                 );
               }
+
               expected.add(base);
               expected.add(`${base}.sha256`);
             }
@@ -241,5 +249,6 @@ jobs:
             core.info(
               `Release ${tag} wurde mit ${assets.length} aktuellen Assets geprüft.`
             );
+
 
 
