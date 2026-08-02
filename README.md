@@ -12,25 +12,7 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - **MediaHub Smart Renamer 0.0.0**
 - **MediaHub WebRemote 0.13.7**
 
-﻿# MediaHub Plugins v0.5.5 – vollständiges Release
-
-## MediaHub WebRemote v0.13.7
-
-- Lokale Desktop-Weboberfläche für PC und Notebook.
-- Browserbasierte Plugin-Verwaltung und zusätzliche Web-Plugin-Oberflächen bleiben verfügbar.
-- WebRemote bleibt aus dem zusätzlichen Bereich „Plugin-Oberflächen“ ausgeblendet.
-
-## MediaHub Mobile Dashboard v0.1.7
-
-- Mobile Oberfläche für Handy und Tablet.
-- Einklappbare linke Sidebar und Geräte-Kopplung bleiben verfügbar.
-- Mobile Dashboard bleibt aus dem zusätzlichen Bereich „Plugin-Oberflächen“ ausgeblendet.
-
-## MediaHub Metadata Editor v0.3.6
-
-- Desktop- und Weboberfläche bleiben gemeinsam verfügbar.
-- Bearbeitung von Metadaten, NFO-Dateien und Medienbildern.
-- Integration als zusätzliche Oberfläche in WebRemote und Mobile Dashboard.
+# MediaHub Plugins v0.5.5 – vollständiges Release
 
 ## MediaHub KI-Assistent v4.9.0
 
@@ -52,12 +34,30 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - Übergabe-API für Metadata Editor, Smart Renamer, Listen & Export und zukünftige Plugins.
 - Erfordert mindestens MediaHub v1.0.17.
 
+## MediaHub Metadata Editor v0.3.6
+
+- Desktop- und Weboberfläche bleiben gemeinsam verfügbar.
+- Bearbeitung von Metadaten, NFO-Dateien und Medienbildern.
+- Integration als zusätzliche Oberfläche in WebRemote und Mobile Dashboard.
+
+## MediaHub Mobile Dashboard v0.1.7
+
+- Mobile Oberfläche für Handy und Tablet.
+- Einklappbare linke Sidebar und Geräte-Kopplung bleiben verfügbar.
+- Mobile Dashboard bleibt aus dem zusätzlichen Bereich „Plugin-Oberflächen“ ausgeblendet.
+
+## MediaHub WebRemote v0.13.7
+
+- Lokale Desktop-Weboberfläche für PC und Notebook.
+- Browserbasierte Plugin-Verwaltung und zusätzliche Web-Plugin-Oberflächen bleiben verfügbar.
+- WebRemote bleibt aus dem zusätzlichen Bereich „Plugin-Oberflächen“ ausgeblendet.
+
 ## Gemeinsamer Release-Stand
 
 - Alle veröffentlichten Plugins wurden aus den aktuellen Manifesten vollständig neu gebaut.
 - Für jedes veröffentlichte Plugin stehen eine `.mhplugin`-Datei und eine `.sha256`-Prüfsumme bereit.
 - Der Plugin-Katalog wurde aus den aktuellen Manifesten erzeugt.
-- Geplante Plugins mit Version 0.0.0 bleiben sichtbar, werden aber nicht als installierbare Release-Pakete veröffentlicht.
+- Geplante Plugins mit Version 0.0.0 bleiben im Katalog sichtbar, werden aber nicht als veröffentlichte Release-Pakete geprüft.
 
 ## Kompatibilität
 
@@ -80,42 +80,19 @@ Offizielles Erweiterungs-Repository für MediaHub.
 
 Jedes Plugin bleibt optional und kann einzeln installiert, aktualisiert und entfernt werden.
 
-## Plugins bauen
+## Release ausführen
 
-Alle Plugins sauber neu erstellen:
-
-```powershell
-python build_plugins.py all --clean
-```
-
-Nur den KI-Assistenten erstellen:
+Lokaler Prüflauf ohne Veröffentlichung:
 
 ```powershell
-python build_plugins.py ai_assistant --clean
+release_plugins.cmd -Tag v0.5.5 -NoPush
 ```
 
-Die fertigen `.mhplugin`-Dateien und `.sha256`-Prüfsummen liegen anschließend unter `release/`.
-
-## Tests
-
-Alle Tests des KI-Assistenten ausführen:
+Vollständiges Release:
 
 ```powershell
-python -m pytest plugins/ai_assistant/tests -q
+release_plugins.cmd -Tag v0.5.5
 ```
 
-Python-Dateien zusätzlich kompilieren:
-
-```powershell
-python -m compileall plugins/ai_assistant
-```
-
-## Release vorbereiten
-
-```powershell
-python prepare_plugin_release.py
-```
-
-Dieser Befehl übernimmt `RELEASE_NOTES_PENDING.md` in die verfolgte Datei
-`RELEASE_NOTES.md` und aktualisiert diese README. Die temporäre Pending-Datei
-bleibt lokal und wird nicht in Git aufgenommen.
+Alle Versions- und Paketnamen werden automatisch aus den jeweiligen
+`plugins/*/plugin.json` übernommen.

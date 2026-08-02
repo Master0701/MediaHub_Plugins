@@ -1,22 +1,4 @@
-﻿# MediaHub Plugins v0.5.5 – vollständiges Release
-
-## MediaHub WebRemote v0.13.7
-
-- Lokale Desktop-Weboberfläche für PC und Notebook.
-- Browserbasierte Plugin-Verwaltung und zusätzliche Web-Plugin-Oberflächen bleiben verfügbar.
-- WebRemote bleibt aus dem zusätzlichen Bereich „Plugin-Oberflächen“ ausgeblendet.
-
-## MediaHub Mobile Dashboard v0.1.7
-
-- Mobile Oberfläche für Handy und Tablet.
-- Einklappbare linke Sidebar und Geräte-Kopplung bleiben verfügbar.
-- Mobile Dashboard bleibt aus dem zusätzlichen Bereich „Plugin-Oberflächen“ ausgeblendet.
-
-## MediaHub Metadata Editor v0.3.6
-
-- Desktop- und Weboberfläche bleiben gemeinsam verfügbar.
-- Bearbeitung von Metadaten, NFO-Dateien und Medienbildern.
-- Integration als zusätzliche Oberfläche in WebRemote und Mobile Dashboard.
+# MediaHub Plugins v0.5.5 – vollständiges Release
 
 ## MediaHub KI-Assistent v4.9.0
 
@@ -38,9 +20,27 @@
 - Übergabe-API für Metadata Editor, Smart Renamer, Listen & Export und zukünftige Plugins.
 - Erfordert mindestens MediaHub v1.0.17.
 
+## MediaHub Metadata Editor v0.3.6
+
+- Desktop- und Weboberfläche bleiben gemeinsam verfügbar.
+- Bearbeitung von Metadaten, NFO-Dateien und Medienbildern.
+- Integration als zusätzliche Oberfläche in WebRemote und Mobile Dashboard.
+
+## MediaHub Mobile Dashboard v0.1.7
+
+- Mobile Oberfläche für Handy und Tablet.
+- Einklappbare linke Sidebar und Geräte-Kopplung bleiben verfügbar.
+- Mobile Dashboard bleibt aus dem zusätzlichen Bereich „Plugin-Oberflächen“ ausgeblendet.
+
+## MediaHub WebRemote v0.13.7
+
+- Lokale Desktop-Weboberfläche für PC und Notebook.
+- Browserbasierte Plugin-Verwaltung und zusätzliche Web-Plugin-Oberflächen bleiben verfügbar.
+- WebRemote bleibt aus dem zusätzlichen Bereich „Plugin-Oberflächen“ ausgeblendet.
+
 ## Gemeinsamer Release-Stand
 
 - Alle veröffentlichten Plugins wurden aus den aktuellen Manifesten vollständig neu gebaut.
 - Für jedes veröffentlichte Plugin stehen eine `.mhplugin`-Datei und eine `.sha256`-Prüfsumme bereit.
 - Der Plugin-Katalog wurde aus den aktuellen Manifesten erzeugt.
-- Geplante Plugins mit Version 0.0.0 bleiben sichtbar, werden aber nicht als installierbare Release-Pakete veröffentlicht.
+- Geplante Plugins mit Version 0.0.0 bleiben im Katalog sichtbar, werden aber nicht als veröffentlichte Release-Pakete geprüft.
