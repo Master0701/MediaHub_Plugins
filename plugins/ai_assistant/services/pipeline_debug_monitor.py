@@ -38,6 +38,7 @@ class PipelineDebugMonitor:
         "temporal_causal_intelligence",
         "narrative_extraction",
         "narrative_intelligence",
+        "story_arc_linking",
         "graph_validation",
     )
 

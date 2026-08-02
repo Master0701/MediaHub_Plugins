@@ -56,6 +56,7 @@ from services.semantic_reasoning_engine import SemanticReasoningEngine
 from services.temporal_causal_intelligence import TemporalCausalIntelligence
 from services.narrative_intelligence import NarrativeIntelligence
 from services.narrative_extractor import NarrativeExtractor
+from services.story_arc_linker import StoryArcLinker
 from services.knowledge_engine.knowledge_graph_merge_validator import KnowledgeGraphMergeValidator
 from services.event_intelligence import EventIntelligence
 from services.knowledge_graph_builder import KnowledgeGraphBuilder
@@ -145,7 +146,7 @@ class WebFileDialogBridge(QObject):
 
 
 class MediaHubAIAssistantPlugin:
-    VERSION = "5.6.0"
+    VERSION = "5.7.0"
 
     def __init__(self, plugin_path: str | Path, mediahub_api: Any = None, **kwargs: Any):
         self.plugin_path = Path(plugin_path)
@@ -224,6 +225,7 @@ class MediaHubAIAssistantPlugin:
         self.temporal_causal_intelligence = TemporalCausalIntelligence()
         self.narrative_intelligence = NarrativeIntelligence()
         self.narrative_extractor = NarrativeExtractor()
+        self.story_arc_linker = StoryArcLinker()
         self.last_pipeline_debug_snapshot = None
         self.learning_status = LearningStatusService(self.knowledge_db_path)
 
@@ -1678,6 +1680,12 @@ class MediaHubAIAssistantPlugin:
             source=dict(source),
         )
 
+        story_arc_linking = self.story_arc_linker.link(
+            narrative_extraction=narrative_extraction,
+            narrative_intelligence=narrative_intelligence,
+            source=dict(source),
+        )
+
         pipeline_debug = self.pipeline_debug_monitor.build(
             modules={
                 "scan": scan,
@@ -1710,6 +1718,7 @@ class MediaHubAIAssistantPlugin:
                 "temporal_causal_intelligence": temporal_causal_intelligence,
                 "narrative_extraction": narrative_extraction,
                 "narrative_intelligence": narrative_intelligence,
+                "story_arc_linking": story_arc_linking,
                 "graph_validation": graph_validation,
             },
             source=dict(source),
@@ -1755,6 +1764,7 @@ class MediaHubAIAssistantPlugin:
         context.document["temporal_causal_intelligence"] = temporal_causal_intelligence
         context.document["narrative_extraction"] = narrative_extraction
         context.document["narrative_intelligence"] = narrative_intelligence
+        context.document["story_arc_linking"] = story_arc_linking
         context.document["pipeline_debug"] = pipeline_debug
         context.document["graph_validation"] = graph_validation
         context.entities = list(knowledge.get("entity_proposals") or [])
@@ -1862,6 +1872,7 @@ class MediaHubAIAssistantPlugin:
             "temporal_causal_intelligence": temporal_causal_intelligence,
             "narrative_extraction": narrative_extraction,
             "narrative_intelligence": narrative_intelligence,
+            "story_arc_linking": story_arc_linking,
             "pipeline_debug": pipeline_debug,
             "graph_validation": graph_validation,
             "reasoning_context": context.to_dict(),
@@ -1904,6 +1915,7 @@ class MediaHubAIAssistantPlugin:
             "temporal_causal_intelligence": temporal_causal_intelligence,
             "narrative_extraction": narrative_extraction,
             "narrative_intelligence": narrative_intelligence,
+            "story_arc_linking": story_arc_linking,
             "pipeline_debug": pipeline_debug,
             "graph_validation": graph_validation,
             "reasoning_context": context.to_dict(),
