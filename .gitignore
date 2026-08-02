@@ -1,4 +1,4 @@
-__pycache__/
+﻿__pycache__/
 *.py[cod]
 .venv/
 venv/
@@ -34,3 +34,12 @@ KI_*_AUSGABE.*
 _*/
 backup_*/
 files/
+# Lokale Dateien des universellen Release-Assistenten
+.release-assistant/
+release_report*.json
+release_report*.txt
+release_plugins.local.ps1
+
+
+MediaHub_*_Patch.zip
+MediaHub_*_Patch.zip.sha256

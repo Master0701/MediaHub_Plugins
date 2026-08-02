@@ -173,18 +173,18 @@ jobs:
         with:
           script: |
             const fs = require("fs");
+            const path = require("path");
             const tag = context.ref.replace("refs/tags/", "");
             const expectedBody = fs.readFileSync(
               process.env.RELEASE_NOTES_PATH,
               "utf8"
             );
 
-            const release =
-              await github.rest.repos.getReleaseByTag({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                tag,
-              });
+            const release = await github.rest.repos.getReleaseByTag({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag,
+            });
 
             const assets = await github.paginate(
               github.rest.repos.listReleaseAssets,
@@ -202,33 +202,43 @@ jobs:
               );
             }
 
-            if (assets.length === 0) {
-              throw new Error(
-                "Nach dem Upload wurden keine Release-Assets gefunden."
-              );
+            const manifests = fs
+              .readdirSync("plugins", { withFileTypes: true })
+              .filter((entry) => entry.isDirectory())
+              .map((entry) => path.join("plugins", entry.name, "plugin.json"))
+              .filter((manifestPath) => fs.existsSync(manifestPath))
+              .map((manifestPath) => JSON.parse(fs.readFileSync(manifestPath, "utf8")));
+
+            const expected = new Set();
+            for (const manifest of manifests) {
+              const packageName = String(manifest.package_name || manifest.name)
+                .replaceAll(" ", "")
+                .replace(/[^A-Za-z0-9ÄÖÜäöüß_-]+/g, "");
+              const base = `MediaHub_${packageName}_v${manifest.version}.mhplugin`;
+              expected.add(base);
+              expected.add(`${base}.sha256`);
             }
 
-            const manifest = JSON.parse(
-              fs.readFileSync(
-                "plugins/ai_assistant/plugin.json",
-                "utf8"
-              )
-            );
-            const expectedPrefix =
-              `MediaHub_KI-Assistent_v${manifest.version}.`;
+            const actualPluginAssets = assets
+              .map((asset) => asset.name)
+              .filter((name) => name.endsWith(".mhplugin") || name.endsWith(".mhplugin.sha256"));
 
-            const oldAiAssets = assets.filter((asset) =>
-              asset.name.startsWith("MediaHub_KI-Assistent_") &&
-              !asset.name.startsWith(expectedPrefix)
-            );
+            const missing = [...expected].filter((name) => !actualPluginAssets.includes(name));
+            const stale = actualPluginAssets.filter((name) => !expected.has(name));
 
-            if (oldAiAssets.length > 0) {
-              throw new Error(
-                "Alte KI-Assistent-Dateien sind noch vorhanden: " +
-                oldAiAssets.map((asset) => asset.name).join(", ")
+            if (missing.length > 0) {
+              throw new Error("Fehlende Release-Assets: " + missing.join(", "));
+            }
+            if (stale.length > 0) {
+              throw new Error("Veraltete Release-Assets: " + stale.join(", "));
+            }
+
+            if (release.data.target_commitish !== context.sha) {
+              core.warning(
+                `target_commitish=${release.data.target_commitish}, Workflow-SHA=${context.sha}`
               );
             }
 
             core.info(
-              `Release ${tag} enthält ${assets.length} aktuelle Assets.`
+              `Release ${tag} wurde mit ${assets.length} aktuellen Assets geprüft.`
             );
