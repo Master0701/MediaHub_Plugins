@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import argparse
 import hashlib
@@ -535,7 +535,6 @@ def stage_release_changes() -> list[str]:
         item
         for item in candidates
         if (ROOT / item.rstrip("/")).exists()
-        or item in ALLOWED_RELEASE_FILES
     ]
 
     run("git", "add", "-A", "--", *existing)
@@ -695,3 +694,4 @@ if __name__ == "__main__":
     except Exception as exc:
         print(f"\nFEHLER: {exc}", file=sys.stderr)
         raise SystemExit(1)
+
