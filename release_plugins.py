@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import argparse
 import hashlib
@@ -16,7 +16,7 @@ PLUGINS_DIR = ROOT / "plugins"
 PENDING = ROOT / "RELEASE_NOTES_PENDING.md"
 RELEASE_NOTES = ROOT / "RELEASE_NOTES.md"
 README = ROOT / "README.md"
-CATALOG = ROOT / "catalog" / "plugins.json"
+CATALOG = ROOT / "catalog" / "plugin_catalog.json"
 RELEASE_DIR = ROOT / "release"
 BUILD_SCRIPT = ROOT / "build_plugins.py"
 
@@ -250,20 +250,107 @@ def verify_document_versions(text: str, plugins: list[Plugin], label: str) -> No
 
 
 def verify_catalog(plugins: list[Plugin]) -> None:
-    data = json.loads(CATALOG.read_text(encoding="utf-8"))
-    products = data.get("products", [])
-    by_id = {str(item.get("id")): item for item in products}
+    if not CATALOG.is_file():
+        raise RuntimeError(f"Plugin-Store-Katalog fehlt: {CATALOG}")
+
+    raw = CATALOG.read_bytes()
+    if raw.startswith(b"\xef\xbb\xbf"):
+        raise RuntimeError(f"Plugin-Katalog enthält UTF-8-BOM: {CATALOG}")
+
+    try:
+        data = json.loads(raw.decode("utf-8"))
+    except UnicodeDecodeError as exc:
+        raise RuntimeError(
+            f"Plugin-Katalog ist nicht gültiges UTF-8: {CATALOG}"
+        ) from exc
+
+    if data.get("schema_version") != 2:
+        raise RuntimeError("Plugin-Katalog verwendet nicht schema_version 2.")
+    if data.get("repository") != "Master0701/MediaHub_Plugins":
+        raise RuntimeError("Plugin-Katalog enthält ein falsches Repository.")
+
+    products = data.get("plugins")
+    if not isinstance(products, list):
+        raise RuntimeError("Plugin-Katalogfeld 'plugins' ist keine Liste.")
+
+    by_id: dict[str, dict] = {}
+    for item in products:
+        if not isinstance(item, dict):
+            raise RuntimeError("Plugin-Katalog enthält einen ungültigen Eintrag.")
+
+        plugin_id = str(item.get("id") or "")
+        if not plugin_id:
+            raise RuntimeError("Plugin-Katalog enthält einen Eintrag ohne ID.")
+        if plugin_id in by_id:
+            raise RuntimeError(f"Doppelter Katalogeintrag: {plugin_id}")
+
+        by_id[plugin_id] = item
+
+    expected_ids = {plugin.plugin_id for plugin in plugins}
+    unexpected_ids = sorted(set(by_id) - expected_ids)
+    if unexpected_ids:
+        raise RuntimeError(
+            "Plugin-Katalog enthält unbekannte Plugin-IDs: "
+            + ", ".join(unexpected_ids)
+        )
 
     for plugin in plugins:
         item = by_id.get(plugin.plugin_id)
         if not item:
-            raise RuntimeError(f"Katalogeintrag fehlt: {plugin.name} ({plugin.plugin_id})")
+            raise RuntimeError(
+                f"Katalogeintrag fehlt: {plugin.name} ({plugin.plugin_id})"
+            )
+
         if str(item.get("version")) != plugin.version:
-            raise RuntimeError(f"Katalogversion falsch für {plugin.name}")
-        if str(item.get("package")) != plugin.artifact:
+            raise RuntimeError(
+                f"Katalogversion falsch für {plugin.name}: "
+                f"{item.get('version')} != {plugin.version}"
+            )
+
+        if str(item.get("release_asset")) != plugin.artifact:
             raise RuntimeError(
                 f"Katalogpaket falsch für {plugin.name}: "
-                f"{item.get('package')} != {plugin.artifact}"
+                f"{item.get('release_asset')} != {plugin.artifact}"
+            )
+
+        if str(item.get("sha256_asset")) != plugin.artifact + ".sha256":
+            raise RuntimeError(
+                f"Katalog-Prüfsummenpaket falsch für {plugin.name}"
+            )
+
+        manifest = json.loads(
+            plugin.manifest_path.read_text(encoding="utf-8")
+        )
+        catalog_settings = manifest.get("catalog") or {}
+
+        if plugin.publishable:
+            expected_status = "available"
+            expected_auto_install = bool(
+                catalog_settings.get("auto_install", True)
+            )
+        else:
+            expected_status = "planned"
+            expected_auto_install = False
+
+        actual_status = str(item.get("status") or "")
+        actual_auto_install = bool(item.get("auto_install"))
+
+        if actual_status != expected_status:
+            raise RuntimeError(
+                f"Katalogstatus falsch für {plugin.name}: "
+                f"{actual_status} != {expected_status}"
+            )
+
+        if actual_auto_install != expected_auto_install:
+            raise RuntimeError(
+                f"Katalog-Auto-Install-Einstellung falsch für {plugin.name}: "
+                f"{actual_auto_install} != {expected_auto_install}"
+            )
+
+        if not plugin.publishable and actual_auto_install:
+            raise RuntimeError(
+                f"Platzhalter-Plugin darf nicht automatisch installierbar sein: "
+                f"{plugin.name}"
             )
 
 
@@ -439,6 +526,7 @@ ALLOWED_RELEASE_ROOTS = (
     "tools/",
     "docs/",
     "catalog/",
+    "tests/",
     ".github/",
 )
 

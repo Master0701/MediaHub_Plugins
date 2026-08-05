@@ -1,35 +1,41 @@
 from __future__ import annotations
 
-import json
+import importlib.util
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-PLUGINS = ROOT / "plugins"
-OUTPUT = ROOT / "catalog" / "plugin_catalog.generated.json"
+BUILD_SCRIPT = ROOT / "build_plugins.py"
 
-def main() -> None:
-    items = []
-    for manifest_path in sorted(PLUGINS.glob("*/plugin.json")):
-        data = json.loads(manifest_path.read_text(encoding="utf-8"))
-        catalog = data.get("catalog") or {}
-        if not catalog.get("visible", True):
-            continue
-        version = str(data.get("version") or "0.0.0")
-        slug = manifest_path.parent.name
-        items.append({
-            "id": data.get("id"),
-            "name": data.get("name"),
-            "version": version,
-            "status": data.get("development_status", "available"),
-            "visible": True,
-            "auto_install": bool(catalog.get("auto_install", True)),
-            "description": data.get("description", ""),
-            "release_asset": f"MediaHub_{slug}_v{version}.mhplugin",
-            "sha256_asset": f"MediaHub_{slug}_v{version}.mhplugin.sha256",
-        })
-    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT.write_text(json.dumps({"schema_version": 1, "plugins": items}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"Erstellt: {OUTPUT}")
+
+def load_build_module():
+    spec = importlib.util.spec_from_file_location(
+        "mediahub_build_plugins",
+        BUILD_SCRIPT,
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("build_plugins.py konnte nicht geladen werden.")
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    for required in ("discover_plugins", "update_catalog"):
+        if not hasattr(module, required):
+            raise RuntimeError(
+                f"{required} fehlt in build_plugins.py."
+            )
+    return module
+
+
+def main() -> int:
+    build = load_build_module()
+    plugins = build.discover_plugins()
+    if not plugins:
+        raise RuntimeError("Keine Plugins gefunden.")
+
+    catalog_path = build.update_catalog(plugins)
+    print(f"Verbindlicher Plugin-Store-Katalog erstellt: {catalog_path}")
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

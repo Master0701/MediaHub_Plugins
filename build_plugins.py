@@ -27,34 +27,110 @@ CATEGORY_BY_ID = {
     "mediahub.mobile_dashboard": "Mobil",
     "mediahub.metadata_editor": "Metadaten",
     "mediahub.ai_assistant": "KI und Analyse",
+    "mediahub.smart_renamer": "Dateien und Umbenennung",
+    "mediahub.audiobook_manager": "Hörbücher",
+    "mediahub.list_exporter": "Listen und Export",
 }
 
+CATALOG_PATH = ROOT / "catalog" / "plugin_catalog.json"
+CATALOG_SCHEMA_VERSION = 2
+CATALOG_REPOSITORY = "Master0701/MediaHub_Plugins"
+
+
+def _catalog_status(manifest: dict, version: str) -> str:
+    return "planned" if version == "0.0.0" else "available"
+
+
+def _catalog_project_page(plugin_key: str, catalog: dict) -> str:
+    configured = str(catalog.get("project_page") or "").strip()
+    if configured:
+        return configured
+    return (
+        "https://github.com/Master0701/MediaHub_Plugins/"
+        f"tree/main/plugins/{plugin_key}"
+    )
+
+
 def update_catalog(plugins: dict[str, Path]) -> Path:
-    products = []
+    """Erzeugt den einzigen verbindlichen MediaHub-Plugin-Store-Katalog."""
+    items: list[dict] = []
+
     for key, source in sorted(plugins.items()):
         manifest = read_manifest(source)
+        catalog = manifest.get("catalog") or {}
+
+        if not bool(catalog.get("visible", True)):
+            continue
+
+        plugin_id = str(manifest["id"])
         version = str(manifest["version"])
+        minimum = str(
+            manifest.get("minimum_mediahub_version")
+            or manifest.get("minimum_mediahub")
+            or ""
+        )
+        status = _catalog_status(manifest, version)
+        publishable = version != "0.0.0"
         package_name = safe_package_name(manifest, key)
-        minimum = str(manifest.get("minimum_mediahub_version") or manifest.get("minimum_mediahub") or "")
-        products.append({
-            "id": str(manifest["id"]),
-            "name": str(manifest["name"]),
-            "version": version,
-            "category": CATEGORY_BY_ID.get(str(manifest["id"]), "Erweiterung"),
-            "description": str(manifest.get("description", "")),
-            "package": f"MediaHub_{package_name}_v{version}.mhplugin",
-            "minimum_mediahub_version": minimum,
-            "network_scope": str(manifest.get("network_scope", "local_only")),
-            "minimum_mediahub": minimum,
-        })
-    catalog_path = ROOT / "catalog" / "plugins.json"
-    catalog_path.parent.mkdir(parents=True, exist_ok=True)
-    catalog_path.write_text(
-        json.dumps({"catalog_version": 1, "products": products}, ensure_ascii=False, indent=2) + "\n",
+        release_asset = f"MediaHub_{package_name}_v{version}.mhplugin"
+
+        auto_install = bool(catalog.get("auto_install", publishable))
+        manual_only = bool(catalog.get("manual_only", False))
+        manual_message = str(catalog.get("manual_install_message") or "").strip()
+
+        if not publishable:
+            auto_install = False
+            if not manual_message:
+                manual_message = (
+                    "Für diese Version ist derzeit noch kein installierbares "
+                    "Release-Paket verfügbar."
+                )
+
+        items.append(
+            {
+                "id": plugin_id,
+                "name": str(manifest["name"]),
+                "version": version,
+                "status": status,
+                "category": str(
+                    catalog.get("category")
+                    or CATEGORY_BY_ID.get(plugin_id, "Erweiterung")
+                ),
+                "visible": True,
+                "auto_install": auto_install,
+                "manual_only": manual_only,
+                "description": str(manifest.get("description", "")),
+                "minimum_mediahub_version": minimum,
+                "project_page": _catalog_project_page(key, catalog),
+                "manual_install_message": manual_message,
+                "release_asset": release_asset,
+                "sha256_asset": release_asset + ".sha256",
+            }
+        )
+
+    payload = {
+        "schema_version": CATALOG_SCHEMA_VERSION,
+        "repository": CATALOG_REPOSITORY,
+        "generated_for": "MediaHub Plugin-Store",
+        "plugins": items,
+    }
+
+    CATALOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CATALOG_PATH.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-    print(f"Plugin-Katalog aktualisiert: {catalog_path}")
-    return catalog_path
+
+    raw = CATALOG_PATH.read_bytes()
+    if raw.startswith(b"\xef\xbb\xbf"):
+        raise RuntimeError(
+            f"Plugin-Katalog wurde unerwartet mit UTF-8-BOM geschrieben: "
+            f"{CATALOG_PATH}"
+        )
+
+    print(f"Plugin-Store-Katalog aktualisiert: {CATALOG_PATH}")
+    return CATALOG_PATH
+
 
 def clean_release_directory() -> None:
     if RELEASE_DIR.exists():
