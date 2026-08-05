@@ -54,6 +54,7 @@ class PipelineDebugMonitor:
         "knowledge_graph_validation",
         "missing_entity_resolution",
         "relationship_consistency",
+        "entity_proposal_quality",
         "architecture_validation",
         "graph_validation",
     )

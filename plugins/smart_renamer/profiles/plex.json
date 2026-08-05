@@ -1,0 +1,17 @@
+{
+  "id": "plex",
+  "name": "Plex",
+  "media_types": [
+    "movie",
+    "series"
+  ],
+  "description": "Vorbereitung für Plex-konforme Namen.",
+  "rules": [
+    {
+      "type": "schema",
+      "template": "[titel] ([jahr])",
+      "label": "Plex-Filmschema",
+      "source": "profile"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "id": "jellyfin",
+  "name": "Jellyfin",
+  "media_types": [
+    "movie",
+    "series"
+  ],
+  "description": "Vorbereitung für Jellyfin-konforme Namen.",
+  "rules": [
+    {
+      "type": "schema",
+      "template": "[titel] ([jahr])",
+      "label": "Jellyfin-Filmschema",
+      "source": "profile"
+    }
+  ]
+}

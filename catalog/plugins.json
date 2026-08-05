@@ -4,10 +4,10 @@
     {
       "id": "mediahub.ai_assistant",
       "name": "MediaHub KI-Assistent",
-      "version": "7.0.4",
+      "version": "7.0.5",
       "category": "KI und Analyse",
       "description": "Lokaler MediaHub-KI-Assistent mit Semantic Identity Candidate Builder, Semantic Query Pipeline, Knowledge Graph, bestätigtem Lernen, Visual Intelligence, erklärbarer Decision Engine und stabilen Übergabe-APIs.",
-      "package": "MediaHub_KI-Assistent_v7.0.4.mhplugin",
+      "package": "MediaHub_KI-Assistent_v7.0.5.mhplugin",
       "minimum_mediahub_version": "1.0.17",
       "network_scope": "internet_optional",
       "minimum_mediahub": "1.0.17"
@@ -59,13 +59,13 @@
     {
       "id": "mediahub.smart_renamer",
       "name": "MediaHub Smart Renamer",
-      "version": "0.0.0",
+      "version": "0.4.4",
       "category": "Erweiterung",
-      "description": "Universelles Umbenennungs-Plugin mit Vorschau, frei definierbaren Namensschemata und späterer Zusammenarbeit mit KI-Assistent und Metadata Editor.",
-      "package": "MediaHub_SmartRenamer_v0.0.0.mhplugin",
-      "minimum_mediahub_version": "1.0.17",
+      "description": "Windows-Smart-Renamer mit gemeinsamer Desktop-, WebRemote- und Mobile-Oberfläche, stabiler v0.4.0-Darstellung, eingebetteten Profilen und sicherer Live-Vorschau.",
+      "package": "MediaHub_SmartRenamer_v0.4.4.mhplugin",
+      "minimum_mediahub_version": "1.0.18",
       "network_scope": "local_only",
-      "minimum_mediahub": "1.0.17"
+      "minimum_mediahub": "1.0.18"
     },
     {
       "id": "mediahub.web_remote",

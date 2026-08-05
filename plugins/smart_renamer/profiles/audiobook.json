@@ -1,0 +1,15 @@
+{
+  "id": "audiobook",
+  "name": "Hörbuch",
+  "media_types": [
+    "audiobook"
+  ],
+  "description": "Vorbereitung für spätere Hörbuch-Namensschemata.",
+  "rules": [
+    {
+      "type": "trim",
+      "label": "Hörbuch-Basisbereinigung",
+      "source": "profile"
+    }
+  ]
+}

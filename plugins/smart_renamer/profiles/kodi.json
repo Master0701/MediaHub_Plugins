@@ -1,0 +1,17 @@
+{
+  "id": "kodi",
+  "name": "Kodi",
+  "media_types": [
+    "movie",
+    "series"
+  ],
+  "description": "Vorbereitung für Kodi-konforme Namen.",
+  "rules": [
+    {
+      "type": "schema",
+      "template": "[titel] ([jahr])",
+      "label": "Kodi-Filmschema",
+      "source": "profile"
+    }
+  ]
+}

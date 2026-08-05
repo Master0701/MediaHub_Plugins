@@ -1,0 +1,23 @@
+from __future__ import annotations
+
+from typing import Any
+
+from services.rename_pipeline import RenamePipeline
+
+
+class RenamePreviewService:
+    def __init__(self, backend_registry):
+        self.pipeline = RenamePipeline(backend_registry)
+
+    def create_preview(
+        self,
+        *,
+        items: list[dict[str, Any]],
+        rules: list[dict[str, Any]],
+        preferred_backend: str | None = None,
+    ) -> dict[str, Any]:
+        return self.pipeline.preview(
+            items=items,
+            rules=rules,
+            preferred_backend=preferred_backend,
+        )

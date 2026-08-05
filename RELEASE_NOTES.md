@@ -1,6 +1,6 @@
 # MediaHub Plugins v0.5.6 – vollständiges Release
 
-## MediaHub KI-Assistent v7.0.4
+## MediaHub KI-Assistent v7.0.5
 
 - Mehrstufige Medienerkennung mit Supervisor-Agent und erklärbarer Decision Engine.
 - Semantic Query Pipeline mit intelligenter Suchvarianten-Erzeugung, Qualitätsprüfung und Quellenbewertung.
@@ -31,6 +31,10 @@
 - Mobile Oberfläche für Handy und Tablet.
 - Einklappbare linke Sidebar und Geräte-Kopplung bleiben verfügbar.
 - Mobile Dashboard bleibt aus dem zusätzlichen Bereich „Plugin-Oberflächen“ ausgeblendet.
+
+## MediaHub Smart Renamer v0.4.4
+
+- Windows-Smart-Renamer mit gemeinsamer Desktop-, WebRemote- und Mobile-Oberfläche, stabiler v0.4.0-Darstellung, eingebetteten Profilen und sicherer Live-Vorschau.
 
 ## MediaHub WebRemote v0.13.7
 

@@ -4,17 +4,17 @@ Offizielles Erweiterungs-Repository für MediaHub.
 
 ## Aktueller Stand
 
-- **MediaHub KI-Assistent 7.0.4**
+- **MediaHub KI-Assistent 7.0.5**
 - **MediaHub Hörbuchverwaltung 0.0.0**
 - **MediaHub Listen & Export 0.0.0**
 - **MediaHub Metadata Editor 0.3.6**
 - **MediaHub Mobile Dashboard 0.1.7**
-- **MediaHub Smart Renamer 0.0.0**
+- **MediaHub Smart Renamer 0.4.4**
 - **MediaHub WebRemote 0.13.7**
 
 # MediaHub Plugins v0.5.6 – vollständiges Release
 
-## MediaHub KI-Assistent v7.0.4
+## MediaHub KI-Assistent v7.0.5
 
 - Mehrstufige Medienerkennung mit Supervisor-Agent und erklärbarer Decision Engine.
 - Semantic Query Pipeline mit intelligenter Suchvarianten-Erzeugung, Qualitätsprüfung und Quellenbewertung.
@@ -46,6 +46,10 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - Einklappbare linke Sidebar und Geräte-Kopplung bleiben verfügbar.
 - Mobile Dashboard bleibt aus dem zusätzlichen Bereich „Plugin-Oberflächen“ ausgeblendet.
 
+## MediaHub Smart Renamer v0.4.4
+
+- Windows-Smart-Renamer mit gemeinsamer Desktop-, WebRemote- und Mobile-Oberfläche, stabiler v0.4.0-Darstellung, eingebetteten Profilen und sicherer Live-Vorschau.
+
 ## MediaHub WebRemote v0.13.7
 
 - Lokale Desktop-Weboberfläche für PC und Notebook.
@@ -61,12 +65,12 @@ Offizielles Erweiterungs-Repository für MediaHub.
 
 ## Kompatibilität
 
-- **MediaHub KI-Assistent 7.0.4** – mindestens MediaHub v1.0.17
+- **MediaHub KI-Assistent 7.0.5** – mindestens MediaHub v1.0.17
 - **MediaHub Hörbuchverwaltung 0.0.0** – mindestens MediaHub v1.0.17
 - **MediaHub Listen & Export 0.0.0** – mindestens MediaHub v1.0.17
 - **MediaHub Metadata Editor 0.3.6** – mindestens MediaHub v1.0.5
 - **MediaHub Mobile Dashboard 0.1.7** – mindestens MediaHub v1.0.5
-- **MediaHub Smart Renamer 0.0.0** – mindestens MediaHub v1.0.17
+- **MediaHub Smart Renamer 0.4.4** – mindestens MediaHub v1.0.18
 - **MediaHub WebRemote 0.13.7** – mindestens MediaHub v1.0.5
 
 ## Projektaufbau

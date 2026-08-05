@@ -1,0 +1,15 @@
+{
+  "id": "standard",
+  "name": "Standard",
+  "media_types": [
+    "all"
+  ],
+  "description": "Sichere allgemeine Bereinigung ohne Bibliotheksvorgaben.",
+  "rules": [
+    {
+      "type": "trim",
+      "label": "Leerzeichen bereinigen",
+      "source": "profile"
+    }
+  ]
+}
