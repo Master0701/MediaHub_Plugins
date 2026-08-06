@@ -1,0 +1,25 @@
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = [
+    "tests",
+]
+python_files = [
+    "test_*.py",
+]
+addopts = [
+    "-ra",
+    "-s",
+    "--import-mode=importlib",
+]
+norecursedirs = [
+    ".git",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+    "release",
+    "__pycache__",
+    ".pytest_cache",
+    "_*",
+    "MediaHub_*",
+]

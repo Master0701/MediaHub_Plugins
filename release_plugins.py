@@ -533,6 +533,7 @@ ALLOWED_RELEASE_ROOTS = (
 ALLOWED_RELEASE_FILES = {
     ".gitignore",
     "README.md",
+    "pyproject.toml",
     "CHANGELOG.md",
     "RELEASE_NOTES.md",
     "THIRD_PARTY_LICENSES.md",
@@ -743,9 +744,7 @@ def main() -> int:
     run(sys.executable, "validate_plugins.py")
 
     if not args.skip_tests:
-        ai_tests = PLUGINS_DIR / "ai_assistant" / "tests"
-        if ai_tests.is_dir():
-            run(sys.executable, "-m", "pytest", str(ai_tests), "-q")
+        run(sys.executable, "-m", "pytest", "-q")
         run(sys.executable, "-m", "compileall", str(PLUGINS_DIR))
 
     run(sys.executable, "build_plugins.py", "all", "--clean")
