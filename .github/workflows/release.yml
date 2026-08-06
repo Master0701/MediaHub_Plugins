@@ -1,4 +1,4 @@
-﻿name: Plugin Release
+name: Plugin Release
 
 on:
   push:
@@ -21,8 +21,14 @@ jobs:
         with:
           python-version: "3.13"
 
+      - name: Abhängigkeiten installieren
+        run: python -m pip install --upgrade pip pytest
+
       - name: Plugins prüfen
         run: python validate_plugins.py
+
+      - name: Globalen Plugin-Test ausführen
+        run: python -m pytest -q
 
       - name: Alle Plugins sauber bauen
         run: python build_plugins.py all --clean
@@ -52,22 +58,16 @@ jobs:
           script: |
             const fs = require("fs");
             const tag = context.ref.replace("refs/tags/", "");
-            const body = fs.readFileSync(
-              process.env.RELEASE_NOTES_PATH,
-              "utf8"
-            );
-            const prerelease =
-              tag.includes("test") ||
-              tag.includes("beta") ||
-              tag.includes("alpha");
+            const title = `MediaHub Plugins ${tag} – vollständiges Release`;
+            const body = fs.readFileSync(process.env.RELEASE_NOTES_PATH, "utf8");
+            const prerelease = tag.includes("test") || tag.includes("beta") || tag.includes("alpha");
 
             try {
-              const release =
-                await github.rest.repos.getReleaseByTag({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  tag,
-                });
+              const release = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag,
+              });
 
               await github.rest.repos.updateRelease({
                 owner: context.repo.owner,
@@ -75,15 +75,13 @@ jobs:
                 release_id: release.data.id,
                 tag_name: tag,
                 target_commitish: context.sha,
-                name: `MediaHub Plugins ${tag}`,
+                name: title,
                 body,
                 draft: false,
                 prerelease,
               });
 
-              core.info(
-                `Bestehendes Release ${tag} wurde aktualisiert.`
-              );
+              core.info(`Bestehendes Release ${tag} wurde aktualisiert.`);
             } catch (error) {
               if (error.status !== 404) {
                 throw error;
@@ -94,16 +92,14 @@ jobs:
                 repo: context.repo.repo,
                 tag_name: tag,
                 target_commitish: context.sha,
-                name: `MediaHub Plugins ${tag}`,
+                name: title,
                 body,
                 draft: false,
                 prerelease,
                 generate_release_notes: false,
               });
 
-              core.info(
-                `Neues Release ${tag} wurde erstellt.`
-              );
+              core.info(`Neues Release ${tag} wurde erstellt.`);
             }
 
       - name: Alle alten Release-Assets entfernen
@@ -111,13 +107,11 @@ jobs:
         with:
           script: |
             const tag = context.ref.replace("refs/tags/", "");
-
-            const release =
-              await github.rest.repos.getReleaseByTag({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                tag,
-              });
+            const release = await github.rest.repos.getReleaseByTag({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag,
+            });
 
             const assets = await github.paginate(
               github.rest.repos.listReleaseAssets,
@@ -129,30 +123,14 @@ jobs:
               }
             );
 
-            if (assets.length === 0) {
-              core.info(
-                `Release ${tag} enthält keine alten Assets.`
-              );
-              return;
-            }
-
             for (const asset of assets) {
-              core.info(
-                `Lösche altes Release-Asset: ${asset.name}`
-              );
-
+              core.info(`Lösche altes Release-Asset: ${asset.name}`);
               await github.rest.repos.deleteReleaseAsset({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 asset_id: asset.id,
               });
             }
-
-            core.info(
-              `${assets.length} alte Release-Assets wurden entfernt.`
-            );
-
-
 
       - name: Platzhalter-Plugins vom Release ausschließen
         shell: pwsh
@@ -165,10 +143,11 @@ jobs:
               Write-Host "Entferne Platzhalter-Asset: $($_.Name)"
               Remove-Item -LiteralPath $_.FullName -Force
             }
+
       - name: Frische Release-Assets hochladen
         uses: softprops/action-gh-release@v3
         with:
-          name: MediaHub Plugins ${{ github.ref_name }}
+          name: MediaHub Plugins ${{ github.ref_name }} – vollständiges Release
           tag_name: ${{ github.ref_name }}
           body_path: RELEASE_NOTES.md
           generate_release_notes: false
@@ -186,12 +165,9 @@ jobs:
         with:
           script: |
             const fs = require("fs");
-            const path = require("path");
             const tag = context.ref.replace("refs/tags/", "");
-            const expectedBody = fs.readFileSync(
-              process.env.RELEASE_NOTES_PATH,
-              "utf8"
-            );
+            const expectedTitle = `MediaHub Plugins ${tag} – vollständiges Release`;
+            const expectedBody = fs.readFileSync(process.env.RELEASE_NOTES_PATH, "utf8");
 
             const release = await github.rest.repos.getReleaseByTag({
               owner: context.repo.owner,
@@ -209,34 +185,43 @@ jobs:
               }
             );
 
-            if (release.data.body !== expectedBody) {
-              throw new Error(
-                "Release-Beschreibung stimmt nicht mit RELEASE_NOTES.md überein."
-              );
+            if (release.data.name !== expectedTitle) {
+              throw new Error(`Release-Titel falsch: ${release.data.name} != ${expectedTitle}`);
             }
 
-            const catalog = JSON.parse(
-              fs.readFileSync("catalog/plugins.json", "utf8")
-            );
+            if (release.data.body !== expectedBody) {
+              throw new Error("Release-Beschreibung stimmt nicht mit RELEASE_NOTES.md überein.");
+            }
+
+            const rawCatalog = fs.readFileSync("catalog/plugin_catalog.json");
+            if (
+              rawCatalog.length >= 3 &&
+              rawCatalog[0] === 0xef &&
+              rawCatalog[1] === 0xbb &&
+              rawCatalog[2] === 0xbf
+            ) {
+              throw new Error("catalog/plugin_catalog.json enthält UTF-8-BOM.");
+            }
+
+            const catalog = JSON.parse(rawCatalog.toString("utf8"));
+            if (catalog.schema_version !== 2) {
+              throw new Error(`Falsche Katalogversion: ${catalog.schema_version}`);
+            }
 
             const expected = new Set();
-            for (const product of catalog.products || []) {
-              if (String(product.version || "") === "0.0.0") {
-                core.info(
-                  `Überspringe Platzhalter-Plugin: ${product.name} v0.0.0`
-                );
+            for (const plugin of catalog.plugins || []) {
+              if (String(plugin.version || "") === "0.0.0") {
+                core.info(`Überspringe Platzhalter-Plugin: ${plugin.name} v0.0.0`);
                 continue;
               }
 
-              const base = String(product.package || "");
+              const base = String(plugin.release_asset || "");
               if (!base.endsWith(".mhplugin")) {
-                throw new Error(
-                  `Ungültiger Paketname im Katalog für ${product.name}: ${base}`
-                );
+                throw new Error(`Ungültiger Paketname im Katalog für ${plugin.name}: ${base}`);
               }
 
               expected.add(base);
-              expected.add(`${base}.sha256`);
+              expected.add(String(plugin.sha256_asset || `${base}.sha256`));
             }
 
             const actualPluginAssets = assets
@@ -253,13 +238,4 @@ jobs:
               throw new Error("Veraltete Release-Assets: " + stale.join(", "));
             }
 
-            if (release.data.target_commitish !== context.sha) {
-              core.warning(
-                `target_commitish=${release.data.target_commitish}, Workflow-SHA=${context.sha}`
-              );
-            }
-
-            core.info(
-              `Release ${tag} wurde mit ${assets.length} aktuellen Assets geprüft.`
-            );
-
+            core.info(`Release ${tag} wurde mit ${assets.length} aktuellen Assets geprüft.`);
