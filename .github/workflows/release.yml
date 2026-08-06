@@ -4,6 +4,13 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Vorhandenen Release-Tag erneut veröffentlichen"
+        required: true
+        default: "v0.5.8"
+        type: string
 
 permissions:
   contents: write
@@ -11,10 +18,14 @@ permissions:
 jobs:
   build-and-release:
     runs-on: windows-latest
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
 
     steps:
       - name: Repository auschecken
         uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Python einrichten
         uses: actions/setup-python@v6
@@ -36,13 +47,13 @@ jobs:
       - name: Quellpaket erstellen
         shell: pwsh
         run: |
-          $name = "MediaHub_Plugins_Source_${{ github.ref_name }}.zip"
+          $name = "MediaHub_Plugins_Source_${{ env.RELEASE_TAG }}.zip"
           git archive --format=zip --output="release/$name" HEAD
 
       - name: Release-Dateien als Workflow-Artefakt hochladen
         uses: actions/upload-artifact@v6
         with:
-          name: MediaHub-Plugins-${{ github.ref_name }}
+          name: MediaHub-Plugins-${{ env.RELEASE_TAG }}
           path: |
             release/*.mhplugin
             release/*.sha256
@@ -57,7 +68,7 @@ jobs:
         with:
           script: |
             const fs = require("fs");
-            const tag = context.ref.replace("refs/tags/", "");
+            const tag = process.env.RELEASE_TAG;
             const title = `MediaHub Plugins ${tag} – vollständiges Release`;
             const body = fs.readFileSync(process.env.RELEASE_NOTES_PATH, "utf8");
             const prerelease = tag.includes("test") || tag.includes("beta") || tag.includes("alpha");
@@ -106,7 +117,7 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const tag = context.ref.replace("refs/tags/", "");
+            const tag = process.env.RELEASE_TAG;
             const release = await github.rest.repos.getReleaseByTag({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -147,8 +158,8 @@ jobs:
       - name: Frische Release-Assets hochladen
         uses: softprops/action-gh-release@v3
         with:
-          name: MediaHub Plugins ${{ github.ref_name }} – vollständiges Release
-          tag_name: ${{ github.ref_name }}
+          name: MediaHub Plugins ${{ env.RELEASE_TAG }} – vollständiges Release
+          tag_name: ${{ env.RELEASE_TAG }}
           body_path: RELEASE_NOTES.md
           generate_release_notes: false
           fail_on_unmatched_files: true
@@ -165,7 +176,7 @@ jobs:
         with:
           script: |
             const fs = require("fs");
-            const tag = context.ref.replace("refs/tags/", "");
+            const tag = process.env.RELEASE_TAG;
             const expectedTitle = `MediaHub Plugins ${tag} – vollständiges Release`;
             const expectedBody = fs.readFileSync(process.env.RELEASE_NOTES_PATH, "utf8");
 
