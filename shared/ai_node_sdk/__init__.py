@@ -28,6 +28,11 @@ from .router import (
     find_candidates,
     route_task,
 )
+from .selection import (
+    RankedCandidate,
+    SelectionPolicy,
+    rank_candidates,
+)
 from .task import TaskRequest, TaskResult
 from .version import (
     SDK_VERSION,
@@ -43,9 +48,11 @@ __all__ = [
     "LoadedPlugin",
     "PluginManifest",
     "PluginRuntimeStatus",
+    "RankedCandidate",
     "RouteCandidate",
     "SDK_VERSION",
     "SUPPORTED_PLUGIN_API_VERSIONS",
+    "SelectionPolicy",
     "TaskExecutor",
     "TaskRequest",
     "TaskResult",
@@ -56,6 +63,7 @@ __all__ = [
     "find_candidates",
     "load_manifest",
     "load_plugin",
+    "rank_candidates",
     "read_health",
     "route_task",
     "supports_health",
