@@ -13,10 +13,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 PLUGINS_DIR = ROOT / "plugins"
+AI_NODE_PLUGINS_DIR = ROOT / "ai_node_plugins"
 PENDING = ROOT / "RELEASE_NOTES_PENDING.md"
 RELEASE_NOTES = ROOT / "RELEASE_NOTES.md"
 README = ROOT / "README.md"
 CATALOG = ROOT / "catalog" / "plugin_catalog.json"
+AI_CATALOG = ROOT / "catalog" / "ai_plugin_catalog.json"
 RELEASE_DIR = ROOT / "release"
 BUILD_SCRIPT = ROOT / "build_plugins.py"
 
@@ -28,9 +30,11 @@ class Plugin:
     name: str
     version: str
     package_name: str
-    minimum_mediahub: str
+    compatibility: str
     description: str
     manifest_path: Path
+    group: str
+    extension: str
 
     @property
     def publishable(self) -> bool:
@@ -38,8 +42,10 @@ class Plugin:
 
     @property
     def artifact(self) -> str:
-        return f"MediaHub_{self.package_name}_v{self.version}.mhplugin"
-
+        return (
+            f"MediaHub_{self.package_name}_v{self.version}"
+            f"{self.extension}"
+        )
 
 def run(*args: str, capture: bool = False) -> str:
     print("+", " ".join(args))
@@ -74,35 +80,73 @@ def load_plugins() -> list[Plugin]:
     build = load_build_helpers()
     plugins: list[Plugin] = []
 
-    for manifest_path in sorted(PLUGINS_DIR.glob("*/plugin.json")):
-        data = json.loads(manifest_path.read_text(encoding="utf-8"))
-        for field in ("id", "name", "version"):
-            if not data.get(field):
-                raise RuntimeError(f"Pflichtfeld {field!r} fehlt in {manifest_path}")
+    source_groups = (
+        ("MediaHub", PLUGINS_DIR, ".mhplugin"),
+        ("AI-Node", AI_NODE_PLUGINS_DIR, ".mhaiplugin"),
+    )
 
-        key = manifest_path.parent.name
-        package_name = str(build.safe_package_name(data, key))
-        plugins.append(
-            Plugin(
-                key=key,
-                plugin_id=str(data["id"]),
-                name=str(data["name"]),
-                version=str(data["version"]),
-                package_name=package_name,
-                minimum_mediahub=str(
+    for group, source_root, extension in source_groups:
+        if not source_root.exists():
+            continue
+
+        for manifest_path in sorted(source_root.glob("*/plugin.json")):
+            data = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+            for field in ("id", "name", "version"):
+                if not data.get(field):
+                    raise RuntimeError(
+                        f"Pflichtfeld {field!r} fehlt in {manifest_path}"
+                    )
+
+            key = manifest_path.parent.name
+
+            if group == "AI-Node":
+                if not hasattr(build, "safe_ai_package_name"):
+                    raise RuntimeError(
+                        "safe_ai_package_name fehlt in build_plugins.py. "
+                        "Die AI-Node-Build-Unterstützung ist unvollständig."
+                    )
+                package_name = str(build.safe_ai_package_name(data, key))
+                api_version = str(data.get("api_version") or "nicht angegeben")
+                compatibility = f"AI-Node API {api_version}"
+            else:
+                package_name = str(build.safe_package_name(data, key))
+                minimum = str(
                     data.get("minimum_mediahub_version")
                     or data.get("minimum_mediahub")
                     or "nicht angegeben"
-                ),
-                description=str(data.get("description") or "").strip(),
-                manifest_path=manifest_path,
+                )
+                compatibility = f"mindestens MediaHub v{minimum}"
+
+            plugins.append(
+                Plugin(
+                    key=key,
+                    plugin_id=str(data["id"]),
+                    name=str(data["name"]),
+                    version=str(data["version"]),
+                    package_name=package_name,
+                    compatibility=compatibility,
+                    description=str(data.get("description") or "").strip(),
+                    manifest_path=manifest_path,
+                    group=group,
+                    extension=extension,
+                )
             )
-        )
 
     if not plugins:
         raise RuntimeError("Keine Plugins gefunden.")
-    return plugins
 
+    seen_ids: dict[str, Path] = {}
+    for plugin in plugins:
+        previous = seen_ids.get(plugin.plugin_id)
+        if previous is not None:
+            raise RuntimeError(
+                f"Doppelte Plugin-ID {plugin.plugin_id!r}: "
+                f"{previous} und {plugin.manifest_path}"
+            )
+        seen_ids[plugin.plugin_id] = plugin.manifest_path
+
+    return plugins
 
 def infer_tag(text: str) -> str:
     match = re.search(
@@ -164,8 +208,8 @@ def build_release_notes(source: str, plugins: list[Plugin], tag: str) -> str:
         lines.append("## Gemeinsamer Release-Stand")
         lines.append("")
         lines.append("- Alle veröffentlichten Plugins wurden aus den aktuellen Manifesten vollständig neu gebaut.")
-        lines.append("- Für jedes veröffentlichte Plugin stehen eine `.mhplugin`-Datei und eine `.sha256`-Prüfsumme bereit.")
-        lines.append("- Der Plugin-Katalog wurde aus den aktuellen Manifesten erzeugt.")
+        lines.append("- Für jedes veröffentlichte Plugin stehen eine `.mhplugin`- oder `.mhaiplugin`-Datei und eine `.sha256`-Prüfsumme bereit.")
+        lines.append("- Die MediaHub- und AI-Node-Plugin-Kataloge wurden aus den aktuellen Manifesten erzeugt.")
         lines.append("- Geplante Plugins mit Version 0.0.0 bleiben im Katalog sichtbar, werden aber nicht als veröffentlichte Release-Pakete geprüft.")
         lines.append("")
 
@@ -177,7 +221,7 @@ def build_readme(notes: str, plugins: list[Plugin]) -> str:
         f"- **{plugin.name} {plugin.version}**" for plugin in plugins
     )
     compatibility = "\n".join(
-        f"- **{plugin.name} {plugin.version}** – mindestens MediaHub v{plugin.minimum_mediahub}"
+        f"- **{plugin.name} {plugin.version}** – {plugin.compatibility}"
         for plugin in plugins
     )
 
@@ -197,7 +241,8 @@ Offizielles Erweiterungs-Repository für MediaHub.
 
 ## Projektaufbau
 
-- `plugins/` – getrennte, einzeln installierbare Plugins
+- `plugins/` – MediaHub-Plugins (`.mhplugin`)
+- `ai_node_plugins/` – AI-Node-/Raspberry-Pi-Plugins (`.mhaiplugin`)
 - `shared/` – gemeinsam genutzte Laufzeiten, APIs und Design-Bausteine
 - `catalog/` – Plugin-Store- und Updatekataloge
 - `docs/` – Architektur-, Design- und Entwicklungsunterlagen
@@ -221,7 +266,7 @@ release_plugins.cmd -Tag v0.5.5
 ```
 
 Alle Versions- und Paketnamen werden automatisch aus den jeweiligen
-`plugins/*/plugin.json` übernommen.
+`plugins/*/plugin.json` und `ai_node_plugins/*/plugin.json` übernommen.
 """
 
 
@@ -250,6 +295,8 @@ def verify_document_versions(text: str, plugins: list[Plugin], label: str) -> No
 
 
 def verify_catalog(plugins: list[Plugin]) -> None:
+    plugins = [plugin for plugin in plugins if plugin.group == "MediaHub"]
+
     if not CATALOG.is_file():
         raise RuntimeError(f"Plugin-Store-Katalog fehlt: {CATALOG}")
 
@@ -354,34 +401,158 @@ def verify_catalog(plugins: list[Plugin]) -> None:
             )
 
 
+def verify_ai_catalog(plugins: list[Plugin]) -> None:
+    ai_plugins = [
+        plugin for plugin in plugins
+        if plugin.group == "AI-Node"
+    ]
+
+    if not AI_CATALOG.is_file():
+        raise RuntimeError(
+            f"AI-Node-Plugin-Katalog fehlt: {AI_CATALOG}"
+        )
+
+    raw = AI_CATALOG.read_bytes()
+    if raw.startswith(b"\xef\xbb\xbf"):
+        raise RuntimeError(
+            f"AI-Node-Katalog enthält UTF-8-BOM: {AI_CATALOG}"
+        )
+
+    try:
+        data = json.loads(raw.decode("utf-8"))
+    except UnicodeDecodeError as exc:
+        raise RuntimeError(
+            f"AI-Node-Katalog ist nicht gültiges UTF-8: {AI_CATALOG}"
+        ) from exc
+
+    if data.get("schema_version") != 1:
+        raise RuntimeError(
+            "AI-Node-Katalog verwendet nicht schema_version 1."
+        )
+    if data.get("repository") != "Master0701/MediaHub_Plugins":
+        raise RuntimeError(
+            "AI-Node-Katalog enthält ein falsches Repository."
+        )
+    if data.get("package_extension") != ".mhaiplugin":
+        raise RuntimeError(
+            "AI-Node-Katalog enthält eine falsche Paketendung."
+        )
+
+    items = data.get("plugins")
+    if not isinstance(items, list):
+        raise RuntimeError(
+            "AI-Node-Katalogfeld 'plugins' ist keine Liste."
+        )
+
+    by_id: dict[str, dict] = {}
+    for item in items:
+        if not isinstance(item, dict):
+            raise RuntimeError(
+                "AI-Node-Katalog enthält einen ungültigen Eintrag."
+            )
+
+        plugin_id = str(item.get("id") or "")
+        if not plugin_id:
+            raise RuntimeError(
+                "AI-Node-Katalog enthält einen Eintrag ohne ID."
+            )
+        if plugin_id in by_id:
+            raise RuntimeError(
+                f"Doppelter AI-Node-Katalogeintrag: {plugin_id}"
+            )
+        by_id[plugin_id] = item
+
+    expected_ids = {plugin.plugin_id for plugin in ai_plugins}
+    actual_ids = set(by_id)
+
+    missing_ids = sorted(expected_ids - actual_ids)
+    unexpected_ids = sorted(actual_ids - expected_ids)
+
+    if missing_ids:
+        raise RuntimeError(
+            "AI-Node-Katalogeinträge fehlen: "
+            + ", ".join(missing_ids)
+        )
+    if unexpected_ids:
+        raise RuntimeError(
+            "AI-Node-Katalog enthält unbekannte Plugin-IDs: "
+            + ", ".join(unexpected_ids)
+        )
+
+    for plugin in ai_plugins:
+        item = by_id[plugin.plugin_id]
+
+        if str(item.get("version")) != plugin.version:
+            raise RuntimeError(
+                f"AI-Katalogversion falsch für {plugin.name}: "
+                f"{item.get('version')} != {plugin.version}"
+            )
+
+        release_asset = str(
+            item.get("release_asset")
+            or item.get("package_asset")
+            or ""
+        )
+        if release_asset != plugin.artifact:
+            raise RuntimeError(
+                f"AI-Katalogpaket falsch für {plugin.name}: "
+                f"{release_asset} != {plugin.artifact}"
+            )
+
+        if (
+            str(item.get("sha256_asset"))
+            != plugin.artifact + ".sha256"
+        ):
+            raise RuntimeError(
+                f"AI-Katalog-Prüfsummenpaket falsch für "
+                f"{plugin.name}"
+            )
+
+
 def verify_artifacts(plugins: list[Plugin]) -> None:
     expected_names: set[str] = set()
 
     for plugin in plugins:
         artifact = RELEASE_DIR / plugin.artifact
-        checksum_file = artifact.with_name(artifact.name + ".sha256")
+        checksum_file = artifact.with_name(
+            artifact.name + ".sha256"
+        )
 
         if not artifact.is_file():
             raise RuntimeError(f"Build-Datei fehlt: {artifact}")
         if not checksum_file.is_file():
             raise RuntimeError(f"Prüfsumme fehlt: {checksum_file}")
 
-        expected = hashlib.sha256(artifact.read_bytes()).hexdigest()
-        recorded = checksum_file.read_text(encoding="utf-8").strip().split()[0]
+        expected = hashlib.sha256(
+            artifact.read_bytes()
+        ).hexdigest()
+        recorded = checksum_file.read_text(
+            encoding="utf-8"
+        ).strip().split()[0]
+
         if expected.lower() != recorded.lower():
-            raise RuntimeError(f"SHA256 stimmt nicht: {artifact.name}")
+            raise RuntimeError(
+                f"SHA256 stimmt nicht: {artifact.name}"
+            )
 
         expected_names.add(plugin.artifact)
         expected_names.add(plugin.artifact + ".sha256")
 
     stale = [
         path.name
-        for path in RELEASE_DIR.glob("MediaHub_*.mhplugin*")
-        if path.name not in expected_names
+        for path in RELEASE_DIR.iterdir()
+        if path.is_file()
+        and (
+            ".mhplugin" in path.name
+            or ".mhaiplugin" in path.name
+        )
+        and path.name not in expected_names
     ]
+
     if stale:
         raise RuntimeError(
-            "Veraltete Build-Dateien gefunden: " + ", ".join(sorted(stale))
+            "Veraltete Build-Dateien gefunden: "
+            + ", ".join(sorted(stale))
         )
 
 
@@ -521,6 +692,7 @@ def cleanup_preflight(*, assume_yes: bool = False) -> None:
 
 ALLOWED_RELEASE_ROOTS = (
     "plugins/",
+    "ai_node_plugins/",
     "shared/",
     "src/",
     "tools/",
@@ -739,13 +911,20 @@ def main() -> int:
     print(f"Release: {tag}")
     for plugin in plugins:
         state = "veröffentlicht" if plugin.publishable else "Platzhalter"
-        print(f"  - {plugin.name} v{plugin.version} [{state}] -> {plugin.artifact}")
+        print(f"  - [{plugin.group}] {plugin.name} v{plugin.version} "f"[{state}] -> {plugin.artifact}")
 
     run(sys.executable, "validate_plugins.py")
 
     if not args.skip_tests:
         run(sys.executable, "-m", "pytest", "-q")
         run(sys.executable, "-m", "compileall", str(PLUGINS_DIR))
+        if AI_NODE_PLUGINS_DIR.exists():
+            run(
+                sys.executable,
+                "-m",
+                "compileall",
+                str(AI_NODE_PLUGINS_DIR),
+            )
 
     run(sys.executable, "build_plugins.py", "all", "--clean")
 
@@ -760,6 +939,7 @@ def main() -> int:
         "README.md",
     )
     verify_catalog(plugins)
+    verify_ai_catalog(plugins)
     verify_artifacts(plugins)
 
     commit_release_changes(tag)

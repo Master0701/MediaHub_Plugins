@@ -12,27 +12,29 @@ permissions:
 jobs:
   validate-and-build:
     runs-on: windows-latest
-
     steps:
       - name: Repository auschecken
         uses: actions/checkout@v6
-
       - name: Python einrichten
         uses: actions/setup-python@v6
         with:
           python-version: "3.13"
-
-      - name: Plugins prüfen
+      - name: Test-Abhängigkeiten installieren
+        run: python -m pip install --upgrade pip pytest
+      - name: Beide Plugin-Gruppen prüfen
         run: python validate_plugins.py
-
-      - name: Alle Plugins sauber bauen
+      - name: Globalen Plugin-Test ausführen
+        run: python -m pytest -q
+      - name: MediaHub- und AI-Node-Plugins sauber bauen
         run: python build_plugins.py all --clean
-
       - name: Build-Dateien hochladen
         uses: actions/upload-artifact@v6
         with:
           name: MediaHub-Plugins
           path: |
             release/*.mhplugin
+            release/*.mhaiplugin
             release/*.sha256
+            catalog/plugin_catalog.json
+            catalog/ai_plugin_catalog.json
           if-no-files-found: error

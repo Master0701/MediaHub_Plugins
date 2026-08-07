@@ -1,0 +1,19 @@
+{
+  "id": "provider.mediahub_test",
+  "name": "MediaHub AI Test Provider",
+  "version": "1.0.0",
+  "type": "provider",
+  "entrypoint": "plugin:MediaHubAITestProvider",
+  "api_version": "1",
+  "description": "Test-Plugin für die komplette MediaHub-AI-Node-Installationskette.",
+  "author": "Master0701",
+  "license": "MIT",
+  "enabled_by_default": true,
+  "permissions": [],
+  "capabilities": [
+    "health_check",
+    "test_provider"
+  ],
+  "dependencies": [],
+  "required_tools": []
+}

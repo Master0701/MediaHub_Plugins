@@ -9,7 +9,6 @@ on:
       release_tag:
         description: "Vorhandenen Release-Tag erneut veröffentlichen"
         required: true
-        default: "v0.5.8"
         type: string
 
 permissions:
@@ -35,13 +34,13 @@ jobs:
       - name: Abhängigkeiten installieren
         run: python -m pip install --upgrade pip pytest
 
-      - name: Plugins prüfen
+      - name: Beide Plugin-Gruppen prüfen
         run: python validate_plugins.py
 
       - name: Globalen Plugin-Test ausführen
         run: python -m pytest -q
 
-      - name: Alle Plugins sauber bauen
+      - name: MediaHub- und AI-Node-Plugins sauber bauen
         run: python build_plugins.py all --clean
 
       - name: Quellpaket erstellen
@@ -56,8 +55,11 @@ jobs:
           name: MediaHub-Plugins-${{ env.RELEASE_TAG }}
           path: |
             release/*.mhplugin
+            release/*.mhaiplugin
             release/*.sha256
             release/MediaHub_Plugins_Source_*.zip
+            catalog/plugin_catalog.json
+            catalog/ai_plugin_catalog.json
             RELEASE_NOTES.md
           if-no-files-found: error
 
@@ -71,7 +73,10 @@ jobs:
             const tag = process.env.RELEASE_TAG;
             const title = `MediaHub Plugins ${tag} – vollständiges Release`;
             const body = fs.readFileSync(process.env.RELEASE_NOTES_PATH, "utf8");
-            const prerelease = tag.includes("test") || tag.includes("beta") || tag.includes("alpha");
+            const prerelease =
+              tag.includes("test") ||
+              tag.includes("beta") ||
+              tag.includes("alpha");
 
             try {
               const release = await github.rest.repos.getReleaseByTag({
@@ -91,12 +96,8 @@ jobs:
                 draft: false,
                 prerelease,
               });
-
-              core.info(`Bestehendes Release ${tag} wurde aktualisiert.`);
             } catch (error) {
-              if (error.status !== 404) {
-                throw error;
-              }
+              if (error.status !== 404) throw error;
 
               await github.rest.repos.createRelease({
                 owner: context.repo.owner,
@@ -109,8 +110,6 @@ jobs:
                 prerelease,
                 generate_release_notes: false,
               });
-
-              core.info(`Neues Release ${tag} wurde erstellt.`);
             }
 
       - name: Alle alten Release-Assets entfernen
@@ -135,7 +134,6 @@ jobs:
             );
 
             for (const asset of assets) {
-              core.info(`Lösche altes Release-Asset: ${asset.name}`);
               await github.rest.repos.deleteReleaseAsset({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -148,10 +146,9 @@ jobs:
         run: |
           Get-ChildItem release -File |
             Where-Object {
-              $_.Name -match '_v0\.0\.0\.mhplugin(?:\.sha256)?$'
+              $_.Name -match '_v0\.0\.0\.(?:mhplugin|mhaiplugin)(?:\.sha256)?$'
             } |
             ForEach-Object {
-              Write-Host "Entferne Platzhalter-Asset: $($_.Name)"
               Remove-Item -LiteralPath $_.FullName -Force
             }
 
@@ -166,6 +163,7 @@ jobs:
           overwrite_files: true
           files: |
             release/*.mhplugin
+            release/*.mhaiplugin
             release/*.sha256
             release/MediaHub_Plugins_Source_*.zip
 
@@ -177,8 +175,10 @@ jobs:
           script: |
             const fs = require("fs");
             const tag = process.env.RELEASE_TAG;
-            const expectedTitle = `MediaHub Plugins ${tag} – vollständiges Release`;
-            const expectedBody = fs.readFileSync(process.env.RELEASE_NOTES_PATH, "utf8");
+            const expectedTitle =
+              `MediaHub Plugins ${tag} – vollständiges Release`;
+            const expectedBody =
+              fs.readFileSync(process.env.RELEASE_NOTES_PATH, "utf8");
 
             const release = await github.rest.repos.getReleaseByTag({
               owner: context.repo.owner,
@@ -197,56 +197,87 @@ jobs:
             );
 
             if (release.data.name !== expectedTitle) {
-              throw new Error(`Release-Titel falsch: ${release.data.name} != ${expectedTitle}`);
+              throw new Error(
+                `Release-Titel falsch: ${release.data.name} != ${expectedTitle}`
+              );
             }
 
             if (release.data.body !== expectedBody) {
-              throw new Error("Release-Beschreibung stimmt nicht mit RELEASE_NOTES.md überein.");
+              throw new Error(
+                "Release-Beschreibung stimmt nicht mit RELEASE_NOTES.md überein."
+              );
             }
 
-            const rawCatalog = fs.readFileSync("catalog/plugin_catalog.json");
-            if (
-              rawCatalog.length >= 3 &&
-              rawCatalog[0] === 0xef &&
-              rawCatalog[1] === 0xbb &&
-              rawCatalog[2] === 0xbf
-            ) {
-              throw new Error("catalog/plugin_catalog.json enthält UTF-8-BOM.");
+            function readCatalog(path, schema) {
+              const raw = fs.readFileSync(path);
+
+              if (
+                raw.length >= 3 &&
+                raw[0] === 0xef &&
+                raw[1] === 0xbb &&
+                raw[2] === 0xbf
+              ) {
+                throw new Error(`${path} enthält UTF-8-BOM.`);
+              }
+
+              const data = JSON.parse(raw.toString("utf8"));
+
+              if (data.schema_version !== schema) {
+                throw new Error(
+                  `${path}: falsche schema_version ${data.schema_version}`
+                );
+              }
+
+              return data;
             }
 
-            const catalog = JSON.parse(rawCatalog.toString("utf8"));
-            if (catalog.schema_version !== 2) {
-              throw new Error(`Falsche Katalogversion: ${catalog.schema_version}`);
-            }
+            const mediahubCatalog =
+              readCatalog("catalog/plugin_catalog.json", 2);
+            const aiCatalog =
+              readCatalog("catalog/ai_plugin_catalog.json", 1);
 
             const expected = new Set();
-            for (const plugin of catalog.plugins || []) {
-              if (String(plugin.version || "") === "0.0.0") {
-                core.info(`Überspringe Platzhalter-Plugin: ${plugin.name} v0.0.0`);
-                continue;
-              }
 
+            for (const plugin of mediahubCatalog.plugins || []) {
+              if (String(plugin.version || "") === "0.0.0") continue;
               const base = String(plugin.release_asset || "");
-              if (!base.endsWith(".mhplugin")) {
-                throw new Error(`Ungültiger Paketname im Katalog für ${plugin.name}: ${base}`);
-              }
-
               expected.add(base);
               expected.add(String(plugin.sha256_asset || `${base}.sha256`));
             }
 
-            const actualPluginAssets = assets
-              .map((asset) => asset.name)
-              .filter((name) => name.endsWith(".mhplugin") || name.endsWith(".mhplugin.sha256"));
+            for (const plugin of aiCatalog.plugins || []) {
+              if (String(plugin.version || "") === "0.0.0") continue;
+              const base = String(
+                plugin.package_asset ||
+                plugin.release_asset ||
+                ""
+              );
+              expected.add(base);
+              expected.add(String(plugin.sha256_asset || `${base}.sha256`));
+            }
 
-            const missing = [...expected].filter((name) => !actualPluginAssets.includes(name));
-            const stale = actualPluginAssets.filter((name) => !expected.has(name));
+            const actual = assets
+              .map((asset) => asset.name)
+              .filter(
+                (name) =>
+                  name.endsWith(".mhplugin") ||
+                  name.endsWith(".mhplugin.sha256") ||
+                  name.endsWith(".mhaiplugin") ||
+                  name.endsWith(".mhaiplugin.sha256")
+              );
+
+            const missing = [...expected].filter(
+              (name) => !actual.includes(name)
+            );
+
+            const stale = actual.filter(
+              (name) => !expected.has(name)
+            );
 
             if (missing.length > 0) {
               throw new Error("Fehlende Release-Assets: " + missing.join(", "));
             }
+
             if (stale.length > 0) {
               throw new Error("Veraltete Release-Assets: " + stale.join(", "));
             }
-
-            core.info(`Release ${tag} wurde mit ${assets.length} aktuellen Assets geprüft.`);

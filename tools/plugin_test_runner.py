@@ -8,11 +8,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-PLUGINS_DIR = ROOT / "plugins"
+PLUGIN_ROOTS = (
+    ("MediaHub", ROOT / "plugins"),
+    ("AI-Node", ROOT / "ai_node_plugins"),
+)
 
 
 @dataclass(frozen=True)
 class SuiteResult:
+    group: str
     plugin_name: str
     summary: str
     duration: float
@@ -20,12 +24,15 @@ class SuiteResult:
     output: str
 
 
-def discover_plugin_test_suites() -> list[Path]:
-    suites: list[Path] = []
+def discover_plugin_test_suites() -> list[tuple[str, Path]]:
+    suites: list[tuple[str, Path]] = []
 
-    for tests_dir in sorted(PLUGINS_DIR.glob("*/tests")):
-        if any(tests_dir.glob("test_*.py")):
-            suites.append(tests_dir)
+    for group, plugin_root in PLUGIN_ROOTS:
+        if not plugin_root.exists():
+            continue
+        for tests_dir in sorted(plugin_root.glob("*/tests")):
+            if any(tests_dir.glob("test_*.py")):
+                suites.append((group, tests_dir))
 
     return suites
 
@@ -42,7 +49,7 @@ def _extract_summary(output: str) -> str:
     return summary_lines[-1] if summary_lines else "Ergebnis unbekannt"
 
 
-def run_plugin_suite(tests_dir: Path) -> SuiteResult:
+def run_plugin_suite(group: str, tests_dir: Path) -> SuiteResult:
     plugin_root = tests_dir.parent
     env = os.environ.copy()
 
@@ -79,6 +86,7 @@ def run_plugin_suite(tests_dir: Path) -> SuiteResult:
     )
 
     return SuiteResult(
+        group=group,
         plugin_name=plugin_root.name,
         summary=_extract_summary(output),
         duration=duration,
@@ -87,10 +95,11 @@ def run_plugin_suite(tests_dir: Path) -> SuiteResult:
     )
 
 
-def run_all_plugin_suites(*, print_output: bool = True) -> list[SuiteResult]:
+def run_all_plugin_suites(
+    *,
+    print_output: bool = True,
+) -> list[SuiteResult]:
     suites = discover_plugin_test_suites()
-    if not suites:
-        raise RuntimeError("Keine Plugin-Testsuiten gefunden.")
 
     if print_output:
         print("")
@@ -98,21 +107,29 @@ def run_all_plugin_suites(*, print_output: bool = True) -> list[SuiteResult]:
         print("MediaHub Plugin-Gesamttest")
         print("=" * 72)
 
+    if not suites:
+        if print_output:
+            print("Keine Plugin-Testsuiten vorhanden.")
+        return []
+
     results: list[SuiteResult] = []
 
-    for tests_dir in suites:
+    for group, tests_dir in suites:
         plugin_name = tests_dir.parent.name
 
         if print_output:
-            print(f"[TEST] {plugin_name} ...", flush=True)
+            print(
+                f"[TEST] [{group}] {plugin_name} ...",
+                flush=True,
+            )
 
-        result = run_plugin_suite(tests_dir)
+        result = run_plugin_suite(group, tests_dir)
         results.append(result)
 
         if print_output:
             state = "OK" if result.success else "FEHLER"
             print(
-                f"[{state}] {result.plugin_name}: "
+                f"[{state}] [{result.group}] {result.plugin_name}: "
                 f"{result.summary} ({result.duration:.2f} s)"
             )
 
@@ -124,25 +141,31 @@ def run_all_plugin_suites(*, print_output: bool = True) -> list[SuiteResult]:
         print("-" * 72)
         print(
             f"Zusammenfassung: {successful} erfolgreich, "
-            f"{failed} fehlgeschlagen, {len(results)} Plugin-Suiten"
+            f"{failed} fehlgeschlagen, "
+            f"{len(results)} Plugin-Suiten"
         )
-        print(f"Gesamtlaufzeit der Plugin-Suiten: {total_duration:.2f} s")
+        print(
+            f"Gesamtlaufzeit der Plugin-Suiten: "
+            f"{total_duration:.2f} s"
+        )
         print("=" * 72)
 
     return results
 
 
 def format_failures(results: list[SuiteResult]) -> str:
-    failures = [result for result in results if not result.success]
     details: list[str] = []
 
-    for result in failures:
+    for result in results:
+        if result.success:
+            continue
+
         details.append(
             "\n".join(
                 [
                     "",
                     "#" * 72,
-                    f"FEHLER: {result.plugin_name}",
+                    f"FEHLER: [{result.group}] {result.plugin_name}",
                     "#" * 72,
                     result.output or "Keine Testausgabe vorhanden.",
                 ]
