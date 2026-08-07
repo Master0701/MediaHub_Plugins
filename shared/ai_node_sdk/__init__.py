@@ -1,15 +1,29 @@
+from .audit import (
+    AuditIssue,
+    AuditReport,
+    audit_ai_node_plugins,
+)
 from .availability import (
     AvailabilityResult,
     PluginRuntimeStatus,
     check_availability,
 )
 from .capability import Capability
+from .compatibility import (
+    CompatibilityReport,
+    check_manifest_compatibility,
+)
 from .execution import (
     ExecutionDecision,
     check_capability,
     execute_task,
 )
 from .health import HealthStatus, VALID_HEALTH_STATES
+from .job import (
+    Job,
+    JobStatus,
+    TERMINAL_JOB_STATUSES,
+)
 from .loader import (
     LoadedPlugin,
     load_plugin,
@@ -22,6 +36,11 @@ from .plugin_api import (
     TaskExecutor,
     supports_health,
     supports_task_executor,
+)
+from .queue import (
+    InvalidJobStateError,
+    JobNotFoundError,
+    JobQueue,
 )
 from .router import (
     RouteCandidate,
@@ -40,11 +59,19 @@ from .version import (
 )
 
 __all__ = [
+    "AuditIssue",
+    "AuditReport",
     "AvailabilityResult",
     "Capability",
+    "CompatibilityReport",
     "ExecutionDecision",
     "HealthProvider",
     "HealthStatus",
+    "InvalidJobStateError",
+    "Job",
+    "JobNotFoundError",
+    "JobQueue",
+    "JobStatus",
     "LoadedPlugin",
     "PluginManifest",
     "PluginRuntimeStatus",
@@ -53,12 +80,15 @@ __all__ = [
     "SDK_VERSION",
     "SUPPORTED_PLUGIN_API_VERSIONS",
     "SelectionPolicy",
+    "TERMINAL_JOB_STATUSES",
     "TaskExecutor",
     "TaskRequest",
     "TaskResult",
     "VALID_HEALTH_STATES",
+    "audit_ai_node_plugins",
     "check_availability",
     "check_capability",
+    "check_manifest_compatibility",
     "execute_task",
     "find_candidates",
     "load_manifest",
