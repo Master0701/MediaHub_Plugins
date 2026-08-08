@@ -1,6 +1,6 @@
 # MediaHub Smart Renamer
 
-**Version:** 0.4.5
+**Version:** 0.4.6
 
 - sichere Vorschau ohne Dateiveränderung
 - Dateien und Ordner einlesen
@@ -53,3 +53,20 @@
 - vorhandene/manuell gelieferte Metadaten haben immer Vorrang vor der lokalen Erkennung
 - neue Schema-Platzhalter: `[edition]`, `[fassung]`, `[medientyp]`
 - weiterhin reine Vorschau; echte Umbenennung bleibt gesperrt
+
+
+## Erkennungskandidaten v0.4.6
+
+Die lokale Medienerkennung liefert jetzt nicht nur einen einzelnen Wert,
+sondern eine sortierte Kandidatenliste mit Confidence-Bewertung.
+
+- `high`, `medium` und `low` Confidence-Bänder
+- `review_required` bei unsicheren oder zu nah beieinanderliegenden Treffern
+- nachvollziehbare Gründe pro Kandidat
+- lokale Primär- und Fallback-Kandidaten
+- keine erfundenen Online-Treffer: externe Treffer kommen erst über Provider
+- Provider-Vertrag für spätere MediaHub-KI-, Online-, Datenbank- oder
+  AI-Node-Erkennung
+- externe Provider ergänzen die lokale Erkennung, sie ersetzen sie nicht
+- explizit/manuell gelieferte Metadaten haben weiterhin Vorrang
+- echte Umbenennung bleibt weiterhin gesperrt

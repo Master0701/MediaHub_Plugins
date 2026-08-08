@@ -5,6 +5,7 @@ from typing import Any
 
 from models.media_item import MediaItem
 from services.media_detection import MediaDetector
+from services.detection_candidates import DetectionCandidateService
 
 
 class MediaScanner:
@@ -12,6 +13,7 @@ class MediaScanner:
 
     def __init__(self) -> None:
         self.detector = MediaDetector()
+        self.candidate_service = DetectionCandidateService(self.detector)
 
     def scan(
         self,
@@ -46,7 +48,13 @@ class MediaScanner:
                     continue
                 seen.add(key)
 
+                candidate_set = self.candidate_service.analyze(candidate)
+                selected = candidate_set.selected
                 detection = self.detector.detect(candidate).to_dict()
+                detection.update(candidate_set.to_dict())
+                if selected is not None:
+                    detection["confidence_band"] = selected.confidence_band
+                    detection["selected_source"] = selected.source
                 result.append(
                     MediaItem.from_path(
                         candidate,

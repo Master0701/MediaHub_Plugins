@@ -1,3 +1,17 @@
+## v0.4.6
+
+- Sortierte Erkennungskandidaten mit Confidence-Ranking ergänzt.
+- Confidence-Bänder `high`, `medium` und `low` eingeführt.
+- Unsichere bzw. eng beieinanderliegende Ergebnisse werden mit
+  `review_required` markiert.
+- Gründe/Evidenz werden pro Kandidat nachvollziehbar gespeichert.
+- Lokale Fallback-Kandidaten für unklare Video- und Audiofälle ergänzt.
+- Provider-Vertrag für spätere KI-, Online-, MediaHub-Datenbank- und
+  AI-Node-Kandidaten eingeführt.
+- Externe Provider können die lokale Erkennung ergänzen, ohne sie zu ersetzen.
+- Manuelle Metadaten behalten weiterhin Vorrang.
+- Echte Umbenennung bleibt gesperrt.
+
 ## v0.4.5
 
 - Konservative lokale Medienerkennung als neue Scanner-Stufe ergänzt.
