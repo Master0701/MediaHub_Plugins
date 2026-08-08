@@ -1,3 +1,16 @@
+## v0.4.9
+
+- Learning Store mit Decision Engine verbunden.
+- Bestätigte Medienentscheidungen werden lokal als Ranking-Hinweise gespeichert.
+- Konservativer Fingerprint verhindert ungefragte Übertragung auf andere Titel.
+- Lernhinweise können bevorzugten Kandidaten, Medientyp und Titel signalisieren.
+- Manuelle Aufruf-Hinweise überschreiben gespeicherte Lernhinweise.
+- Entscheidungshistorie kann angezeigt und gelöscht werden.
+- Web/API-Hook zum Speichern bestätigter Entscheidungen ergänzt.
+- Bestehendes Korrekturlernen bleibt vollständig kompatibel.
+- Learning-Schema 2 mit sicherer Migration aus Schema 1 eingeführt.
+- Lernen beeinflusst nur die Vorschau; echte Umbenennung bleibt gesperrt.
+
 ## v0.4.8
 
 - Konservative Decision Engine für Erkennungskandidaten ergänzt.

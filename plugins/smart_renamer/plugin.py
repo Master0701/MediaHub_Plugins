@@ -14,12 +14,12 @@ from services.optional_integrations import OptionalIntegrationManager
 class MediaHubSmartRenamerPlugin:
     """Windows-Smart-Renamer mit Desktop- und lokaler Weboberfläche.
 
-    Version 0.4.8 bleibt strikt im Vorschau-Modus. Es werden weder Dateien
+    Version 0.4.9 bleibt strikt im Vorschau-Modus. Es werden weder Dateien
     noch Ordner umbenannt. Das spätere Raspberry-Pi-Backend gehört in ein
     separates MediaHub-AI-Node-Plugin und ist hier bewusst nicht enthalten.
     """
 
-    VERSION = "0.4.8"
+    VERSION = "0.4.9"
 
     def __init__(
         self,
@@ -40,11 +40,12 @@ class MediaHubSmartRenamerPlugin:
         self.backend_registry = RenamerBackendRegistry(
             base_dir=self.base_dir,
         )
+        self.learning_store = LearningStore(self.base_dir)
         self.preview_service = RenamePreviewService(
-            backend_registry=self.backend_registry
+            backend_registry=self.backend_registry,
+            decision_hint_provider=self.learning_store.decision_hints_for,
         )
         self.profile_service = ProfileService(self.plugin_path)
-        self.learning_store = LearningStore(self.base_dir)
         self.integrations = OptionalIntegrationManager(self.mediahub_api)
         self._prepare_web_runtime()
         self._register_routes()
@@ -78,6 +79,7 @@ class MediaHubSmartRenamerPlugin:
             "/smart-renamer/api/profiles": self._web_profiles,
             "/smart-renamer/api/learning": self._web_learning,
             "/smart-renamer/api/integrations": self._web_integrations,
+            "/smart-renamer/api/learning/decisions": self._web_learning_decisions,
             "/smart-renamer/assets/mediahub.css": self._stylesheet,
         }.items():
             self.server.add_route(path, handler, owner=self)
@@ -85,6 +87,11 @@ class MediaHubSmartRenamerPlugin:
         self.server.add_post_route(
             "/smart-renamer/api/preview",
             self._web_preview,
+            owner=self,
+        )
+        self.server.add_post_route(
+            "/smart-renamer/api/learning/decision",
+            self._web_record_learning_decision,
             owner=self,
         )
 
@@ -121,7 +128,7 @@ class MediaHubSmartRenamerPlugin:
             "mobile_responsive_ui": self.server is not None,
             "capability_status": capability_status,
             "message": (
-                "Smart Renamer v0.4.8 nutzt eine konservative Decision Engine und läuft eigenständig und aktiviert optionale Plugin-Integrationen nur bei tatsächlich verfügbarer Capability."
+                "Smart Renamer v0.4.9 verbindet die Decision Engine mit lokal bestätigten Lernhinweisen und läuft eigenständig und aktiviert optionale Plugin-Integrationen nur bei tatsächlich verfügbarer Capability."
             ),
         }
 
@@ -161,6 +168,39 @@ class MediaHubSmartRenamerPlugin:
     def record_manual_correction(self, original: str, corrected: str):
         return self.learning_store.record(original, corrected)
 
+    def record_detection_decision(
+        self,
+        original_path: str,
+        *,
+        candidate_id: str = "",
+        media_type: str = "",
+        title: str = "",
+        year: str = "",
+        season: str = "",
+        episode: str = "",
+        edition: str = "",
+    ):
+        return self.learning_store.record_decision(
+            original_path,
+            candidate_id=candidate_id,
+            media_type=media_type,
+            title=title,
+            year=year,
+            season=season,
+            episode=episode,
+            edition=edition,
+            source="user",
+        )
+
+    def get_learned_decisions(self):
+        return self.learning_store.list_decisions()
+
+    def delete_learned_decision(self, original_path: str):
+        return {
+            "deleted": self.learning_store.delete_decision(original_path),
+            "original_path": original_path,
+        }
+
     def preview_rename(self, items, rules=None, preferred_backend=None):
         enriched_items, metadata_status = self.integrations.enrich_items(
             list(items or [])
@@ -193,7 +233,7 @@ class MediaHubSmartRenamerPlugin:
 
     def execute_rename(self, *args, **kwargs):
         raise RuntimeError(
-            "Ausführung ist in Smart Renamer v0.4.8 noch gesperrt. "
+            "Ausführung ist in Smart Renamer v0.4.9 noch gesperrt. "
             "Es sind ausschließlich Vorschauen erlaubt."
         )
 
@@ -261,6 +301,39 @@ class MediaHubSmartRenamerPlugin:
         return self._json({
             "ok": True,
             "suggestions": self.get_learning_suggestions(),
+            "decisions": self.get_learned_decisions(),
+            "automatic_application": False,
+        })
+
+    def _web_learning_decisions(self, request=None):
+        return self._json({
+            "ok": True,
+            "items": self.get_learned_decisions(),
+            "automatic_application": False,
+        })
+
+    def _web_record_learning_decision(self, payload, request=None):
+        source = dict(payload or {})
+        original_path = str(source.get("original_path") or "")
+        if not original_path:
+            return self._json({
+                "ok": False,
+                "error": "original_path fehlt.",
+            }, 400)
+
+        result = self.record_detection_decision(
+            original_path,
+            candidate_id=str(source.get("candidate_id") or ""),
+            media_type=str(source.get("media_type") or ""),
+            title=str(source.get("title") or ""),
+            year=str(source.get("year") or ""),
+            season=str(source.get("season") or ""),
+            episode=str(source.get("episode") or ""),
+            edition=str(source.get("edition") or ""),
+        )
+        return self._json({
+            "ok": True,
+            "decision": result,
             "automatic_application": False,
         })
 

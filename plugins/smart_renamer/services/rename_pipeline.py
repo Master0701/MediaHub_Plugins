@@ -9,9 +9,11 @@ from services.media_scanner import MediaScanner
 class RenamePipeline:
     """Scanner → Backend → Konfliktmodell → PreviewModel."""
 
-    def __init__(self, backend_registry):
+    def __init__(self, backend_registry, decision_hint_provider=None):
         self.backend_registry = backend_registry
-        self.scanner = MediaScanner()
+        self.scanner = MediaScanner(
+            decision_hint_provider=decision_hint_provider
+        )
         self.conflicts = ConflictService()
 
     def preview(

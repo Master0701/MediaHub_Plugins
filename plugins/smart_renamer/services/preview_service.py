@@ -6,8 +6,11 @@ from services.rename_pipeline import RenamePipeline
 
 
 class RenamePreviewService:
-    def __init__(self, backend_registry):
-        self.pipeline = RenamePipeline(backend_registry)
+    def __init__(self, backend_registry, decision_hint_provider=None):
+        self.pipeline = RenamePipeline(
+            backend_registry,
+            decision_hint_provider=decision_hint_provider,
+        )
 
     def create_preview(
         self,

@@ -12,10 +12,11 @@ from services.decision_engine import DecisionEngine
 class MediaScanner:
     """Liest Dateien und Ordner deterministisch in gemeinsame MediaItems ein."""
 
-    def __init__(self) -> None:
+    def __init__(self, decision_hint_provider=None) -> None:
         self.detector = MediaDetector()
         self.candidate_service = DetectionCandidateService(self.detector)
         self.decision_engine = DecisionEngine()
+        self.decision_hint_provider = decision_hint_provider
 
     def scan(
         self,
@@ -51,7 +52,20 @@ class MediaScanner:
                 seen.add(key)
 
                 candidate_set = self.candidate_service.analyze(candidate)
-                decision_hints = dict(item.get("decision_hints") or {})
+                decision_hints: dict[str, Any] = {}
+                if callable(self.decision_hint_provider):
+                    try:
+                        learned = self.decision_hint_provider(candidate)
+                    except Exception:
+                        learned = {}
+                    if isinstance(learned, dict):
+                        decision_hints.update(learned)
+
+                # Hinweise des aktuellen Aufrufs haben Vorrang vor Gelerntem.
+                decision_hints.update(
+                    dict(item.get("decision_hints") or {})
+                )
+
                 decision = self.decision_engine.decide(
                     candidate_set,
                     hints=decision_hints,
@@ -67,7 +81,9 @@ class MediaScanner:
 
                 detection = self.detector.detect(candidate).to_dict()
                 detection.update(candidate_set.to_dict())
-                detection["decision"] = decision.to_dict()
+                decision_payload = decision.to_dict()
+                decision_payload["hints_used"] = dict(decision_hints)
+                detection["decision"] = decision_payload
                 detection["decision_state"] = decision.state
                 detection["decision_confidence"] = decision.confidence
                 detection["review_required"] = decision.review_required

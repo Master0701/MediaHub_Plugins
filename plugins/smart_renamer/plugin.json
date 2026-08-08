@@ -1,9 +1,9 @@
 {
   "id": "mediahub.smart_renamer",
   "name": "MediaHub Smart Renamer",
-  "version": "0.4.8",
+  "version": "0.4.9",
   "author": "Master0701",
-  "description": "Windows-Smart-Renamer mit lokaler Medienerkennung, Kandidatenranking, konservativer Decision Engine und optionalen Plugin-Integrationen.",
+  "description": "Windows-Smart-Renamer mit lokaler Medienerkennung, Decision Engine, lokal bestätigtem Lernranking und optionalen Plugin-Integrationen.",
   "type": "tool",
   "enabled": true,
   "entry": "plugin.py",
@@ -72,7 +72,10 @@
     "decision_engine",
     "candidate_decision_ranking",
     "decision_review_gate",
-    "decision_hints"
+    "decision_hints",
+    "learning_decision_hints",
+    "learning_ranking_feedback",
+    "learning_decision_management"
   ],
   "ui": {
     "enabled": true,

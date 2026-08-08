@@ -1,6 +1,6 @@
 # MediaHub Smart Renamer
 
-**Version:** 0.4.8
+**Version:** 0.4.9
 
 - sichere Vorschau ohne Dateiveränderung
 - Dateien und Ordner einlesen
@@ -112,3 +112,24 @@ Die Decision Engine liegt bewusst zunächst im Smart-Renamer-Plugin selbst.
 Damit bleibt das Plugin vollständig eigenständig. Der Datenvertrag ist so
 gehalten, dass er später auch von weiteren MediaHub-Komponenten verwendet
 werden kann, ohne dass der Smart Renamer von diesen abhängig wird.
+
+
+## Learning + Decision Engine v0.4.9
+
+Bestätigte Benutzerentscheidungen können jetzt lokal gespeichert und beim
+nächsten Scan als vorsichtige Ranking-Hinweise an die Decision Engine
+weitergegeben werden.
+
+Sicherheitsregeln:
+
+- Lernen erfolgt nur nach ausdrücklich bestätigter Benutzerentscheidung.
+- Gelernte Werte beeinflussen ausschließlich das Ranking der Vorschau.
+- Keine gelernte Regel löst eine automatische Umbenennung aus.
+- Entscheidungen werden konservativ nur für denselben normalisierten
+  Dateistamm und dieselbe Dateiendung wiederverwendet.
+- Aufrufseitige/manuelle `decision_hints` haben Vorrang vor gespeicherten
+  Lernhinweisen.
+- Gelernte Entscheidungen können angezeigt und wieder gelöscht werden.
+- Das bisherige Korrekturlernen (`original` → `corrected`) bleibt kompatibel.
+- Schema-1-Lerndaten werden beim nächsten Speichern verlustfrei in Schema 2
+  überführt.
