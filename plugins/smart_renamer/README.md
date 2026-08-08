@@ -1,6 +1,6 @@
 # MediaHub Smart Renamer
 
-**Version:** 0.4.6
+**Version:** 0.4.7
 
 - sichere Vorschau ohne Dateiveränderung
 - Dateien und Ordner einlesen
@@ -69,4 +69,24 @@ sondern eine sortierte Kandidatenliste mit Confidence-Bewertung.
   AI-Node-Erkennung
 - externe Provider ergänzen die lokale Erkennung, sie ersetzen sie nicht
 - explizit/manuell gelieferte Metadaten haben weiterhin Vorrang
+- echte Umbenennung bleibt weiterhin gesperrt
+
+
+## Optionale Metadata-Editor-Integration v0.4.7
+
+Der Smart Renamer bleibt vollständig allein lauffähig.
+
+Wenn MediaHub zur Laufzeit eine passende Metadaten-Capability bereitstellt,
+kann der Smart Renamer zusätzliche Metadaten für seine Vorschau übernehmen.
+Fehlt der Metadata Editor, ist er deaktiviert oder bietet er die Capability
+nicht an, verwendet der Renamer automatisch seine eigene interne Vorschau.
+
+Grundregeln:
+
+- keine Pflichtabhängigkeit zum Metadata Editor
+- keine Änderung an MediaHub erforderlich
+- keine automatische Plugin-Installation
+- explizite/manuelle Renamer-Metadaten haben immer Vorrang
+- Fehler eines optionalen Providers dürfen den Renamer nicht stoppen
+- Web-/Status-API zeigt, ob die Integration tatsächlich aktiv ist
 - echte Umbenennung bleibt weiterhin gesperrt

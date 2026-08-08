@@ -8,17 +8,18 @@ from services.backend_registry import RenamerBackendRegistry
 from services.preview_service import RenamePreviewService
 from services.profile_service import ProfileService
 from services.learning_store import LearningStore
+from services.optional_integrations import OptionalIntegrationManager
 
 
 class MediaHubSmartRenamerPlugin:
     """Windows-Smart-Renamer mit Desktop- und lokaler Weboberfläche.
 
-    Version 0.4.3 bleibt strikt im Vorschau-Modus. Es werden weder Dateien
+    Version 0.4.7 bleibt strikt im Vorschau-Modus. Es werden weder Dateien
     noch Ordner umbenannt. Das spätere Raspberry-Pi-Backend gehört in ein
     separates MediaHub-AI-Node-Plugin und ist hier bewusst nicht enthalten.
     """
 
-    VERSION = "0.4.3"
+    VERSION = "0.4.7"
 
     def __init__(
         self,
@@ -44,6 +45,7 @@ class MediaHubSmartRenamerPlugin:
         )
         self.profile_service = ProfileService(self.plugin_path)
         self.learning_store = LearningStore(self.base_dir)
+        self.integrations = OptionalIntegrationManager(self.mediahub_api)
         self._prepare_web_runtime()
         self._register_routes()
 
@@ -75,6 +77,7 @@ class MediaHubSmartRenamerPlugin:
             "/smart-renamer/api/backends": self._web_backends,
             "/smart-renamer/api/profiles": self._web_profiles,
             "/smart-renamer/api/learning": self._web_learning,
+            "/smart-renamer/api/integrations": self._web_integrations,
             "/smart-renamer/assets/mediahub.css": self._stylesheet,
         }.items():
             self.server.add_route(path, handler, owner=self)
@@ -118,7 +121,7 @@ class MediaHubSmartRenamerPlugin:
             "mobile_responsive_ui": self.server is not None,
             "capability_status": capability_status,
             "message": (
-                "Smart Renamer v0.4.3 bietet eine gemeinsame Desktop-, WebRemote- und Mobile-Arbeitsoberfläche im sicheren Vorschau-Modus."
+                "Smart Renamer v0.4.7 läuft eigenständig und aktiviert optionale Plugin-Integrationen nur bei tatsächlich verfügbarer Capability."
             ),
         }
 
@@ -159,15 +162,38 @@ class MediaHubSmartRenamerPlugin:
         return self.learning_store.record(original, corrected)
 
     def preview_rename(self, items, rules=None, preferred_backend=None):
-        return self.preview_service.create_preview(
-            items=list(items or []),
+        enriched_items, metadata_status = self.integrations.enrich_items(
+            list(items or [])
+        )
+        result = self.preview_service.create_preview(
+            items=enriched_items,
             rules=list(rules or []),
             preferred_backend=preferred_backend,
         )
+        return {
+            **result,
+            "optional_integrations": {
+                "metadata_editor": metadata_status.to_dict(),
+            },
+        }
+
+    def get_optional_integrations(self):
+        return {
+            "metadata_editor": self.integrations.metadata_status().to_dict(),
+        }
+
+    def attach_optional_provider(self, capability: str, provider):
+        """Öffentlicher, optionaler Hook für MediaHub/andere Plugins."""
+        self.integrations.attach_provider(capability, provider)
+        return self.get_optional_integrations()
+
+    def detach_optional_provider(self, capability: str):
+        self.integrations.detach_provider(capability)
+        return self.get_optional_integrations()
 
     def execute_rename(self, *args, **kwargs):
         raise RuntimeError(
-            "Ausführung ist in Smart Renamer v0.4.3 noch gesperrt. "
+            "Ausführung ist in Smart Renamer v0.4.7 noch gesperrt. "
             "Es sind ausschließlich Vorschauen erlaubt."
         )
 
@@ -236,6 +262,13 @@ class MediaHubSmartRenamerPlugin:
             "ok": True,
             "suggestions": self.get_learning_suggestions(),
             "automatic_application": False,
+        })
+
+    def _web_integrations(self, request=None):
+        return self._json({
+            "ok": True,
+            "items": self.get_optional_integrations(),
+            "all_optional": True,
         })
 
     def _web_preview(self, payload, request=None):

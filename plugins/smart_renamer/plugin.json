@@ -1,9 +1,9 @@
 {
   "id": "mediahub.smart_renamer",
   "name": "MediaHub Smart Renamer",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "author": "Master0701",
-  "description": "Windows-Smart-Renamer mit lokaler Medienerkennung, mehreren Erkennungskandidaten, Confidence-Ranking und vorbereiteter Provider-Schnittstelle für spätere KI-/Online-Abgleiche.",
+  "description": "Windows-Smart-Renamer mit lokaler Medienerkennung, Confidence-Ranking und vollständig optionaler Capability-basierter Metadata-Editor-Integration.",
   "type": "tool",
   "enabled": true,
   "entry": "plugin.py",
@@ -65,7 +65,10 @@
     "detection_candidates",
     "confidence_ranking",
     "detection_review_flag",
-    "external_detection_provider_contract"
+    "external_detection_provider_contract",
+    "optional_plugin_integrations",
+    "optional_metadata_enrichment",
+    "shared_preview_ready"
   ],
   "ui": {
     "enabled": true,

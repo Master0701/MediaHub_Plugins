@@ -1,3 +1,15 @@
+## v0.4.7
+
+- Vollständig optionale Metadata-Editor-Integration vorbereitet.
+- Capability-basierte Provider-Auflösung ergänzt.
+- Smart Renamer bleibt ohne Metadata Editor vollständig eigenständig.
+- Optionaler Provider kann Metadaten in die Vorschau einbringen.
+- Manuelle/aufrufseitige Metadaten haben weiterhin Vorrang.
+- Provider-Fehler fallen sicher auf die interne Vorschau zurück.
+- Neuer Integrationsstatus für Desktop/Web/API ergänzt.
+- Keine Pflichtabhängigkeit und keine automatische Installation anderer Plugins.
+- Echte Umbenennung bleibt gesperrt.
+
 ## v0.4.6
 
 - Sortierte Erkennungskandidaten mit Confidence-Ranking ergänzt.
