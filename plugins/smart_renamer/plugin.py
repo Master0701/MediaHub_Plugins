@@ -8,6 +8,8 @@ from services.interactive_preview_service import InteractivePreviewService
 from services.preview_decisions import PreviewDecisionStore
 from services.gui_preview_session import GUIPreviewSession
 from services.optional_preview_integrations import OptionalPreviewIntegrations
+from services.review_service import ReviewService
+from services.ai_review_bridge import AIReviewBridge
 from services.preview_presentation import PreviewPresentationService
 from services.web_picker_service import WindowsWebPathPicker
 from typing import Any
@@ -29,7 +31,7 @@ class MediaHubSmartRenamerPlugin:
     separates MediaHub-AI-Node-Plugin und ist hier bewusst nicht enthalten.
     """
 
-    VERSION = "0.5.11"
+    VERSION = "0.5.12"
 
     def __init__(
         self,
@@ -52,6 +54,8 @@ class MediaHubSmartRenamerPlugin:
             self.preview_decision_store
         )
         self.optional_preview_integrations = OptionalPreviewIntegrations()
+        self.review_service = ReviewService()
+        self.ai_review_bridge = AIReviewBridge()
         self.preview_presentation = PreviewPresentationService()
         self.web_path_picker = WindowsWebPathPicker(
             self.plugin_path / "tools" / "web_path_picker.ps1"
@@ -1102,4 +1106,16 @@ class NativeSmartRenamerWidget:
 
     def optional_integration_status(self):
         return self.optional_preview_integrations.status()
+
+    def classify_preview_review(self, row):
+        return self.review_service.classify(dict(row or {}))
+
+    def ai_review_status(self):
+        return {"capability": self.ai_review_bridge.CAPABILITY, "available": self.ai_review_bridge.available(), "optional": True}
+
+    def analyze_review_with_ai(self, payload):
+        result = self.ai_review_bridge.analyze(dict(payload or {}))
+        result["execution_locked"] = True
+        result["human_confirmation_required"] = True
+        return result
 

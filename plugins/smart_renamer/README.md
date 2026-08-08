@@ -1,6 +1,6 @@
 # MediaHub Smart Renamer
 
-**Version:** 0.5.11
+**Version:** 0.5.12
 
 - sichere Vorschau ohne Dateiveränderung
 - Dateien und Ordner einlesen
@@ -384,3 +384,10 @@ Rename, Merge und Split bleiben gesperrt.
 - Desktop um Suche, Statusfilter, Sortierung, Auswahlaktionen, Statistik und Details ergänzt.
 - Lange Original-/Vorschlagsnamen sind zusätzlich vollständig in der Detailansicht sichtbar.
 - Alle Auswahlaktionen bleiben reine Vorschau.
+
+
+## v0.5.12 Review & Interactive Preview
+- Verständliche Review-Gründe.
+- KI-Review über optionale Capability `ai.rename_review`.
+- KI bleibt optional; Benutzerbestätigung bleibt Pflicht.
+- Rename/Merge/Split bleiben gesperrt.

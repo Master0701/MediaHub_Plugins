@@ -1,9 +1,9 @@
 {
   "id": "mediahub.smart_renamer",
   "name": "MediaHub Smart Renamer",
-  "version": "0.5.11",
+  "version": "0.5.12",
   "author": "Master0701",
-  "description": "Smart Renamer v0.5.11 mit korrigierter Web-Datei-/Ordnerauswahl, verbessertem Desktop-Layout und erweiterter Desktop/Web-GUI-Parität.",
+  "description": "Smart Renamer mit verbessertem Review-System und optionaler KI-Review-Capability.",
   "type": "tool",
   "enabled": true,
   "entry": "plugin.py",
@@ -126,7 +126,11 @@
     "web_native_path_picker",
     "desktop_web_preview_parity",
     "long_filename_tooltips",
-    "expanded_preview_layout"
+    "expanded_preview_layout",
+    "review_reason_classification",
+    "interactive_review",
+    "ai_rename_review",
+    "human_confirmation_required"
   ],
   "ui": {
     "enabled": true,

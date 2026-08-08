@@ -72,4 +72,4 @@ def test_web_picker_gives_visible_feedback():
 
 def test_plugin_version_stays_0510():
     data = json.loads((Path(__file__).resolve().parents[1] / "plugin.json").read_text(encoding="utf-8"))
-    assert data["version"] == "0.5.11"
+    assert tuple(int(x) for x in data["version"].split(".")) >= (0, 5, 11)

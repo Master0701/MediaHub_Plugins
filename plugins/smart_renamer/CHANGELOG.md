@@ -1,3 +1,11 @@
+## v0.5.12
+
+- Review-Service ergänzt.
+- Split-/Multi-Episode, Split-Movie und Multi-Part getrennt bewertet.
+- Provider-neutrale KI-Capability `ai.rename_review`.
+- KI darf nur Vorschläge liefern; menschliche Bestätigung bleibt Pflicht.
+- Rename/Merge/Split bleiben gesperrt.
+
 ## v0.5.11 Installer-Fix
 
 - Historischen v0.5.10-GUI-Test zukunftsfest gemacht.

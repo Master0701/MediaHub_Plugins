@@ -5,10 +5,12 @@ from pathlib import Path
 from typing import Any
 
 from services.relation_preview_service import RelationPreviewService
+from services.review_service import ReviewService
 
 class InteractivePreviewService:
     def __init__(self, relation_preview_service: RelationPreviewService):
         self.relation_preview_service = relation_preview_service
+        self.review_service = ReviewService()
 
     @staticmethod
     def item_id(path: str | Path) -> str:
@@ -52,6 +54,8 @@ class InteractivePreviewService:
                 "options": preview.options,
                 "companion_count": len(getattr(item, "companion_files", []) or []),
             }
+            row["review_reasons"] = self.review_service.classify(row)
+            row["human_review_required"] = self.review_service.needs_human_review(row)
             rows.append(row)
 
             key = (

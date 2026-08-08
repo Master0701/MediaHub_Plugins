@@ -86,18 +86,18 @@
     {
       "id": "mediahub.smart_renamer",
       "name": "MediaHub Smart Renamer",
-      "version": "0.5.11",
+      "version": "0.5.12",
       "status": "available",
       "category": "Dateien und Umbenennung",
       "visible": true,
       "auto_install": false,
       "manual_only": false,
-      "description": "Smart Renamer v0.5.11 mit korrigierter Web-Datei-/Ordnerauswahl, verbessertem Desktop-Layout und erweiterter Desktop/Web-GUI-Parität.",
+      "description": "Smart Renamer mit verbessertem Review-System und optionaler KI-Review-Capability.",
       "minimum_mediahub_version": "1.0.18",
       "project_page": "https://github.com/Master0701/MediaHub_Plugins/tree/main/plugins/smart_renamer",
       "manual_install_message": "",
-      "release_asset": "MediaHub_SmartRenamer_v0.5.11.mhplugin",
-      "sha256_asset": "MediaHub_SmartRenamer_v0.5.11.mhplugin.sha256"
+      "release_asset": "MediaHub_SmartRenamer_v0.5.12.mhplugin",
+      "sha256_asset": "MediaHub_SmartRenamer_v0.5.12.mhplugin.sha256"
     },
     {
       "id": "mediahub.web_remote",
