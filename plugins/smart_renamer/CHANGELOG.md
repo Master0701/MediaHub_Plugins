@@ -1,3 +1,13 @@
+## v0.5.13
+
+- KI-Review an optionale Capability-Verwaltung angeschlossen.
+- Providerstatus in Web und Desktop.
+- Web-API für KI-Review-Status und Analyse.
+- Empfehlung, Confidence, Begründung, Warnungen und optionaler Namensvorschlag sichtbar.
+- Manueller Fallback ohne KI bleibt erhalten.
+- KI-Ausführung von Rename/Merge/Split bleibt verboten.
+- Benutzerbestätigung bleibt Pflicht.
+
 ## v0.5.12
 
 - Review-Service ergänzt.

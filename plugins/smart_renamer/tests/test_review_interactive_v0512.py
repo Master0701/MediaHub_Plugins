@@ -29,4 +29,4 @@ def test_ui_mentions_ai_review():
 
 def test_version_0512():
     import json
-    data=json.loads((Path(__file__).resolve().parents[1]/"plugin.json").read_text(encoding="utf-8")); assert data["version"]=="0.5.12"
+    data=json.loads((Path(__file__).resolve().parents[1]/"plugin.json").read_text(encoding="utf-8")); assert tuple(int(x) for x in data["version"].split(".")) >= (0,5,12)

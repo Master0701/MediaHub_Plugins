@@ -1,9 +1,9 @@
 {
   "id": "mediahub.smart_renamer",
   "name": "MediaHub Smart Renamer",
-  "version": "0.5.12",
+  "version": "0.5.13",
   "author": "Master0701",
-  "description": "Smart Renamer mit verbessertem Review-System und optionaler KI-Review-Capability.",
+  "description": "Smart Renamer mit praktisch nutzbarer optionaler KI-Review-Integration, Provider-Status, Empfehlung, Confidence und Begründung in Web und Desktop.",
   "type": "tool",
   "enabled": true,
   "entry": "plugin.py",
@@ -130,7 +130,11 @@
     "review_reason_classification",
     "interactive_review",
     "ai_rename_review",
-    "human_confirmation_required"
+    "human_confirmation_required",
+    "ai_review_provider_status",
+    "ai_review_web_api",
+    "ai_review_desktop_ui",
+    "ai_review_web_ui"
   ],
   "ui": {
     "enabled": true,

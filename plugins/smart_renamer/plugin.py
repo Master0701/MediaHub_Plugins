@@ -31,7 +31,7 @@ class MediaHubSmartRenamerPlugin:
     separates MediaHub-AI-Node-Plugin und ist hier bewusst nicht enthalten.
     """
 
-    VERSION = "0.5.12"
+    VERSION = "0.5.13"
 
     def __init__(
         self,
@@ -55,7 +55,6 @@ class MediaHubSmartRenamerPlugin:
         )
         self.optional_preview_integrations = OptionalPreviewIntegrations()
         self.review_service = ReviewService()
-        self.ai_review_bridge = AIReviewBridge()
         self.preview_presentation = PreviewPresentationService()
         self.web_path_picker = WindowsWebPathPicker(
             self.plugin_path / "tools" / "web_path_picker.ps1"
@@ -79,6 +78,7 @@ class MediaHubSmartRenamerPlugin:
         )
         self.profile_service = ProfileService(self.plugin_path)
         self.integrations = OptionalIntegrationManager(self.mediahub_api)
+        self.ai_review_bridge = AIReviewBridge(self.integrations)
         self.rename_plan_service = RenamePlanService()
         self.transaction_service = RenameTransactionService(self.base_dir)
         self._prepare_web_runtime()
@@ -113,6 +113,7 @@ class MediaHubSmartRenamerPlugin:
             "/smart-renamer/api/profiles": self._web_profiles,
             "/smart-renamer/api/learning": self._web_learning,
             "/smart-renamer/api/integrations": self._web_integrations,
+            "/smart-renamer/api/ai-review/status": self._web_ai_review_status,
             "/smart-renamer/api/learning/decisions": self._web_learning_decisions,
             "/smart-renamer/api/transactions/status": self._web_transaction_status,
             "/smart-renamer/assets/mediahub.css": self._stylesheet,
@@ -126,6 +127,11 @@ class MediaHubSmartRenamerPlugin:
         self.server.add_post_route(
             "/smart-renamer/api/preview",
             self._web_preview,
+            owner=self,
+        )
+        self.server.add_post_route(
+            "/smart-renamer/api/ai-review/analyze",
+            self._web_ai_review_analyze,
             owner=self,
         )
         self.server.add_post_route(
@@ -358,6 +364,7 @@ class MediaHubSmartRenamerPlugin:
     def get_optional_integrations(self):
         return {
             "metadata_editor": self.integrations.metadata_status().to_dict(),
+            "ai_review": self.ai_review_bridge.status(),
         }
 
     def attach_optional_provider(self, capability: str, provider):
@@ -564,6 +571,26 @@ class MediaHubSmartRenamerPlugin:
             "all_optional": True,
         })
 
+    def _web_ai_review_status(self, request=None):
+        return self._json({
+            "ok": True,
+            **self.ai_review_status(),
+        })
+
+    def _web_ai_review_analyze(self, payload, request=None):
+        source = dict(payload or {})
+        if not source:
+            return self._json({
+                "ok": False,
+                "error": "Review-Payload fehlt.",
+                "execution_allowed": False,
+                "human_confirmation_required": True,
+            }, 400)
+        return self._json({
+            "ok": True,
+            **self.analyze_review_with_ai(source),
+        })
+
     def _web_preview(self, payload, request=None):
         source = dict(payload or {})
         result = self.preview_rename(
@@ -629,6 +656,7 @@ class NativeSmartRenamerWidget:
                 self.preview_timer.timeout.connect(self._preview)
                 self._build()
                 self._load_profiles()
+                self._refresh_ai_review_status()
                 self._refresh_backends()
 
             def _build(self):
@@ -735,6 +763,17 @@ class NativeSmartRenamerWidget:
                     button = QPushButton(label)
                     button.clicked.connect(lambda checked=False, s=state: self._set_selected_preview_state(s))
                     preview_actions.addWidget(button)
+                self.ai_review_button = QPushButton("KI prüfen")
+                self.ai_review_button.setToolTip(
+                    "Optionalen KI-Provider für genau einen ausgewählten Review-Fall fragen. "
+                    "Keine Datei wird verändert."
+                )
+                self.ai_review_button.clicked.connect(self._run_ai_review_for_selection)
+                preview_actions.addWidget(self.ai_review_button)
+
+                self.ai_review_status_label = QLabel("KI: wird geprüft …")
+                preview_actions.addWidget(self.ai_review_status_label)
+
                 preview_actions.addStretch(1)
                 self.preview_selected_count = QLabel("0 ausgewählt")
                 preview_actions.addWidget(self.preview_selected_count)
@@ -754,7 +793,7 @@ class NativeSmartRenamerWidget:
                 center_layout.addWidget(QLabel("Ausgewählter Eintrag"))
                 self.preview_details = QPlainTextEdit()
                 self.preview_details.setReadOnly(True)
-                self.preview_details.setMaximumHeight(115)
+                self.preview_details.setMaximumHeight(180)
                 self.preview_details.setPlaceholderText("Zeile auswählen, um vollständige Namen und Details zu sehen.")
                 center_layout.addWidget(self.preview_details)
 
@@ -819,7 +858,56 @@ class NativeSmartRenamerWidget:
                     + "    Review: "
                     + ("Ja" if meta.get("review_required") else "Nein")
                     + ("\n\nHinweise:\n" + str(meta.get("issues") or "") if meta.get("issues") else "")
+                    + self._format_ai_review_detail()
                 )
+
+            def _format_ai_review_detail(self):
+                result = self.last_ai_review
+                if not result:
+                    return ""
+                if not result.get("available"):
+                    return "\n\nKI-Review:\nKein KI-Provider verfügbar."
+                warnings = result.get("warnings") or []
+                return (
+                    "\n\nKI-Review:"
+                    "\nProvider: " + str(result.get("provider") or "unbekannt")
+                    + "\nEmpfehlung: " + str(result.get("recommendation") or "—")
+                    + ("\nNamensvorschlag: " + str(result.get("suggested_name")) if result.get("suggested_name") else "")
+                    + "\nConfidence: " + f"{float(result.get('confidence') or 0)*100:.0f}%"
+                    + "\nBegründung: " + str(result.get("rationale") or "—")
+                    + ("\nWarnungen: " + "; ".join(str(x) for x in warnings) if warnings else "")
+                    + "\n\nNur Vorschlag · Benutzerbestätigung erforderlich."
+                )
+
+            def _refresh_ai_review_status(self):
+                status = self.plugin.ai_review_status()
+                if status.get("available"):
+                    self.ai_review_status_label.setText(
+                        "KI: " + str(status.get("provider") or "verfügbar")
+                    )
+                    self.ai_review_button.setEnabled(True)
+                else:
+                    self.ai_review_status_label.setText("KI: nicht verfügbar")
+                    self.ai_review_button.setEnabled(False)
+
+            def _run_ai_review_for_selection(self):
+                rows = sorted({index.row() for index in self.table.selectedIndexes()})
+                if len(rows) != 1:
+                    self.status.setText(
+                        "Für KI-Review bitte genau einen Vorschau-Eintrag auswählen."
+                    )
+                    return
+                meta = self._row_meta(rows[0])
+                self.last_ai_review = self.plugin.analyze_review_with_ai(meta)
+                self._preview_selection_changed()
+                if self.last_ai_review.get("available"):
+                    self.status.setText(
+                        "KI-Vorschlag geladen. Keine Datei wurde verändert."
+                    )
+                else:
+                    self.status.setText(
+                        "Kein KI-Review-Provider verfügbar. Manueller Review bleibt aktiv."
+                    )
 
             def _apply_preview_filters(self):
                 if not hasattr(self, "preview_search"):
@@ -1111,11 +1199,13 @@ class NativeSmartRenamerWidget:
         return self.review_service.classify(dict(row or {}))
 
     def ai_review_status(self):
-        return {"capability": self.ai_review_bridge.CAPABILITY, "available": self.ai_review_bridge.available(), "optional": True}
+        return self.ai_review_bridge.status()
 
     def analyze_review_with_ai(self, payload):
         result = self.ai_review_bridge.analyze(dict(payload or {}))
         result["execution_locked"] = True
+        result["execution_allowed"] = False
+        result["requires_human_confirmation"] = True
         result["human_confirmation_required"] = True
         return result
 

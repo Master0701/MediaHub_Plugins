@@ -1,6 +1,6 @@
 # MediaHub Smart Renamer
 
-**Version:** 0.5.12
+**Version:** 0.5.13
 
 - sichere Vorschau ohne Dateiveränderung
 - Dateien und Ordner einlesen
@@ -391,3 +391,15 @@ Rename, Merge und Split bleiben gesperrt.
 - KI-Review über optionale Capability `ai.rename_review`.
 - KI bleibt optional; Benutzerbestätigung bleibt Pflicht.
 - Rename/Merge/Split bleiben gesperrt.
+
+
+## KI-Review-Integration v0.5.13
+
+- `ai.rename_review` hängt jetzt an der bestehenden optionalen Capability-Verwaltung.
+- `attach_optional_provider("ai.rename_review", provider)` macht einen Provider sofort nutzbar.
+- Web und Desktop zeigen Providerstatus und Providernamen.
+- Ein einzelner Review-Fall kann gezielt von der KI analysiert werden.
+- Sichtbar sind Empfehlung, optionaler Namensvorschlag, Confidence, Begründung und Warnungen.
+- Ohne Provider bleibt manueller Review vollständig erhalten.
+- KI darf niemals Rename/Merge/Split ausführen.
+- Benutzerbestätigung bleibt zwingend.
