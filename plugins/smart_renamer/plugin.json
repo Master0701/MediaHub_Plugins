@@ -1,9 +1,9 @@
 {
   "id": "mediahub.smart_renamer",
   "name": "MediaHub Smart Renamer",
-  "version": "0.5.9",
+  "version": "0.5.11",
   "author": "Master0701",
-  "description": "Windows-Smart-Renamer mit vollständiger GUI-Vorschauverkabelung vor dem ersten Oberflächentest.",
+  "description": "Smart Renamer v0.5.11 mit korrigierter Web-Datei-/Ordnerauswahl, verbessertem Desktop-Layout und erweiterter Desktop/Web-GUI-Parität.",
   "type": "tool",
   "enabled": true,
   "entry": "plugin.py",
@@ -122,7 +122,11 @@
     "preview_status_filters",
     "manual_preview_names",
     "optional_ai_preview_integration",
-    "optional_metadata_preview_integration"
+    "optional_metadata_preview_integration",
+    "web_native_path_picker",
+    "desktop_web_preview_parity",
+    "long_filename_tooltips",
+    "expanded_preview_layout"
   ],
   "ui": {
     "enabled": true,

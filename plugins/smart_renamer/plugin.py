@@ -8,6 +8,8 @@ from services.interactive_preview_service import InteractivePreviewService
 from services.preview_decisions import PreviewDecisionStore
 from services.gui_preview_session import GUIPreviewSession
 from services.optional_preview_integrations import OptionalPreviewIntegrations
+from services.preview_presentation import PreviewPresentationService
+from services.web_picker_service import WindowsWebPathPicker
 from typing import Any
 
 from services.backend_registry import RenamerBackendRegistry
@@ -22,12 +24,12 @@ from services.transaction_service import RenameTransactionService
 class MediaHubSmartRenamerPlugin:
     """Windows-Smart-Renamer mit Desktop- und lokaler Weboberfläche.
 
-    Version 0.5.7 bleibt strikt im Vorschau-Modus. Es werden weder Dateien
+    Version 0.5.11 bleibt strikt im Vorschau-Modus. Es werden weder Dateien
     noch Ordner umbenannt. Das spätere Raspberry-Pi-Backend gehört in ein
     separates MediaHub-AI-Node-Plugin und ist hier bewusst nicht enthalten.
     """
 
-    VERSION = "0.5.9"
+    VERSION = "0.5.11"
 
     def __init__(
         self,
@@ -50,6 +52,10 @@ class MediaHubSmartRenamerPlugin:
             self.preview_decision_store
         )
         self.optional_preview_integrations = OptionalPreviewIntegrations()
+        self.preview_presentation = PreviewPresentationService()
+        self.web_path_picker = WindowsWebPathPicker(
+            self.plugin_path / "tools" / "web_path_picker.ps1"
+        )
         self.mediahub_api = mediahub_api or api
         self.api = self.mediahub_api
         self.base_dir = Path(
@@ -106,6 +112,10 @@ class MediaHubSmartRenamerPlugin:
             "/smart-renamer/api/learning/decisions": self._web_learning_decisions,
             "/smart-renamer/api/transactions/status": self._web_transaction_status,
             "/smart-renamer/assets/mediahub.css": self._stylesheet,
+            "/smart-renamer/assets/interactive_preview.js": self._interactive_preview_js,
+            "/smart-renamer/assets/gui_wiring.js": self._gui_wiring_js,
+            "/smart-renamer/api/picker/files": self._web_picker_files,
+            "/smart-renamer/api/picker/folder": self._web_picker_folder,
         }.items():
             self.server.add_route(path, handler, owner=self)
 
@@ -249,6 +259,7 @@ class MediaHubSmartRenamerPlugin:
             rules=list(rules or []),
             preferred_backend=preferred_backend,
         )
+        result = self.preview_presentation.enrich(result)
         return {
             **result,
             "optional_integrations": {
@@ -406,6 +417,50 @@ class MediaHubSmartRenamerPlugin:
             ).read_bytes(),
         )
 
+    def _interactive_preview_js(self, request=None):
+        return (
+            200,
+            "application/javascript; charset=utf-8",
+            (
+                self.plugin_path
+                / "assets"
+                / "js"
+                / "interactive_preview.js"
+            ).read_bytes(),
+        )
+
+    def _gui_wiring_js(self, request=None):
+        return (
+            200,
+            "application/javascript; charset=utf-8",
+            (
+                self.plugin_path
+                / "assets"
+                / "js"
+                / "gui_wiring.js"
+            ).read_bytes(),
+        )
+
+    def _web_picker_files(self, request=None):
+        paths = self.web_path_picker.pick_files()
+        return self._json({
+            "ok": True,
+            "kind": "files",
+            "paths": paths,
+            "cancelled": not bool(paths),
+            "read_only_selection": True,
+        })
+
+    def _web_picker_folder(self, request=None):
+        paths = self.web_path_picker.pick_folder()
+        return self._json({
+            "ok": True,
+            "kind": "folder",
+            "paths": paths,
+            "cancelled": not bool(paths),
+            "read_only_selection": True,
+        })
+
     @staticmethod
     def _json(data: Any, status: int = 200):
         return (
@@ -533,6 +588,7 @@ class NativeSmartRenamerWidget:
             QHeaderView,
             QLabel,
             QLineEdit,
+            QPlainTextEdit,
             QListWidget,
             QListWidgetItem,
             QPushButton,
@@ -589,7 +645,7 @@ class NativeSmartRenamerWidget:
                 root.addLayout(top)
 
                 notice = QLabel(
-                    "Sicherer Vorschau-Modus: v0.4.0 verändert keine Dateien. "
+                    "Sicherer Vorschau-Modus: v0.5.11 verändert keine Dateien. "
                     "Desktop, WebRemote und Mobile verwenden dieselbe Plugin-API."
                 )
                 notice.setWordWrap(True)
@@ -633,15 +689,70 @@ class NativeSmartRenamerWidget:
                     b=QPushButton(label); b.clicked.connect(handler); rule_buttons.addWidget(b)
                 left_layout.addLayout(rule_buttons)
 
-                # Center: preview table
+                # Center: preview table + Web-parity controls
                 center = QWidget(); center_layout=QVBoxLayout(center); center_layout.setContentsMargins(0,0,0,0)
-                center_layout.addWidget(QLabel("Vorschau"))
-                self.table = QTableWidget(0, 6)
-                self.table.setHorizontalHeaderLabels(["Status", "Original", "Vorschlag", "Quelle", "Hinweise", "Zielpfad"])
+
+                preview_head = QHBoxLayout()
+                preview_head.addWidget(QLabel("Vorschau"))
+                preview_head.addStretch(1)
+                preview_head.addWidget(QLabel("Suche:"))
+                self.preview_search = QLineEdit()
+                self.preview_search.setPlaceholderText("Original, Vorschlag, Relation …")
+                self.preview_search.setMinimumWidth(190)
+                self.preview_search.textChanged.connect(self._apply_preview_filters)
+                preview_head.addWidget(self.preview_search)
+
+                self.preview_status_filter = QComboBox()
+                self.preview_status_filter.addItem("Alle Status", "all")
+                self.preview_status_filter.addItem("Sicher", "safe")
+                self.preview_status_filter.addItem("Review", "review")
+                self.preview_status_filter.addItem("Konflikt", "conflict")
+                self.preview_status_filter.currentIndexChanged.connect(self._apply_preview_filters)
+                preview_head.addWidget(self.preview_status_filter)
+
+                self.preview_sort = QComboBox()
+                self.preview_sort.addItem("Name", 1)
+                self.preview_sort.addItem("Vorschlag", 2)
+                self.preview_sort.addItem("Relation", 3)
+                self.preview_sort.addItem("Confidence", 4)
+                self.preview_sort.currentIndexChanged.connect(self._sort_preview)
+                preview_head.addWidget(self.preview_sort)
+                center_layout.addLayout(preview_head)
+
+                self.preview_summary = QLabel("0 Einträge · 0 Review · 0 Konflikte")
+                center_layout.addWidget(self.preview_summary)
+
+                preview_actions = QHBoxLayout()
+                for label, state in (
+                    ("Auswahl übernehmen", "accepted"),
+                    ("Auswahl ignorieren", "ignored"),
+                    ("Auswahl prüfen", "review"),
+                ):
+                    button = QPushButton(label)
+                    button.clicked.connect(lambda checked=False, s=state: self._set_selected_preview_state(s))
+                    preview_actions.addWidget(button)
+                preview_actions.addStretch(1)
+                self.preview_selected_count = QLabel("0 ausgewählt")
+                preview_actions.addWidget(self.preview_selected_count)
+                center_layout.addLayout(preview_actions)
+
+                self.table = QTableWidget(0, 9)
+                self.table.setHorizontalHeaderLabels(["Status", "Original", "Vorschlag", "Relation", "Confidence", "Review", "Quelle", "Hinweise", "Zielpfad"])
                 self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+                self.table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
                 self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-                header=self.table.horizontalHeader(); header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents); header.setSectionResizeMode(1,QHeaderView.ResizeMode.Stretch); header.setSectionResizeMode(2,QHeaderView.ResizeMode.Stretch)
+                self.table.setWordWrap(False)
+                self.table.setMinimumWidth(650)
+                self.table.itemSelectionChanged.connect(self._preview_selection_changed)
+                header=self.table.horizontalHeader(); header.setMinimumSectionSize(65); header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents); header.setSectionResizeMode(1,QHeaderView.ResizeMode.Stretch); header.setSectionResizeMode(2,QHeaderView.ResizeMode.Stretch)
                 center_layout.addWidget(self.table,1)
+
+                center_layout.addWidget(QLabel("Ausgewählter Eintrag"))
+                self.preview_details = QPlainTextEdit()
+                self.preview_details.setReadOnly(True)
+                self.preview_details.setMaximumHeight(115)
+                self.preview_details.setPlaceholderText("Zeile auswählen, um vollständige Namen und Details zu sehen.")
+                center_layout.addWidget(self.preview_details)
 
                 # Right: rule editor
                 right=QWidget(); right_layout=QVBoxLayout(right); right_layout.setContentsMargins(0,0,0,0)
@@ -668,12 +779,89 @@ class NativeSmartRenamerWidget:
                     signal.connect(self._form_changed)
 
                 outer.addWidget(left); outer.addWidget(center); outer.addWidget(right)
-                outer.setStretchFactor(0,2); outer.setStretchFactor(1,6); outer.setStretchFactor(2,3)
+                left.setMinimumWidth(145)
+                center.setMinimumWidth(650)
+                right.setMinimumWidth(310)
+                outer.setStretchFactor(0,1); outer.setStretchFactor(1,8); outer.setStretchFactor(2,3)
+                outer.setSizes([160, 850, 360])
                 root.addWidget(outer,1)
 
                 self.status = QLabel("Bereit")
                 self.status.setWordWrap(True)
                 root.addWidget(self.status)
+
+            def _row_meta(self, row):
+                item = self.table.item(row, 0)
+                if item is None:
+                    return {}
+                return item.data(Qt.ItemDataRole.UserRole) or {}
+
+            def _preview_selection_changed(self):
+                rows = sorted({index.row() for index in self.table.selectedIndexes()})
+                self.preview_selected_count.setText(f"{len(rows)} ausgewählt")
+                if not rows:
+                    self.preview_details.clear()
+                    return
+                meta = self._row_meta(rows[0])
+                self.preview_details.setPlainText(
+                    "Original:\n"
+                    + str(meta.get("original_name") or "")
+                    + "\n\nVorschlag:\n"
+                    + str(meta.get("proposed_name") or "")
+                    + "\n\nRelation: "
+                    + str(meta.get("relation_type") or "single")
+                    + "    Confidence: "
+                    + f"{float(meta.get('confidence') or 0)*100:.0f}%"
+                    + "    Review: "
+                    + ("Ja" if meta.get("review_required") else "Nein")
+                    + ("\n\nHinweise:\n" + str(meta.get("issues") or "") if meta.get("issues") else "")
+                )
+
+            def _apply_preview_filters(self):
+                if not hasattr(self, "preview_search"):
+                    return
+                term = self.preview_search.text().strip().casefold()
+                wanted = self.preview_status_filter.currentData() or "all"
+                for row in range(self.table.rowCount()):
+                    meta = self._row_meta(row)
+                    haystack = " ".join(
+                        str(meta.get(key) or "")
+                        for key in ("original_name", "proposed_name", "relation_type", "issues", "source_path")
+                    ).casefold()
+                    visible = (not term or term in haystack) and (
+                        wanted == "all" or meta.get("status") == wanted
+                    )
+                    self.table.setRowHidden(row, not visible)
+
+            def _sort_preview(self):
+                column = int(self.preview_sort.currentData() or 1)
+                self.table.sortItems(column, Qt.SortOrder.AscendingOrder)
+
+            def _set_selected_preview_state(self, state):
+                rows = sorted({index.row() for index in self.table.selectedIndexes()})
+                for row in rows:
+                    meta = self._row_meta(row)
+                    source_path = str(meta.get("source_path") or "")
+                    item_id = self.plugin.interactive_preview_service.item_id(source_path)
+                    self.plugin.set_preview_decision(item_id, state=state)
+                    status_item = self.table.item(row, 0)
+                    if status_item is not None:
+                        status_item.setToolTip(f"Vorschauentscheidung: {state}")
+                self.status.setText(
+                    f"{len(rows)} Vorschau-Eintrag/Einträge auf '{state}' gesetzt. "
+                    "Keine Datei wurde verändert."
+                )
+
+            def _update_preview_summary(self):
+                review = 0
+                conflict = 0
+                for row in range(self.table.rowCount()):
+                    status = self._row_meta(row).get("status")
+                    review += int(status == "review")
+                    conflict += int(status == "conflict")
+                self.preview_summary.setText(
+                    f"{self.table.rowCount()} Einträge · {review} Review · {conflict} Konflikte"
+                )
 
             def _load_profiles(self):
                 self._profiles = self.plugin.list_profiles()
@@ -783,8 +971,40 @@ class NativeSmartRenamerWidget:
                     issues=item.get("issues") or []
                     issue_text="; ".join(str(x.get("message") or x) for x in issues) or "; ".join(item.get("warnings") or [])
                     source=", ".join(item.get("rule_sources") or []) or item.get("change_source") or "unverändert"
-                    values=[status,item.get("original_name",""),item.get("proposed_name",""),source,issue_text,item.get("target_path","")]
-                    for c,value in enumerate(values): self.table.setItem(r,c,QTableWidgetItem(str(value)))
+                    relation=str(item.get("relation_type") or "single")
+                    confidence=float(item.get("confidence") or 0)
+                    review="Ja" if item.get("review_required") else "Nein"
+                    values=[
+                        status,
+                        item.get("original_name",""),
+                        item.get("proposed_name",""),
+                        relation,
+                        f"{confidence*100:.0f}%",
+                        review,
+                        source,
+                        issue_text,
+                        item.get("target_path",""),
+                    ]
+                    row_meta={
+                        "status": "review" if item.get("review_required") else ("conflict" if status == "⛔" else "safe"),
+                        "source_path": str(item.get("source_path") or ""),
+                        "original_name": str(item.get("original_name") or ""),
+                        "proposed_name": str(item.get("proposed_name") or ""),
+                        "relation_type": relation,
+                        "confidence": confidence,
+                        "review_required": bool(item.get("review_required")),
+                        "issues": issue_text,
+                        "target_path": str(item.get("target_path") or ""),
+                    }
+                    for c,value in enumerate(values):
+                        cell=QTableWidgetItem(str(value))
+                        if c in {1,2,7,8}:
+                            cell.setToolTip(str(value))
+                        if c == 0:
+                            cell.setData(Qt.ItemDataRole.UserRole, row_meta)
+                        self.table.setItem(r,c,cell)
+                self._update_preview_summary()
+                self._apply_preview_filters()
                 self._update_status(result)
 
             def _update_status(self,result):

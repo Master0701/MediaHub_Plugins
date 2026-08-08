@@ -1,6 +1,6 @@
 # MediaHub Smart Renamer
 
-**Version:** 0.5.9
+**Version:** 0.5.11
 
 - sichere Vorschau ohne Dateiveränderung
 - Dateien und Ordner einlesen
@@ -364,3 +364,23 @@ manuelle Zielnamen und optionale Integrationspunkte für Metadata Editor und
 MediaHub-KI-Assistent. Beide Integrationen bleiben optional.
 
 Rename, Merge und Split bleiben gesperrt.
+
+
+## GUI Parity & Layout Fix v0.5.11
+
+- Web: native Datei- und Ordnerauswahl zusätzlich zum Pfadfeld.
+- Original/Vorschlag deutlich breiter.
+- Lange Namen mit vollständigem Tooltip.
+- Desktop: Relation, Confidence und Review direkt in der Vorschau.
+- Gemeinsame Preview-Presentation-Schicht für Desktop und Web.
+- JavaScript-Assets explizit als Plugin-Routen.
+- Keine Dateiänderungen; Rename/Merge/Split bleiben gesperrt.
+
+
+## v0.5.11
+
+- Web-Picker auf sichtbaren TopMost-STA-Dialog umgestellt.
+- Vorschau nach links verschoben; rechter Regelbereich bleibt breiter sichtbar.
+- Desktop um Suche, Statusfilter, Sortierung, Auswahlaktionen, Statistik und Details ergänzt.
+- Lange Original-/Vorschlagsnamen sind zusätzlich vollständig in der Detailansicht sichtbar.
+- Alle Auswahlaktionen bleiben reine Vorschau.

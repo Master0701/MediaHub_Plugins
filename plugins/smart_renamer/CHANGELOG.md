@@ -1,3 +1,28 @@
+## v0.5.11 Installer-Fix
+
+- Historischen v0.5.10-GUI-Test zukunftsfest gemacht.
+- Der alte Test blockiert v0.5.11 und spätere Versionen nicht mehr.
+- Keine Funktionsänderung am Smart Renamer.
+
+## v0.5.11
+
+- Web-Datei-/Ordnerauswahl nach Oberflächentest korrigiert.
+- Desktop-Splitter nach links korrigiert; rechter Bereich wird nicht mehr abgeschnitten.
+- Desktop/Web-Parität um Suche, Filter, Sortierung, Auswahlaktionen und Detailansicht erweitert.
+- Keine Dateisystemaktion freigegeben.
+
+## v0.5.11
+
+- Oberflächentest 1 ausgewertet.
+- Web-Datei-/Ordnerauswahl ergänzt.
+- Original/Vorschlag in Web und Desktop verbreitert.
+- Lange Dateinamen per Tooltip vollständig erreichbar.
+- Desktop um Relation, Confidence und Review ergänzt.
+- Gemeinsame Preview-Presentation-Schicht.
+- Desktop-/Web-Parität verbessert.
+- JavaScript-Assets explizit geroutet.
+- Rename/Merge/Split bleiben gesperrt.
+
 ## v0.5.9
 
 - GUI Preview Session ergänzt.

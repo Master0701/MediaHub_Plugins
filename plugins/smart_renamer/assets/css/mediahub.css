@@ -28,3 +28,17 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .mh-preview-bulkbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}
 .mh-preview-selected{outline:1px solid currentColor;background:rgba(127,127,127,.12)}
 .mh-preview-checkbox{width:16px;height:16px}
+
+
+/* Smart Renamer v0.5.11 – GUI Parity & Layout */
+.path-picker-row{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 8px}
+.path-picker-row button{flex:1 1 150px}
+.panel.preview{min-width:0}
+.panel.preview .table-wrap{overflow:auto}
+.panel.preview table{min-width:1180px}
+.panel.preview th.name-col{min-width:320px}
+.panel.preview td.filename-cell{min-width:320px;max-width:520px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.panel.preview td.hints-cell{min-width:180px;max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(min-width:1200px){
+  .workspace{grid-template-columns:minmax(220px,.8fr) minmax(720px,3.8fr) minmax(220px,.9fr)}
+}

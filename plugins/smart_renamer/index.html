@@ -4,8 +4,14 @@
 <header class="topbar"><div><h1>✏️ Smart Renamer</h1><p>Sichere Vorschau · Desktop, WebRemote und Mobile</p></div><label>Profil <select id="profile"></select></label></header>
 <section class="toolbar"><button id="preview">Vorschau</button><button id="plan" disabled>Rename-Plan</button><button id="prepare" disabled>Rollback vorbereiten</button><label class="switch"><input id="live" type="checkbox" checked> Live</label><span id="backend">Backend wird geprüft …</span></section>
 <section class="workspace">
-<aside class="panel paths"><h2>Pfade</h2><textarea id="paths" rows="8" placeholder="Je Zeile ein Datei- oder Ordnerpfad"></textarea><h2>Regelstapel</h2><div id="rules"></div><div class="row"><button id="addRule">+ Regel</button><button id="deleteRule">Löschen</button><button id="upRule">↑</button><button id="downRule">↓</button></div></aside>
-<section class="panel preview"><h2>Vorschau</h2><div class="table-wrap"><table><thead><tr><th>Status</th><th>Original</th><th>Vorschlag</th><th>Quelle</th><th>Hinweise</th></tr></thead><tbody id="results"></tbody></table></div>
+<aside class="panel paths"><h2>Medienquelle</h2>
+<div class="path-picker-row">
+  <button type="button" id="pickFiles">📄 Dateien auswählen</button>
+  <button type="button" id="pickFolder">📁 Ordner auswählen</button>
+</div>
+<textarea id="paths" rows="8" placeholder="Je Zeile ein Datei- oder Ordnerpfad"></textarea>
+<small>Alternativ kann ein Pfad weiterhin direkt eingetragen werden.</small><h2>Regelstapel</h2><div id="rules"></div><div class="row"><button id="addRule">+ Regel</button><button id="deleteRule">Löschen</button><button id="upRule">↑</button><button id="downRule">↓</button></div></aside>
+<section class="panel preview"><h2>Vorschau</h2><div class="table-wrap"><table><thead><tr><th>Status</th><th class="name-col">Original</th><th class="name-col">Vorschlag</th><th>Relation</th><th>Confidence</th><th>Review</th><th>Quelle</th><th>Hinweise</th></tr></thead><tbody id="results"></tbody></table></div>
 <section class="plan-panel" id="planPanel" hidden>
 <h2>Sicherer Rename-Plan</h2>
 <div class="plan-summary" id="planSummary"></div>
@@ -23,6 +29,33 @@
 <script>
 const $=id=>document.getElementById(id); let profiles=[],rules=[],selected=-1,timer,lastPreview=null,lastPlan=null;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+function appendPaths(paths){
+  const current=$('paths').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+  for(const path of (paths||[])){if(path&&!current.includes(path))current.push(path);}
+  $('paths').value=current.join('\n');
+  schedule();
+}
+async function pickPaths(kind){
+  const button=kind==='files'?$('pickFiles'):$('pickFolder');
+  const old=button.textContent; button.disabled=true; button.textContent='Auswahl …';
+  try{
+    const endpoint=kind==='files'?'/smart-renamer/api/picker/files':'/smart-renamer/api/picker/folder';
+    const response=await fetch(endpoint,{cache:'no-store'});
+    const data=await response.json();
+    if(!response.ok || data.ok===false) throw new Error(data.error||('HTTP '+response.status));
+    if((data.paths||[]).length){
+      appendPaths(data.paths);
+      $('status').textContent=(kind==='files'?'Dateiauswahl':'Ordnerauswahl')+' übernommen.';
+    }else{
+      $('status').textContent='Auswahl abgebrochen oder kein Pfad gewählt.';
+    }
+  }catch(error){
+    $('status').textContent='Auswahldialog konnte nicht geöffnet werden: '+error;
+  }finally{
+    button.disabled=false; button.textContent=old;
+  }
+}
+
 async function init(){profiles=Array.isArray(window.__SMART_RENAMER_PROFILES__)?window.__SMART_RENAMER_PROFILES__:[]; if(!profiles.length){profiles=(await (await fetch('/smart-renamer/api/profiles',{cache:'no-store'})).json()).items||[];} $('profile').innerHTML=profiles.map((p,i)=>`<option value="${i}">${esc(p.name)}</option>`).join(''); if(profiles.length){applyProfile(0);} const b=await (await fetch('/smart-renamer/api/backends',{cache:'no-store'})).json(); $('backend').textContent='Backend: '+(b.capabilities?.active_preview_backend_id||'nicht verfügbar');}
 function applyProfile(i){rules=(profiles[i]?.rules||[]).map(r=>({...r,enabled:r.enabled!==false,source:r.source||'Profil'})); renderRules(); schedule();}
 function renderRules(){const icons={Benutzer:'🟦',Profil:'🟩',KI:'🟨',ReNamer:'🟪',Plugin:'⬜'}; $('rules').innerHTML=rules.map((r,i)=>`<button class="rule ${i===selected?'active':''}" data-i="${i}">${icons[r.source]||'⬜'} ${r.enabled===false?'☐':'☑'} ${esc(r.label||r.type)}</button>`).join(''); document.querySelectorAll('.rule').forEach(b=>b.onclick=()=>selectRule(+b.dataset.i)); if(selected>=rules.length) selected=rules.length-1;}
@@ -31,11 +64,11 @@ function saveEditor(){if(selected<0)return; const names={replace:'Suchen und Ers
 function schedule(){if(!$('live').checked)return; clearTimeout(timer); timer=setTimeout(preview,300)}
 function currentRequest(){return {items:$('paths').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean).map(path=>({path,recursive:true})),rules};}
 function resetPlan(){lastPlan=null;$('planPanel').hidden=true;$('plan').disabled=!lastPreview;$('prepare').disabled=true;}
-async function preview(){const req=currentRequest(); if(!req.items.length){lastPreview=null;resetPlan();$('results').innerHTML='';$('status').textContent='Keine Pfade ausgewählt · Direkte Web-Ausführung gesperrt';return;} const data=await (await fetch('/smart-renamer/api/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(req)})).json(); lastPreview=data;resetPlan();$('plan').disabled=false; const rows=data.preview_rows||data.changes||[]; $('results').innerHTML=rows.map(r=>{const sev=r.highest_severity||(r.blocked?'blocking':'info'); const icon={info:'✓',warning:'⚠',error:'!',blocking:'✖'}[sev]||'✓'; const issues=(r.issues||[]).map(x=>x.message||x).join('; ')||(r.warnings||[]).join('; '); const src=(r.rule_sources||[]).join(', ')||r.change_source||'unverändert'; return `<tr class="${sev}"><td>${icon}</td><td>${esc(r.original_name)}</td><td>${esc(r.proposed_name)}</td><td>${esc(src)}</td><td>${esc(issues)}</td></tr>`}).join(''); const s=data.summary||{}; $('status').textContent=`Dateien: ${s.item_count??s.total_count??rows.length} · Änderungen: ${s.changed_count??0} · Blockierend: ${s.blocking_count??0} · Warnungen: ${s.warning_row_count??0} · Backend: ${data.selected_backend||'–'} · Direkte Web-Ausführung gesperrt`;}
+async function preview(){const req=currentRequest(); if(!req.items.length){lastPreview=null;resetPlan();$('results').innerHTML='';$('status').textContent='Keine Pfade ausgewählt · Direkte Web-Ausführung gesperrt';return;} const data=await (await fetch('/smart-renamer/api/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(req)})).json(); lastPreview=data;resetPlan();$('plan').disabled=false; const rows=data.preview_rows||data.changes||[]; $('results').innerHTML=rows.map(r=>{const sev=r.highest_severity||(r.blocked?'blocking':'info'); const icon={info:'✓',warning:'⚠',error:'!',blocking:'✖'}[sev]||'✓'; const issues=(r.issues||[]).map(x=>x.message||x).join('; ')||(r.warnings||[]).join('; '); const src=(r.rule_sources||[]).join(', ')||r.change_source||'unverändert'; const relation=r.relation_type||'single'; const confidence=Math.round((Number(r.confidence)||0)*100)+'%'; const review=r.review_required?'Ja':'Nein'; return `<tr class="${sev}"><td>${icon}</td><td class="filename-cell" title="${esc(r.original_name)}">${esc(r.original_name)}</td><td class="filename-cell" title="${esc(r.proposed_name)}">${esc(r.proposed_name)}</td><td>${esc(relation)}</td><td>${confidence}</td><td>${review}</td><td>${esc(src)}</td><td class="hints-cell" title="${esc(issues)}">${esc(issues)}</td></tr>`}).join(''); const s=data.summary||{}; $('status').textContent=`Dateien: ${s.item_count??s.total_count??rows.length} · Änderungen: ${s.changed_count??0} · Blockierend: ${s.blocking_count??0} · Warnungen: ${s.warning_row_count??0} · Backend: ${data.selected_backend||'–'} · Direkte Web-Ausführung gesperrt`;}
 async function createPlan(){const req=currentRequest(); if(!req.items.length)return; $('status').textContent='Rename-Plan wird erstellt …'; const response=await fetch('/smart-renamer/api/plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(req)}); const data=await response.json(); if(!data.ok){$('status').textContent=data.error||'Rename-Plan konnte nicht erstellt werden.';return;} lastPlan=data.plan;renderPlan(lastPlan);$('prepare').disabled=!lastPlan.executable;$('status').textContent=`Plan ${lastPlan.status} · Änderungen: ${lastPlan.changed_count} · Blockierend: ${lastPlan.blocking_count} · Direkte Web-Ausführung gesperrt`;}
 function renderPlan(plan){$('planPanel').hidden=false;$('planId').textContent=plan.plan_id||'–';$('planHash').textContent=plan.plan_hash||'–';$('planState').textContent=plan.status||'–';$('planState').className='badge '+(plan.status==='awaiting_confirmation'?'ready':plan.status==='blocked'?'blocked':'review');$('planSummary').innerHTML=`<span>Änderungen <b>${plan.changed_count??0}</b></span><span>Blockierend <b>${plan.blocking_count??0}</b></span><span>Warnungen <b>${plan.warning_count??0}</b></span>`;$('planConfirm').textContent=plan.requires_confirmation?'Bestätigung erforderlich':'Keine Bestätigung';$('planExecution').textContent=plan.automatic_execution?'Automatik aktiv':'Direkte Web-Ausführung gesperrt';$('planMessage').textContent=plan.executable?'Plan ist technisch freigabefähig, wird aber noch NICHT ausgeführt.':'Plan ist nicht freigabefähig. Konflikte/Review zuerst beheben.';}
 async function prepareTransaction(){const req=currentRequest(); if(!lastPlan||!lastPlan.executable)return; $('status').textContent='Rollback-Vorbereitung wird gespeichert …'; const response=await fetch('/smart-renamer/api/transaction/prepare',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(req)}); const data=await response.json(); if(!data.ok){$('status').textContent=data.error||'Transaktion konnte nicht vorbereitet werden.';return;} lastPlan=data.plan;renderPlan(lastPlan);$('planMessage').textContent='Rename-Plan und rollback.json wurden vorbereitet. Medien wurden NICHT verändert.';$('status').textContent='Rollback vorbereitet · Dateisystem unverändert · Direkte Web-Ausführung gesperrt';}
-$('profile').onchange=e=>applyProfile(+e.target.value); $('plan').onclick=createPlan; $('prepare').onclick=prepareTransaction; $('addRule').onclick=()=>{rules.push({type:'trim',label:'Leerzeichen bereinigen',source:'Benutzer',enabled:true});selected=rules.length-1;renderRules();selectRule(selected);schedule()}; $('deleteRule').onclick=()=>{if(selected>=0){rules.splice(selected,1);selected=Math.min(selected,rules.length-1);renderRules();if(selected>=0)selectRule(selected);schedule()}}; $('upRule').onclick=()=>{if(selected>0){[rules[selected-1],rules[selected]]=[rules[selected],rules[selected-1]];selected--;renderRules();schedule()}}; $('downRule').onclick=()=>{if(selected>=0&&selected<rules.length-1){[rules[selected+1],rules[selected]]=[rules[selected],rules[selected+1]];selected++;renderRules();schedule()}}; $('preview').onclick=preview; $('paths').oninput=schedule; ['enabled','type','source','old','new','value','case','start','padding','schema'].forEach(id=>$(id).addEventListener(id==='enabled'?'change':'input',saveEditor)); init().catch(e=>$('status').textContent=String(e));
+$('profile').onchange=e=>applyProfile(+e.target.value); $('plan').onclick=createPlan; $('prepare').onclick=prepareTransaction; $('addRule').onclick=()=>{rules.push({type:'trim',label:'Leerzeichen bereinigen',source:'Benutzer',enabled:true});selected=rules.length-1;renderRules();selectRule(selected);schedule()}; $('deleteRule').onclick=()=>{if(selected>=0){rules.splice(selected,1);selected=Math.min(selected,rules.length-1);renderRules();if(selected>=0)selectRule(selected);schedule()}}; $('upRule').onclick=()=>{if(selected>0){[rules[selected-1],rules[selected]]=[rules[selected],rules[selected-1]];selected--;renderRules();schedule()}}; $('downRule').onclick=()=>{if(selected>=0&&selected<rules.length-1){[rules[selected+1],rules[selected]]=[rules[selected],rules[selected+1]];selected++;renderRules();schedule()}}; $('pickFiles').onclick=()=>pickPaths('files');$('pickFolder').onclick=()=>pickPaths('folder');$('preview').onclick=preview; $('paths').oninput=schedule; ['enabled','type','source','old','new','value','case','start','padding','schema'].forEach(id=>$(id).addEventListener(id==='enabled'?'change':'input',saveEditor)); init().catch(e=>$('status').textContent=String(e));
 </script>
 <section id="relation-preview-v058" data-ui-version="0.5.9" class="mh-preview-panel">
   <div class="mh-preview-toolbar">
