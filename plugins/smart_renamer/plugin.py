@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from services.naming_profiles import NamingProfileService
+from services.relation_preview_service import RelationPreviewService
 from typing import Any
 
 from services.backend_registry import RenamerBackendRegistry
@@ -16,12 +18,12 @@ from services.transaction_service import RenameTransactionService
 class MediaHubSmartRenamerPlugin:
     """Windows-Smart-Renamer mit Desktop- und lokaler Weboberfläche.
 
-    Version 0.5.6 bleibt strikt im Vorschau-Modus. Es werden weder Dateien
+    Version 0.5.7 bleibt strikt im Vorschau-Modus. Es werden weder Dateien
     noch Ordner umbenannt. Das spätere Raspberry-Pi-Backend gehört in ein
     separates MediaHub-AI-Node-Plugin und ist hier bewusst nicht enthalten.
     """
 
-    VERSION = "0.5.6"
+    VERSION = "0.5.7"
 
     def __init__(
         self,
@@ -30,6 +32,12 @@ class MediaHubSmartRenamerPlugin:
         api=None,
     ):
         self.plugin_path = Path(plugin_path or Path(__file__).resolve().parent)
+        self.naming_profile_service = NamingProfileService(
+            self.plugin_path / "data" / "naming_profiles.json"
+        )
+        self.relation_preview_service = RelationPreviewService(
+            self.naming_profile_service
+        )
         self.mediahub_api = mediahub_api or api
         self.api = self.mediahub_api
         self.base_dir = Path(
@@ -779,3 +787,39 @@ class NativeSmartRenamerWidget:
                 )
 
         return _Widget()
+
+    def list_naming_profiles(self):
+        return [
+            profile.to_dict()
+            for profile in self.naming_profile_service.list_profiles()
+        ]
+
+    def save_custom_naming_profile(
+        self,
+        *,
+        profile_id: str,
+        display_name: str,
+        multi_episode_template: str,
+        split_episode_template: str,
+        split_movie_template: str,
+        custom_fields=None,
+    ):
+        profile = self.naming_profile_service.save_custom_profile(
+            profile_id=profile_id,
+            display_name=display_name,
+            multi_episode_template=multi_episode_template,
+            split_episode_template=split_episode_template,
+            split_movie_template=split_movie_template,
+            custom_fields=custom_fields,
+        )
+        return profile.to_dict()
+
+    def delete_custom_naming_profile(self, profile_id: str):
+        return self.naming_profile_service.delete_custom_profile(profile_id)
+
+    def build_relation_preview(self, items, *, profile_id: str = "plex"):
+        return self.relation_preview_service.build_many(
+            items,
+            profile_id=profile_id,
+        )
+

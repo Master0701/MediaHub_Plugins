@@ -1,3 +1,14 @@
+## v0.5.7
+
+- Relation Preview Service eingeführt.
+- Plex/Jellyfin/Emby/Kodi als auswählbare Namensprofile verfügbar.
+- Eigene Benutzer-Namensprofile können gespeichert und gelöscht werden.
+- Eingebaute Profile sind geschützt.
+- Profilabhängige Vorschlagsnamen für Multi-Episode, Split-Episode und Split-Movie.
+- Warnungen und sichere Handlungsoptionen pro Relationsfall.
+- Episodenlücke bleibt ausdrücklich unbewiesener Kandidat.
+- Keine automatische Rename-/Merge-/Split-Ausführung.
+
 ## v0.5.6
 
 - Gemeinsame Media-Relation-Engine eingeführt.

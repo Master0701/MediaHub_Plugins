@@ -1,6 +1,6 @@
 # MediaHub Smart Renamer
 
-**Version:** 0.5.6
+**Version:** 0.5.7
 
 - sichere Vorschau ohne Dateiveränderung
 - Dateien und Ordner einlesen
@@ -313,3 +313,35 @@ Beispiele Plex:
 
 Es wird in v0.5.6 weiterhin nichts automatisch geschnitten, zusammengefügt
 oder aufgrund einer Relation ohne Bestätigung umbenannt.
+
+
+## Relation Preview & Profile Selection v0.5.7
+
+Die Media-Relation-Engine wird jetzt über eine eigene Vorschau nutzbar.
+
+Die Vorschau zeigt unter anderem:
+
+- erkannte Beziehung
+- aktives Namensprofil
+- aktuellen Dateinamen
+- vorgeschlagenen profilkonformen Dateinamen
+- empfohlene Aktion
+- Confidence
+- Review-Status
+- Begründungen/Evidence
+- Warnungen
+- sichere Handlungsoptionen
+
+Eingebaute Profile:
+
+- Plex
+- Jellyfin
+- Emby
+- Kodi
+
+Zusätzlich können eigene Benutzerprofile gespeichert werden. Eingebaute
+Profile können weder überschrieben noch gelöscht werden.
+
+Die Vorschau führt weiterhin KEINE Umbenennung, kein Merge und keinen Split
+aus. Bei Multi-Episode, Split-Episode, Split-Movie und Episodenlücken bleibt
+die Benutzerprüfung erhalten.
