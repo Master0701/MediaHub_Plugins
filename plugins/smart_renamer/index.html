@@ -36,4 +36,32 @@ async function createPlan(){const req=currentRequest(); if(!req.items.length)ret
 function renderPlan(plan){$('planPanel').hidden=false;$('planId').textContent=plan.plan_id||'–';$('planHash').textContent=plan.plan_hash||'–';$('planState').textContent=plan.status||'–';$('planState').className='badge '+(plan.status==='awaiting_confirmation'?'ready':plan.status==='blocked'?'blocked':'review');$('planSummary').innerHTML=`<span>Änderungen <b>${plan.changed_count??0}</b></span><span>Blockierend <b>${plan.blocking_count??0}</b></span><span>Warnungen <b>${plan.warning_count??0}</b></span>`;$('planConfirm').textContent=plan.requires_confirmation?'Bestätigung erforderlich':'Keine Bestätigung';$('planExecution').textContent=plan.automatic_execution?'Automatik aktiv':'Direkte Web-Ausführung gesperrt';$('planMessage').textContent=plan.executable?'Plan ist technisch freigabefähig, wird aber noch NICHT ausgeführt.':'Plan ist nicht freigabefähig. Konflikte/Review zuerst beheben.';}
 async function prepareTransaction(){const req=currentRequest(); if(!lastPlan||!lastPlan.executable)return; $('status').textContent='Rollback-Vorbereitung wird gespeichert …'; const response=await fetch('/smart-renamer/api/transaction/prepare',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(req)}); const data=await response.json(); if(!data.ok){$('status').textContent=data.error||'Transaktion konnte nicht vorbereitet werden.';return;} lastPlan=data.plan;renderPlan(lastPlan);$('planMessage').textContent='Rename-Plan und rollback.json wurden vorbereitet. Medien wurden NICHT verändert.';$('status').textContent='Rollback vorbereitet · Dateisystem unverändert · Direkte Web-Ausführung gesperrt';}
 $('profile').onchange=e=>applyProfile(+e.target.value); $('plan').onclick=createPlan; $('prepare').onclick=prepareTransaction; $('addRule').onclick=()=>{rules.push({type:'trim',label:'Leerzeichen bereinigen',source:'Benutzer',enabled:true});selected=rules.length-1;renderRules();selectRule(selected);schedule()}; $('deleteRule').onclick=()=>{if(selected>=0){rules.splice(selected,1);selected=Math.min(selected,rules.length-1);renderRules();if(selected>=0)selectRule(selected);schedule()}}; $('upRule').onclick=()=>{if(selected>0){[rules[selected-1],rules[selected]]=[rules[selected],rules[selected-1]];selected--;renderRules();schedule()}}; $('downRule').onclick=()=>{if(selected>=0&&selected<rules.length-1){[rules[selected+1],rules[selected]]=[rules[selected],rules[selected+1]];selected++;renderRules();schedule()}}; $('preview').onclick=preview; $('paths').oninput=schedule; ['enabled','type','source','old','new','value','case','start','padding','schema'].forEach(id=>$(id).addEventListener(id==='enabled'?'change':'input',saveEditor)); init().catch(e=>$('status').textContent=String(e));
-</script></body></html>
+</script>
+<section id="relation-preview-v058" class="mh-preview-panel">
+  <div class="mh-preview-toolbar">
+    <div><h2>Interaktive Vorschau</h2><p>Vorher → Vorschlag → Profil. Keine Ausführung.</p></div>
+    <div class="mh-preview-controls">
+      <label>Profil <select id="mh-profile-select"><option value="plex">Plex</option><option value="jellyfin">Jellyfin</option><option value="emby">Emby</option><option value="kodi">Kodi</option></select></label>
+      <input id="mh-preview-filter" type="search" placeholder="Vorschau filtern …">
+    </div>
+  </div>
+  <div class="mh-preview-summary" id="mh-preview-summary">
+    <span data-kind="safe">Sicher: 0</span>
+    <span data-kind="review">Review: 0</span>
+    <span data-kind="conflict">Konflikt: 0</span>
+  </div>
+  <div class="mh-preview-layout">
+    <aside class="mh-preview-tree"><h3>Bibliothek</h3><div id="mh-preview-groups"></div></aside>
+    <main class="mh-preview-table-wrap">
+      <table class="mh-preview-table">
+        <thead><tr><th>Status</th><th>Original</th><th>Vorschlag</th><th>Relation</th><th>Confidence</th><th>Entscheidung</th></tr></thead>
+        <tbody id="mh-preview-rows"></tbody>
+      </table>
+    </main>
+    <aside class="mh-preview-detail"><h3>Details</h3><div id="mh-preview-detail">Noch kein Eintrag gewählt.</div></aside>
+  </div>
+  <div class="mh-preview-lock">🔒 Rename/Merge/Split bleiben bis zum späteren Sicherheitstest gesperrt.</div>
+</section>
+<script src="/smart-renamer/assets/interactive_preview.js"></script>
+
+</body></html>

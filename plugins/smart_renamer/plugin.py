@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from services.naming_profiles import NamingProfileService
 from services.relation_preview_service import RelationPreviewService
+from services.interactive_preview_service import InteractivePreviewService
+from services.preview_decisions import PreviewDecisionStore
 from typing import Any
 
 from services.backend_registry import RenamerBackendRegistry
@@ -23,7 +25,7 @@ class MediaHubSmartRenamerPlugin:
     separates MediaHub-AI-Node-Plugin und ist hier bewusst nicht enthalten.
     """
 
-    VERSION = "0.5.7"
+    VERSION = "0.5.8"
 
     def __init__(
         self,
@@ -37,6 +39,10 @@ class MediaHubSmartRenamerPlugin:
         )
         self.relation_preview_service = RelationPreviewService(
             self.naming_profile_service
+        )
+        self.preview_decision_store = PreviewDecisionStore()
+        self.interactive_preview_service = InteractivePreviewService(
+            self.relation_preview_service
         )
         self.mediahub_api = mediahub_api or api
         self.api = self.mediahub_api
@@ -822,4 +828,19 @@ class NativeSmartRenamerWidget:
             items,
             profile_id=profile_id,
         )
+
+    def build_interactive_preview(self, items, *, profile_id: str = "plex"):
+        return self.interactive_preview_service.build(items, profile_id=profile_id)
+
+    def set_preview_decision(self, item_id: str, *, state: str, manual_name: str = "", note: str = ""):
+        return self.preview_decision_store.set(
+            item_id, state=state, manual_name=manual_name, note=note
+        )
+
+    def get_preview_decisions(self):
+        return self.preview_decision_store.all()
+
+    def clear_preview_decisions(self):
+        self.preview_decision_store.clear()
+        return {"ok": True}
 

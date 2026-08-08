@@ -1,3 +1,12 @@
+## v0.5.8
+
+- Interactive Preview Service ergänzt.
+- Baum-/Gruppenansicht nach Medientyp und Staffel vorbereitet.
+- Vorher/Nachher-Vorschau mit Relation, Confidence und Profil.
+- Vorschauentscheidungen Übernehmen/Ignorieren/Manuell/Prüfen.
+- Filter- und Detailansicht vorbereitet.
+- Rename/Merge/Split bleiben gesperrt.
+
 ## v0.5.7
 
 - Relation Preview Service eingeführt.

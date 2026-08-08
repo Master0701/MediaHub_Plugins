@@ -1,6 +1,6 @@
 # MediaHub Smart Renamer
 
-**Version:** 0.5.7
+**Version:** 0.5.8
 
 - sichere Vorschau ohne Dateiveränderung
 - Dateien und Ordner einlesen
@@ -345,3 +345,12 @@ Profile können weder überschrieben noch gelöscht werden.
 Die Vorschau führt weiterhin KEINE Umbenennung, kein Merge und keinen Split
 aus. Bei Multi-Episode, Split-Episode, Split-Movie und Episodenlücken bleibt
 die Benutzerprüfung erhalten.
+
+
+## Interactive Preview v0.5.8
+
+Grundlage für den ersten echten Oberflächentest: Gruppenansicht, Profilwahl,
+Vorher/Nachher, Relationsstatus, Confidence, Filter, Detailansicht und reine
+Vorschauentscheidungen.
+
+Rename, Merge und Split bleiben weiterhin gesperrt.
