@@ -1,3 +1,30 @@
+## v0.5.3
+
+- Mehrfachfolgen-Erkennung für mehrere verbreitete Namensmuster ergänzt.
+- Episode-only-Erkennung für Folge/Episode/Ep/E-Muster ergänzt.
+- Specials über Staffel 0 gekennzeichnet.
+- Trailer/Bonus/Extras/Deleted Scenes/Behind the Scenes/Interview/Making Of als Extras erkannt.
+- Final Cut und IMAX als Editions ergänzt.
+- Part/Teil/CD/Disc/Disk-Erkennung ergänzt.
+- Römische Teilnummern am Filmtitel ergänzt.
+- MediaItem um episode_end, part und Extra-/Special-Felder erweitert.
+- Neue Schema-Platzhalter für episode_bis, teil/part und extra_type.
+- Erkennung bleibt vollständig lokal und KI-unabhängig.
+
+## v0.5.2
+
+- Erste echte, bestätigungspflichtige Rename-Transaktion freigeschaltet.
+- Planhash wird vor jeder Bestätigung/Ausführung erneut geprüft.
+- Confirmation Token ist an Plan-ID + Planhash gebunden und nur einmal nutzbar.
+- Dateisystem-Preflight unmittelbar vor Commit ergänzt.
+- Vorhandene Ziele und doppelte Zielpfade werden strikt abgewiesen.
+- v0.5.2 beschränkt echte Renames bewusst auf denselben Ordner.
+- Persistentes Transaktionsjournal ergänzt.
+- Automatischer Rollback bereits ausgeführter Schritte bei Folgefehlern.
+- Manueller Undo/Rollback für erfolgreich abgeschlossene Transaktionen ergänzt.
+- Direkte Web-/Mobile-Ausführung bleibt weiterhin gesperrt.
+- Keine stille oder automatische Ausführung ohne ausdrückliche Bestätigung.
+
 ## v0.5.1
 
 - Rename-Plan direkt in der gemeinsamen Desktop/Web/Mobile-Oberfläche sichtbar gemacht.

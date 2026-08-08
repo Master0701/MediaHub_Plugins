@@ -30,6 +30,7 @@ class RenameRuleEngine:
             "jahr": str((metadata or {}).get("jahr") or ""),
             "staffel": str((metadata or {}).get("staffel") or ""),
             "episode": str((metadata or {}).get("episode") or ""),
+            "episode_bis": str((metadata or {}).get("episode_bis") or (metadata or {}).get("episode_end") or ""),
             "episodentitel": str((metadata or {}).get("episodentitel") or ""),
             "edition": str(
                 (metadata or {}).get("edition")
@@ -46,6 +47,9 @@ class RenameRuleEngine:
                 or (metadata or {}).get("media_type")
                 or ""
             ),
+            "teil": str((metadata or {}).get("teil") or (metadata or {}).get("part") or ""),
+            "part": str((metadata or {}).get("part") or (metadata or {}).get("teil") or ""),
+            "extra_type": str((metadata or {}).get("extra_type") or ""),
             "nummer": str(item_index + 1),
             "endung": extension.lstrip("."),
         }

@@ -32,24 +32,44 @@ EDITION_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("Director's Cut", re.compile(r"(?i)\bdirector'?s[ ._-]*cut\b")),
     ("Extended Cut", re.compile(r"(?i)\bextended(?:[ ._-]*(?:cut|edition|version))?\b")),
     ("Theatrical Cut", re.compile(r"(?i)\btheatrical(?:[ ._-]*(?:cut|edition|version))?\b")),
+    ("Final Cut", re.compile(r"(?i)\bfinal[ ._-]*cut\b")),
     ("Uncut", re.compile(r"(?i)\buncut\b")),
     ("Remastered", re.compile(r"(?i)\bremaster(?:ed)?\b")),
+    ("IMAX", re.compile(r"(?i)\bimax\b")),
     ("Special Edition", re.compile(r"(?i)\bspecial[ ._-]*edition\b")),
     ("Ultimate Edition", re.compile(r"(?i)\bultimate[ ._-]*edition\b")),
     ("Collector's Edition", re.compile(r"(?i)\bcollector'?s[ ._-]*edition\b")),
 )
 
+EXTRA_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("trailer", re.compile(r"(?i)\btrailer\b")),
+    ("bonus", re.compile(r"(?i)\bbonus\b")),
+    ("extra", re.compile(r"(?i)\bextras?\b")),
+    ("deleted_scene", re.compile(r"(?i)\bdeleted[ ._-]*scenes?\b")),
+    ("behind_the_scenes", re.compile(r"(?i)\bbehind[ ._-]*the[ ._-]*scenes\b")),
+    ("interview", re.compile(r"(?i)\binterviews?\b")),
+    ("making_of", re.compile(r"(?i)\bmaking[ ._-]*of\b")),
+)
+
 SERIES_PATTERNS = (
     re.compile(
-        r"(?ix)\bS(?P<season>\d{1,3})[ ._-]*E(?P<episode>\d{1,4})\b"
+        r"(?ix)\bS(?P<season>\d{1,3})[ ._-]*E(?P<episode>\d{1,4})"
+        r"(?:[ ._-]*(?:E|-E?|to)[ ._-]*(?P<episode_end>\d{1,4}))?\b"
     ),
     re.compile(
-        r"(?ix)\b(?P<season>\d{1,3})x(?P<episode>\d{1,4})\b"
+        r"(?ix)\b(?P<season>\d{1,3})x(?P<episode>\d{1,4})"
+        r"(?:[ ._-]*(?:-|x)?(?P<episode_end>\d{1,4}))?\b"
     ),
     re.compile(
         r"(?ix)\bStaffel[ ._-]*(?P<season>\d{1,3})"
-        r".{0,20}?(?:Folge|Episode)[ ._-]*(?P<episode>\d{1,4})\b"
+        r".{0,20}?(?:Folge|Episode)[ ._-]*(?P<episode>\d{1,4})"
+        r"(?:[ ._+-]*(?:-|bis|\+)[ ._-]*(?P<episode_end>\d{1,4}))?\b"
     ),
+)
+
+EPISODE_ONLY_PATTERNS = (
+    re.compile(r"(?ix)\b(?:Episode|Folge|Ep)[ ._-]*(?P<episode>\d{1,4})\b"),
+    re.compile(r"(?ix)(?:^|[ ._-])E(?P<episode>\d{1,4})(?:$|[ ._-])"),
 )
 
 YEAR_PATTERN = re.compile(r"(?<!\d)(?P<year>(?:19|20)\d{2})(?!\d)")
@@ -57,6 +77,27 @@ TRACK_PATTERN = re.compile(r"(?i)^\s*(?P<track>\d{1,3})\s*[-._ ]+\s*(?P<title>.+
 AUDIOBOOK_HINT = re.compile(
     r"(?i)\b(h[oö]rbuch|audiobook|kapitel|chapter|teil\s*\d+)\b"
 )
+
+PART_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"(?i)\bpart[ ._-]*(?P<part>\d{1,2})\b"),
+    re.compile(r"(?i)\bteil[ ._-]*(?P<part>\d{1,2})\b"),
+    re.compile(r"(?i)\bcd[ ._-]*(?P<part>\d{1,2})\b"),
+    re.compile(r"(?i)\bdisc[ ._-]*(?P<part>\d{1,2})\b"),
+    re.compile(r"(?i)\bdisk[ ._-]*(?P<part>\d{1,2})\b"),
+)
+
+ROMAN_PARTS = {
+    "i": "1",
+    "ii": "2",
+    "iii": "3",
+    "iv": "4",
+    "v": "5",
+    "vi": "6",
+    "vii": "7",
+    "viii": "8",
+    "ix": "9",
+    "x": "10",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,8 +107,14 @@ class DetectionResult:
     year: str = ""
     season: str = ""
     episode: str = ""
+    episode_end: str = ""
     episode_title: str = ""
     edition: str = ""
+    part: str = ""
+    extra_type: str = ""
+    is_special: bool = False
+    is_extra: bool = False
+    is_bonus: bool = False
     confidence: float = 0.0
     evidence: tuple[str, ...] = ()
     extra: dict[str, Any] = field(default_factory=dict)
@@ -79,8 +126,14 @@ class DetectionResult:
             "year": self.year,
             "season": self.season,
             "episode": self.episode,
+            "episode_end": self.episode_end,
             "episode_title": self.episode_title,
             "edition": self.edition,
+            "part": self.part,
+            "extra_type": self.extra_type,
+            "is_special": self.is_special,
+            "is_extra": self.is_extra,
+            "is_bonus": self.is_bonus,
             "confidence": self.confidence,
             "evidence": list(self.evidence),
             "extra": dict(self.extra),
@@ -97,27 +150,67 @@ class MediaDetector:
         normalized = self._normalize(stem)
         evidence: list[str] = []
 
+        extra_type = self._detect_extra(normalized)
+        if extra_type:
+            evidence.append(f"extra:{extra_type}")
+            return DetectionResult(
+                media_type="extra",
+                title=self._clean_title(normalized),
+                extra_type=extra_type,
+                is_extra=True,
+                is_bonus=extra_type in {"bonus", "extra"},
+                confidence=0.98,
+                evidence=tuple(evidence),
+            )
+
         edition = self._detect_edition(stem)
         if edition:
             evidence.append(f"edition:{edition}")
 
+        part = self._detect_part(normalized)
+        if part:
+            evidence.append(f"part:{part}")
+
         series = self._detect_series(normalized)
         if series is not None:
-            season, episode, match = series
+            season, episode, episode_end, match = series
             title, episode_title = self._series_titles(normalized, match)
             year = self._detect_year(normalized)
+            is_special = season == "0" or season == "00"
             evidence.extend(("series_pattern", f"season:{season}", f"episode:{episode}"))
+            if episode_end:
+                evidence.append(f"episode_end:{episode_end}")
             if year:
                 evidence.append(f"year:{year}")
+            if is_special:
+                evidence.append("special")
             return DetectionResult(
                 media_type="series",
                 title=title or self._fallback_title(normalized),
                 year=year,
                 season=season.zfill(2),
                 episode=episode.zfill(2),
+                episode_end=episode_end.zfill(2) if episode_end else "",
                 episode_title=episode_title,
                 edition=edition,
-                confidence=0.96,
+                part=part,
+                is_special=is_special,
+                confidence=0.97 if episode_end else 0.96,
+                evidence=tuple(evidence),
+            )
+
+        episode_only = self._detect_episode_only(normalized)
+        if episode_only:
+            evidence.append(f"episode_only:{episode_only}")
+            return DetectionResult(
+                media_type="series",
+                title=self._clean_title(
+                    self._strip_episode_only(normalized)
+                ),
+                episode=episode_only.zfill(2),
+                edition=edition,
+                part=part,
+                confidence=0.72,
                 evidence=tuple(evidence),
             )
 
@@ -125,8 +218,9 @@ class MediaDetector:
             evidence.append(f"audiobook_extension:{suffix}")
             return DetectionResult(
                 media_type="audiobook",
-                title=self._clean_title(normalized),
+                title=self._clean_audio_title(normalized),
                 edition=edition,
+                part=part,
                 confidence=0.98,
                 evidence=tuple(evidence),
             )
@@ -138,6 +232,7 @@ class MediaDetector:
                     media_type="audiobook",
                     title=self._clean_audio_title(normalized),
                     edition=edition,
+                    part=part,
                     confidence=0.86,
                     evidence=tuple(evidence),
                 )
@@ -149,6 +244,7 @@ class MediaDetector:
                     media_type="music",
                     title=self._clean_title(track.group("title")),
                     edition=edition,
+                    part=part,
                     confidence=0.72,
                     evidence=tuple(evidence),
                     extra={"track": track.group("track").zfill(2)},
@@ -159,6 +255,7 @@ class MediaDetector:
                 media_type="music",
                 title=self._clean_audio_title(normalized),
                 edition=edition,
+                part=part,
                 confidence=0.55,
                 evidence=tuple(evidence),
             )
@@ -169,13 +266,17 @@ class MediaDetector:
             if year:
                 evidence.append(f"year:{year}")
             title = self._movie_title(normalized, year)
+            movie_part = part or self._detect_trailing_roman_part(title)
+            if movie_part:
+                evidence.append(f"part:{movie_part}")
             return DetectionResult(
                 media_type="movie",
                 title=title or self._fallback_title(normalized),
                 year=year,
                 edition=edition,
-                confidence=0.82 if year else 0.62,
-                evidence=tuple(evidence),
+                part=movie_part,
+                confidence=0.84 if year else 0.64,
+                evidence=tuple(dict.fromkeys(evidence)),
             )
 
         if year:
@@ -186,6 +287,7 @@ class MediaDetector:
             title=self._clean_title(normalized),
             year=year,
             edition=edition,
+            part=part,
             confidence=0.25 if year else 0.10,
             evidence=tuple(evidence),
         )
@@ -209,12 +311,54 @@ class MediaDetector:
         return ""
 
     @staticmethod
+    def _detect_extra(value: str) -> str:
+        for label, pattern in EXTRA_PATTERNS:
+            if pattern.search(value):
+                return label
+        return ""
+
+    @staticmethod
+    def _detect_part(value: str) -> str:
+        for pattern in PART_PATTERNS:
+            match = pattern.search(value)
+            if match:
+                return match.group("part")
+        return ""
+
+    @staticmethod
+    def _detect_trailing_roman_part(value: str) -> str:
+        match = re.search(r"(?i)\b([ivx]{1,4})\s*$", value)
+        if not match:
+            return ""
+        return ROMAN_PARTS.get(match.group(1).casefold(), "")
+
+    @staticmethod
     def _detect_series(value: str):
         for pattern in SERIES_PATTERNS:
             match = pattern.search(value)
             if match:
-                return match.group("season"), match.group("episode"), match
+                return (
+                    match.group("season"),
+                    match.group("episode"),
+                    (match.groupdict().get("episode_end") or ""),
+                    match,
+                )
         return None
+
+    @staticmethod
+    def _detect_episode_only(value: str) -> str:
+        for pattern in EPISODE_ONLY_PATTERNS:
+            match = pattern.search(value)
+            if match:
+                return match.group("episode")
+        return ""
+
+    @staticmethod
+    def _strip_episode_only(value: str) -> str:
+        text = value
+        for pattern in EPISODE_ONLY_PATTERNS:
+            text = pattern.sub(" ", text)
+        return re.sub(r"\s+", " ", text).strip(" -._")
 
     def _series_titles(self, value: str, match: re.Match[str]) -> tuple[str, str]:
         left = value[:match.start()].strip(" -._")
@@ -242,6 +386,10 @@ class MediaDetector:
     def _clean_title(self, value: str) -> str:
         text = TECHNICAL_TOKENS.sub(" ", value)
         for _, pattern in EDITION_PATTERNS:
+            text = pattern.sub(" ", text)
+        for _, pattern in EXTRA_PATTERNS:
+            text = pattern.sub(" ", text)
+        for pattern in PART_PATTERNS:
             text = pattern.sub(" ", text)
         text = re.sub(r"[\[\](){}]+", " ", text)
         text = re.sub(r"\s*[-–—]\s*$", "", text)

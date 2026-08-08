@@ -20,8 +20,10 @@ class DetectionCandidate:
     year: str = ""
     season: str = ""
     episode: str = ""
+    episode_end: str = ""
     episode_title: str = ""
     edition: str = ""
+    part: str = ""
     confidence: float = 0.0
     reasons: tuple[str, ...] = ()
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -43,8 +45,10 @@ class DetectionCandidate:
             "year": self.year,
             "season": self.season,
             "episode": self.episode,
+            "episode_end": self.episode_end,
             "episode_title": self.episode_title,
             "edition": self.edition,
+            "part": self.part,
             "confidence": round(float(self.confidence), 4),
             "confidence_band": self.confidence_band,
             "reasons": list(self.reasons),
@@ -121,8 +125,10 @@ class LocalDetectionCandidateProvider:
                     year=local_result.year,
                     season=local_result.season,
                     episode=local_result.episode,
+                    episode_end=local_result.episode_end,
                     episode_title=local_result.episode_title,
                     edition=local_result.edition,
+                    part=local_result.part,
                     confidence=max(0.05, local_result.confidence - 0.22),
                     reasons=(
                         "Unbereinigter Dateiname als sichere Vergleichsvariante",
@@ -152,8 +158,10 @@ class LocalDetectionCandidateProvider:
             year=result.year,
             season=result.season,
             episode=result.episode,
+            episode_end=result.episode_end,
             episode_title=result.episode_title,
             edition=result.edition,
+            part=result.part,
             confidence=result.confidence,
             reasons=reasons,
             metadata={"evidence": list(result.evidence), **dict(result.extra)},
@@ -298,8 +306,10 @@ class DetectionCandidateService:
                 candidate.year,
                 candidate.season,
                 candidate.episode,
+                candidate.episode_end,
                 candidate.episode_title.casefold(),
                 candidate.edition.casefold(),
+                candidate.part,
             )
             previous = deduplicated.get(key)
             if previous is None or candidate.confidence > previous.confidence:

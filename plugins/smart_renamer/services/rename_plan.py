@@ -100,9 +100,26 @@ class RenamePlanService:
     """
     Erzeugt einen unveränderlichen Ausführungsplan aus einer Vorschau.
 
-    v0.5.0 führt diesen Plan NICHT aus. Der Plan ist die Sicherheitsgrenze
-    zwischen Preview und einer späteren bestätigten Transaktion.
+    Der Plan ist die Sicherheitsgrenze zwischen Preview und einer bestätigten
+    Transaktion. Sein SHA-256-Hash schützt die für die Ausführung relevanten
+    Inhalte vor nachträglicher Veränderung.
     """
+
+    @staticmethod
+    def calculate_plan_hash(plan: RenamePlan) -> str:
+        payload = {
+            "backend_id": plan.backend_id,
+            "items": [item.to_dict() for item in plan.items],
+            "conflicts": [dict(value) for value in plan.conflicts],
+            "skipped": [dict(value) for value in plan.skipped],
+        }
+        return hashlib.sha256(
+            _stable_json(payload).encode("utf-8")
+        ).hexdigest()
+
+    @classmethod
+    def verify_plan_hash(cls, plan: RenamePlan) -> bool:
+        return cls.calculate_plan_hash(plan) == plan.plan_hash
 
     def create_from_preview(
         self,

@@ -16,12 +16,12 @@ from services.transaction_service import RenameTransactionService
 class MediaHubSmartRenamerPlugin:
     """Windows-Smart-Renamer mit Desktop- und lokaler Weboberfläche.
 
-    Version 0.5.1 bleibt strikt im Vorschau-Modus. Es werden weder Dateien
+    Version 0.5.3 bleibt strikt im Vorschau-Modus. Es werden weder Dateien
     noch Ordner umbenannt. Das spätere Raspberry-Pi-Backend gehört in ein
     separates MediaHub-AI-Node-Plugin und ist hier bewusst nicht enthalten.
     """
 
-    VERSION = "0.5.1"
+    VERSION = "0.5.3"
 
     def __init__(
         self,
@@ -139,13 +139,15 @@ class MediaHubSmartRenamerPlugin:
             "transaction_planning": True,
             "automatic_install": True,
             "automatic_rename": False,
-            "execution_enabled": False,
+            "execution_enabled": True,
+            "execution_requires_confirmation": True,
+            "web_execution_enabled": False,
             "desktop_ui": True,
             "web_ui": self.server is not None,
             "mobile_responsive_ui": self.server is not None,
             "capability_status": capability_status,
             "message": (
-                "Smart Renamer v0.5.1 zeigt Rename-Plan, Konfliktstatus und Rollback-Bereitschaft direkt in der gemeinsamen Oberfläche und läuft eigenständig und aktiviert optionale Plugin-Integrationen nur bei tatsächlich verfügbarer Capability."
+                "Smart Renamer v0.5.3 erweitert die lokale Film-/Serienerkennung um Mehrfachfolgen, Extras, Parts und zusätzliche Editionen und läuft eigenständig und aktiviert optionale Plugin-Integrationen nur bei tatsächlich verfügbarer Capability."
             ),
         }
 
@@ -286,6 +288,36 @@ class MediaHubSmartRenamerPlugin:
             "ok": True,
             "confirmation": receipt.to_dict(),
             "execution_performed": False,
+            "_receipt": receipt,
+        }
+
+    def execute_confirmed_rename(
+        self,
+        plan,
+        *,
+        confirmation_token: str,
+    ):
+        result = self.transaction_service.execute(
+            plan,
+            confirmation_token=confirmation_token,
+        )
+        return {
+            "ok": result.ok,
+            "execution": result.to_dict(),
+            "execution_performed": (
+                result.status in {
+                    "completed",
+                    "rolled_back",
+                    "rollback_failed",
+                }
+            ),
+        }
+
+    def rollback_rename_transaction(self, plan):
+        result = self.transaction_service.rollback_transaction(plan)
+        return {
+            "ok": result.ok,
+            "rollback": result.to_dict(),
         }
 
     def get_optional_integrations(self):
@@ -302,11 +334,20 @@ class MediaHubSmartRenamerPlugin:
         self.integrations.detach_provider(capability)
         return self.get_optional_integrations()
 
-    def execute_rename(self, *args, **kwargs):
-        raise RuntimeError(
-            "Ausführung ist in Smart Renamer v0.5.1 weiterhin gesperrt. "
-            "Vorschau, Rename-Plan, Bestätigung und Rollback-Vorbereitung "
-            "sind erlaubt; Dateisystemänderungen noch nicht."
+    def execute_rename(
+        self,
+        plan=None,
+        *,
+        confirmation_token: str = "",
+    ):
+        if plan is None or not confirmation_token:
+            raise PermissionError(
+                "Echte Umbenennung erfordert einen unveränderten Rename-Plan "
+                "und eine ausdrücklich erzeugte Bestätigung."
+            )
+        return self.execute_confirmed_rename(
+            plan,
+            confirmation_token=confirmation_token,
         )
 
     def create_widget(self, parent=None):

@@ -1,9 +1,9 @@
 {
   "id": "mediahub.smart_renamer",
   "name": "MediaHub Smart Renamer",
-  "version": "0.5.1",
+  "version": "0.5.3",
   "author": "Master0701",
-  "description": "Windows-Smart-Renamer mit Erkennung, Decision/Learning Engine, sicherem Rename-Plan und sichtbarer Plan-/Rollback-Oberfläche.",
+  "description": "Windows-Smart-Renamer mit transaktionaler Rename-Engine und erweiterter lokaler Erkennung für Serien, Mehrfachfolgen, Filme, Extras und Editionen.",
   "type": "tool",
   "enabled": true,
   "entry": "plugin.py",
@@ -83,7 +83,17 @@
     "plan_integrity_hash",
     "rename_plan_ui",
     "rollback_preparation_ui",
-    "confirmation_status_ui"
+    "confirmation_status_ui",
+    "transactional_rename",
+    "automatic_error_rollback",
+    "manual_transaction_rollback",
+    "filesystem_commit_recheck",
+    "transaction_journal",
+    "multi_episode_detection",
+    "episode_only_detection",
+    "media_extra_detection",
+    "media_part_detection",
+    "advanced_edition_detection"
   ],
   "ui": {
     "enabled": true,

@@ -1,6 +1,6 @@
 # MediaHub Smart Renamer
 
-**Version:** 0.5.1
+**Version:** 0.5.3
 
 - sichere Vorschau ohne Dateiveränderung
 - Dateien und Ordner einlesen
@@ -180,3 +180,51 @@ v0.5.0 eingeführten Sicherheitsplan sichtbar an.
 - Smart Renamer bleibt ohne andere Plugins vollständig nutzbar
 
 Die echte Rename-Transaktion bleibt weiterhin deaktiviert.
+
+
+## Transaktionale Rename Engine v0.5.2
+
+v0.5.2 schaltet die erste echte Dateisystem-Umbenennung frei, jedoch nur über
+den bestätigungspflichtigen Transaktionspfad.
+
+Sicherheitsbedingungen:
+
+- ausführbarer, konfliktfreier Rename-Plan erforderlich
+- Planhash wird unmittelbar vor der Transaktion erneut geprüft
+- Bestätigung muss ausdrücklich für exakt diesen Plan erzeugt worden sein
+- Bestätigungstoken ist nur einmal verwendbar
+- Quellen und Ziele werden direkt vor dem Commit erneut geprüft
+- vorhandene Ziele werden niemals überschrieben
+- doppelte Zielpfade werden abgewiesen
+- v0.5.2 erlaubt bewusst nur Rename innerhalb desselben Ordners
+- jeder ausgeführte Schritt wird im Journal protokolliert
+- schlägt ein späterer Schritt fehl, werden bereits erfolgte Renames
+  automatisch in umgekehrter Reihenfolge zurückgerollt
+- eine erfolgreich abgeschlossene Transaktion kann manuell per Undo/Rollback
+  zurückgenommen werden
+- direkte Web-/Mobile-Ausführung bleibt in v0.5.2 noch gesperrt; dort werden
+  weiterhin nur Vorschau, Plan und Rollback-Vorbereitung angeboten
+
+Damit kann die Rename Engine erstmals echte Änderungen durchführen, aber nur
+über die explizit bestätigte Python/Host-Schnittstelle. Die sichtbare
+Bestätigungs-/Execute-Oberfläche folgt getrennt, damit keine Remote- oder
+UI-Ausführung versehentlich freigeschaltet wird.
+
+
+## Erweiterte Serien-/Filmerkennung v0.5.3
+
+Neu erkannt werden unter anderem:
+
+- Mehrfachfolgen wie `S01E01-E02`, `S01E01E02` und `2x03-04`
+- einzelne Episodenangaben wie `Folge 12` oder `Ep05`
+- Specials über Staffel 0 / `S00`
+- Trailer, Bonus, Extras, Deleted Scenes, Behind the Scenes, Interviews und Making Of
+- weitere Editionen wie `Final Cut` und `IMAX`
+- Teile/Discs wie `Part 2`, `Teil 2`, `CD2`, `Disc 2`
+- einfache römische Teilnummern am Filmtitel, z. B. `Rocky II`
+- neue strukturierte Felder `episode_end`, `part`, `extra_type`,
+  `is_special`, `is_extra`, `is_bonus`
+- zusätzliche Schema-Platzhalter `[episode_bis]`, `[teil]`, `[part]`, `[extra_type]`
+
+Diese lokale Erkennung bleibt vollständig ohne MediaHub-KI lauffähig. Ist die
+KI später vorhanden, kann sie schwierige oder unklare Fälle ergänzen.

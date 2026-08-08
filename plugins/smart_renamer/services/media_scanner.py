@@ -98,8 +98,10 @@ class MediaScanner:
                     detection["year"] = selected.year
                     detection["season"] = selected.season
                     detection["episode"] = selected.episode
+                    detection["episode_end"] = selected.episode_end
                     detection["episode_title"] = selected.episode_title
                     detection["edition"] = selected.edition
+                    detection["part"] = selected.part
 
                 result.append(
                     MediaItem.from_path(

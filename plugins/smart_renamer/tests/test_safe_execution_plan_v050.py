@@ -171,21 +171,23 @@ def test_confirmation_requires_explicit_true(tmp_path: Path):
 
     receipt = service.confirm(plan, user_confirmed=True)
     assert receipt.confirmed is True
-    assert receipt.to_dict()["execution_unlocked"] is False
+    assert receipt.to_dict()["execution_unlocked"] is True
     assert len(receipt.confirmation_token) == 64
 
 
-def test_transaction_execute_is_still_locked(tmp_path: Path):
-    with pytest.raises(RuntimeError):
-        RenameTransactionService(tmp_path).execute()
+def test_transaction_execute_requires_plan_and_confirmation(tmp_path: Path):
+    service = RenameTransactionService(tmp_path)
+
+    with pytest.raises((TypeError, PermissionError)):
+        service.execute()
 
 
-def test_plugin_execute_rename_is_still_locked():
+def test_plugin_execute_rename_requires_plan_and_confirmation():
     plugin = MediaHubSmartRenamerPlugin(
         plugin_path=Path(__file__).resolve().parents[1],
     )
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(PermissionError):
         plugin.execute_rename()
 
 

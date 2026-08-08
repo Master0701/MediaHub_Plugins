@@ -22,8 +22,14 @@ class MediaItem:
     year: str = ""
     season: str = ""
     episode: str = ""
+    episode_end: str = ""
     episode_title: str = ""
     edition: str = ""
+    part: str = ""
+    extra_type: str = ""
+    is_special: bool = False
+    is_extra: bool = False
+    is_bonus: bool = False
     detection_confidence: float = 0.0
     source: str = "filesystem"
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -71,8 +77,14 @@ class MediaItem:
             year=value("jahr", "year"),
             season=value("staffel", "season"),
             episode=value("episode"),
+            episode_end=value("episode_end", "episode_bis"),
             episode_title=value("episodentitel", "episode_title"),
             edition=value("edition", "fassung"),
+            part=value("part", "teil"),
+            extra_type=value("extra_type"),
+            is_special=bool(detected.get("is_special", False)),
+            is_extra=bool(detected.get("is_extra", False)),
+            is_bonus=bool(detected.get("is_bonus", False)),
             detection_confidence=float(detected.get("confidence") or 0.0),
             source=source,
             metadata=data,
@@ -86,9 +98,16 @@ class MediaItem:
             "jahr": self.year,
             "staffel": self.season,
             "episode": self.episode,
+            "episode_bis": self.episode_end,
             "episodentitel": self.episode_title,
             "edition": self.edition,
             "fassung": self.edition,
+            "teil": self.part,
+            "part": self.part,
+            "extra_type": self.extra_type,
+            "is_special": self.is_special,
+            "is_extra": self.is_extra,
+            "is_bonus": self.is_bonus,
             "medientyp": self.media_type,
             "media_type": self.media_type,
         }
