@@ -56,7 +56,35 @@ async function loadAIStatus(){
 function updateAIButton(){
  const button=document.getElementById("mh-ai-review-run");
  if(button)button.disabled=!(state.aiStatus?.available&&state.selectedId);
+ const fusion=document.getElementById("mh-fusion-run");
+ if(fusion)fusion.disabled=!state.selectedId;
 }
+async function runDecisionFusion(){
+ const row=state.payload?.rows.find(x=>x.id===state.selectedId);
+ const resultEl=document.getElementById("mh-fusion-result");
+ if(!row||!resultEl)return;
+ resultEl.textContent="Entscheidung wird verglichen …";
+ try{
+   const response=await fetch("/smart-renamer/api/decision-fusion",{
+     method:"POST",
+     headers:{"Content-Type":"application/json"},
+     body:JSON.stringify(row)
+   });
+   const data=await response.json();
+   if(!response.ok||data.ok===false)throw new Error(data.error||("HTTP "+response.status));
+   const f=data.fusion||{};
+   resultEl.innerHTML=
+     `<strong>${esc(f.decision||"review")}</strong>`+
+     `<br>Agreement: ${esc(f.agreement||"—")}`+
+     `<br>Confidence: ${Math.round((Number(f.confidence)||0)*100)}%`+
+     `<br>Review nötig: ${f.review_required?"Ja":"Nein"}`+
+     `<br>Begründung: ${esc(f.reason||"—")}`+
+     `<br><em>Keine automatische Ausführung.</em>`;
+ }catch(error){
+   resultEl.textContent="Decision Fusion fehlgeschlagen: "+error;
+ }
+}
+
 async function runAIReview(){
  const row=state.payload?.rows.find(x=>x.id===state.selectedId);
  const resultEl=document.getElementById("mh-ai-review-result");
@@ -89,6 +117,7 @@ async function runAIReview(){
 document.addEventListener("DOMContentLoaded",()=>{
  document.getElementById("mh-preview-filter")?.addEventListener("input",rows);
  document.getElementById("mh-ai-review-run")?.addEventListener("click",runAIReview);
+ document.getElementById("mh-fusion-run")?.addEventListener("click",runDecisionFusion);
  loadAIStatus();
 });
 window.MediaHubSmartRenamerPreview={render};

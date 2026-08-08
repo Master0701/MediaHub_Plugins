@@ -49,3 +49,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .mh-ai-review-box{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center}
 .mh-ai-review-result{grid-column:1/-1;padding:8px;border-radius:6px;background:rgba(127,127,127,.10);min-height:38px}
 .mh-ai-review-box small{grid-column:1/-1}
+
+/* Smart Renamer v0.5.14 – Decision Fusion */
+.mh-fusion-result{grid-column:1/-1;padding:8px;border-radius:6px;background:rgba(127,127,127,.08);min-height:38px}
+#mh-fusion-run{justify-self:start}

@@ -86,4 +86,4 @@ def test_desktop_ai_controls_present():
 def test_version_0513():
     root = Path(__file__).resolve().parents[1]
     data = json.loads((root / "plugin.json").read_text(encoding="utf-8"))
-    assert data["version"] == "0.5.13"
+    assert tuple(int(x) for x in data["version"].split(".")) >= (0, 5, 13)

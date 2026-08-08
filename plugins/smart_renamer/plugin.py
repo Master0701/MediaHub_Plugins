@@ -10,6 +10,7 @@ from services.gui_preview_session import GUIPreviewSession
 from services.optional_preview_integrations import OptionalPreviewIntegrations
 from services.review_service import ReviewService
 from services.ai_review_bridge import AIReviewBridge
+from services.decision_fusion import DecisionFusionService
 from services.preview_presentation import PreviewPresentationService
 from services.web_picker_service import WindowsWebPathPicker
 from typing import Any
@@ -31,7 +32,7 @@ class MediaHubSmartRenamerPlugin:
     separates MediaHub-AI-Node-Plugin und ist hier bewusst nicht enthalten.
     """
 
-    VERSION = "0.5.13"
+    VERSION = "0.5.14"
 
     def __init__(
         self,
@@ -79,6 +80,7 @@ class MediaHubSmartRenamerPlugin:
         self.profile_service = ProfileService(self.plugin_path)
         self.integrations = OptionalIntegrationManager(self.mediahub_api)
         self.ai_review_bridge = AIReviewBridge(self.integrations)
+        self.decision_fusion_service = DecisionFusionService()
         self.rename_plan_service = RenamePlanService()
         self.transaction_service = RenameTransactionService(self.base_dir)
         self._prepare_web_runtime()
@@ -114,6 +116,7 @@ class MediaHubSmartRenamerPlugin:
             "/smart-renamer/api/learning": self._web_learning,
             "/smart-renamer/api/integrations": self._web_integrations,
             "/smart-renamer/api/ai-review/status": self._web_ai_review_status,
+            "/smart-renamer/api/decision-fusion/status": self._web_decision_fusion_status,
             "/smart-renamer/api/learning/decisions": self._web_learning_decisions,
             "/smart-renamer/api/transactions/status": self._web_transaction_status,
             "/smart-renamer/assets/mediahub.css": self._stylesheet,
@@ -132,6 +135,11 @@ class MediaHubSmartRenamerPlugin:
         self.server.add_post_route(
             "/smart-renamer/api/ai-review/analyze",
             self._web_ai_review_analyze,
+            owner=self,
+        )
+        self.server.add_post_route(
+            "/smart-renamer/api/decision-fusion",
+            self._web_decision_fusion,
             owner=self,
         )
         self.server.add_post_route(
@@ -591,6 +599,31 @@ class MediaHubSmartRenamerPlugin:
             **self.analyze_review_with_ai(source),
         })
 
+    def _web_decision_fusion_status(self, request=None):
+        return self._json({
+            "ok": True,
+            "enabled": True,
+            "ai_optional": True,
+            "safe_threshold": self.decision_fusion_service.SAFE_THRESHOLD,
+            "review_threshold": self.decision_fusion_service.REVIEW_THRESHOLD,
+            "execution_allowed": False,
+            "human_confirmation_required": True,
+        })
+
+    def _web_decision_fusion(self, payload, request=None):
+        source = dict(payload or {})
+        if not source:
+            return self._json({
+                "ok": False,
+                "error": "Decision-Fusion-Payload fehlt.",
+                "execution_allowed": False,
+                "human_confirmation_required": True,
+            }, 400)
+        return self._json({
+            "ok": True,
+            **self.analyze_and_fuse_review(source),
+        })
+
     def _web_preview(self, payload, request=None):
         source = dict(payload or {})
         result = self.preview_rename(
@@ -774,6 +807,14 @@ class NativeSmartRenamerWidget:
                 self.ai_review_status_label = QLabel("KI: wird geprüft …")
                 preview_actions.addWidget(self.ai_review_status_label)
 
+                self.fusion_button = QPushButton("Entscheidung vergleichen")
+                self.fusion_button.setToolTip(
+                    "Renamer- und KI-Bewertung vergleichen. "
+                    "Bei Widerspruch bleibt der Fall zwingend auf Bitte prüfen."
+                )
+                self.fusion_button.clicked.connect(self._run_decision_fusion_for_selection)
+                preview_actions.addWidget(self.fusion_button)
+
                 preview_actions.addStretch(1)
                 self.preview_selected_count = QLabel("0 ausgewählt")
                 preview_actions.addWidget(self.preview_selected_count)
@@ -877,7 +918,48 @@ class NativeSmartRenamerWidget:
                     + "\nBegründung: " + str(result.get("rationale") or "—")
                     + ("\nWarnungen: " + "; ".join(str(x) for x in warnings) if warnings else "")
                     + "\n\nNur Vorschlag · Benutzerbestätigung erforderlich."
+                    + self._format_fusion_detail()
                 )
+
+            def _format_fusion_detail(self):
+                result = self.last_fusion_result
+                if not result:
+                    return ""
+                return (
+                    "\n\nDecision Fusion:"
+                    "\nErgebnis: " + str(result.get("decision") or "review")
+                    + "\nAgreement: " + str(result.get("agreement") or "—")
+                    + "\nConfidence: " + f"{float(result.get('confidence') or 0)*100:.0f}%"
+                    + "\nReview nötig: " + ("Ja" if result.get("review_required") else "Nein")
+                    + "\nBegründung: " + str(result.get("reason") or "—")
+                    + "\n\nKeine automatische Ausführung."
+                )
+
+            def _run_decision_fusion_for_selection(self):
+                rows = sorted({index.row() for index in self.table.selectedIndexes()})
+                if len(rows) != 1:
+                    self.status.setText(
+                        "Für Decision Fusion bitte genau einen Vorschau-Eintrag auswählen."
+                    )
+                    return
+                meta = self._row_meta(rows[0])
+                ai_result = self.last_ai_review or self.plugin.analyze_review_with_ai(meta)
+                self.last_ai_review = ai_result
+                self.last_fusion_result = self.plugin.fuse_review_decision(meta, ai_result)
+                self._preview_selection_changed()
+
+                if self.last_fusion_result.get("agreement") == "conflict":
+                    self.status.setText(
+                        "Renamer und KI widersprechen sich: Bitte prüfen bleibt zwingend."
+                    )
+                elif self.last_fusion_result.get("agreement") == "agree":
+                    self.status.setText(
+                        "Renamer und KI stimmen überein. Keine Datei wurde verändert."
+                    )
+                else:
+                    self.status.setText(
+                        "Keine KI verfügbar. Renamer-Bewertung bleibt aktiv."
+                    )
 
             def _refresh_ai_review_status(self):
                 status = self.plugin.ai_review_status()
@@ -1208,4 +1290,27 @@ class NativeSmartRenamerWidget:
         result["requires_human_confirmation"] = True
         result["human_confirmation_required"] = True
         return result
+
+    def fuse_review_decision(self, renamer_payload, ai_result=None):
+        result = self.decision_fusion_service.fuse(
+            dict(renamer_payload or {}),
+            dict(ai_result or {}),
+        )
+        result["execution_locked"] = True
+        result["execution_allowed"] = False
+        result["human_confirmation_required"] = True
+        return result
+
+    def analyze_and_fuse_review(self, payload):
+        source = dict(payload or {})
+        ai_result = self.analyze_review_with_ai(source)
+        fusion = self.fuse_review_decision(source, ai_result)
+        return {
+            "ai": ai_result,
+            "fusion": fusion,
+            "execution_locked": True,
+            "execution_allowed": False,
+            "human_confirmation_required": True,
+        }
+
 

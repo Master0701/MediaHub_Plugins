@@ -116,6 +116,8 @@ $('profile').onchange=e=>applyProfile(+e.target.value); $('plan').onclick=create
     <span id="mh-ai-review-status">Status wird geladen …</span>
     <button type="button" id="mh-ai-review-run" disabled>Ausgewählten Fall mit KI prüfen</button>
     <div id="mh-ai-review-result" class="mh-ai-review-result">Noch kein KI-Vorschlag.</div>
+    <button type="button" id="mh-fusion-run" disabled>Renamer + KI vergleichen</button>
+    <div id="mh-fusion-result" class="mh-fusion-result">Noch keine gemeinsame Entscheidung.</div>
     <small>Capability <code>ai.rename_review</code> · KI liefert nur Vorschläge · Benutzerbestätigung bleibt erforderlich.</small>
   </div>
   <div class="mh-preview-lock">🔒 Rename/Merge/Split bleiben bis zum späteren Sicherheitstest gesperrt.</div>

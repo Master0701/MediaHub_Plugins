@@ -1,3 +1,12 @@
+## v0.5.14
+
+- Decision-Fusion-Service ergänzt.
+- Übereinstimmung Renamer/KI erhöht Confidence nur moderat.
+- Widerspruch Renamer/KI erzwingt manuellen Review.
+- Fallback ohne KI bleibt vollständig erhalten.
+- Decision-Fusion-API und Web-/Desktop-Anzeige ergänzt.
+- Keine automatische Rename-/Merge-/Split-Ausführung.
+
 ## v0.5.13
 
 - KI-Review an optionale Capability-Verwaltung angeschlossen.

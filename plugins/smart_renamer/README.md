@@ -1,6 +1,6 @@
 # MediaHub Smart Renamer
 
-**Version:** 0.5.13
+**Version:** 0.5.14
 
 - sichere Vorschau ohne Dateiveränderung
 - Dateien und Ordner einlesen
@@ -403,3 +403,14 @@ Rename, Merge und Split bleiben gesperrt.
 - Ohne Provider bleibt manueller Review vollständig erhalten.
 - KI darf niemals Rename/Merge/Split ausführen.
 - Benutzerbestätigung bleibt zwingend.
+
+
+## Decision Fusion v0.5.14
+
+- Renamer-Erkennung und optionale KI-Empfehlung werden getrennt bewertet.
+- Stimmen beide überein, darf die Confidence moderat steigen.
+- Widersprechen sie sich, bleibt der Fall zwingend auf `Bitte prüfen`.
+- Ohne KI-Provider bleibt die normale Renamer-Bewertung aktiv.
+- Niedrige Sicherheit bleibt ein Review-Fall.
+- Web und Desktop zeigen Agreement, kombinierte Confidence und Begründung.
+- Auch bei hoher Confidence gibt Decision Fusion niemals eine Dateisystem-Ausführung frei.
