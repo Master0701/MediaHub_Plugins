@@ -1,6 +1,6 @@
 # MediaHub Smart Renamer
 
-**Version:** 0.4.7
+**Version:** 0.4.8
 
 - sichere Vorschau ohne Dateiveränderung
 - Dateien und Ordner einlesen
@@ -90,3 +90,25 @@ Grundregeln:
 - Fehler eines optionalen Providers dürfen den Renamer nicht stoppen
 - Web-/Status-API zeigt, ob die Integration tatsächlich aktiv ist
 - echte Umbenennung bleibt weiterhin gesperrt
+
+
+## Decision Engine v0.4.8
+
+Die Kandidaten aus v0.4.6 werden jetzt durch eine konservative
+Entscheidungsschicht bewertet.
+
+Die Decision Engine:
+
+- wählt den besten Kandidaten ausschließlich für die Vorschau,
+- berücksichtigt Confidence, Quellengewicht und optionale Hinweise,
+- bestraft unbekannte Medientypen,
+- fordert bei zu niedriger Sicherheit oder knappen Treffern manuelle Prüfung,
+- speichert Ranking, Gründe und Entscheidungsscore im MediaModel,
+- akzeptiert optionale `decision_hints` für spätere Lern-/KI-/Datenbank-Hinweise,
+- überschreibt niemals explizit vom Benutzer gelieferte Metadaten,
+- löst niemals automatisch eine echte Umbenennung aus.
+
+Die Decision Engine liegt bewusst zunächst im Smart-Renamer-Plugin selbst.
+Damit bleibt das Plugin vollständig eigenständig. Der Datenvertrag ist so
+gehalten, dass er später auch von weiteren MediaHub-Komponenten verwendet
+werden kann, ohne dass der Smart Renamer von diesen abhängig wird.

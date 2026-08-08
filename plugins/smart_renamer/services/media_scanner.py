@@ -6,6 +6,7 @@ from typing import Any
 from models.media_item import MediaItem
 from services.media_detection import MediaDetector
 from services.detection_candidates import DetectionCandidateService
+from services.decision_engine import DecisionEngine
 
 
 class MediaScanner:
@@ -14,6 +15,7 @@ class MediaScanner:
     def __init__(self) -> None:
         self.detector = MediaDetector()
         self.candidate_service = DetectionCandidateService(self.detector)
+        self.decision_engine = DecisionEngine()
 
     def scan(
         self,
@@ -49,12 +51,40 @@ class MediaScanner:
                 seen.add(key)
 
                 candidate_set = self.candidate_service.analyze(candidate)
-                selected = candidate_set.selected
+                decision_hints = dict(item.get("decision_hints") or {})
+                decision = self.decision_engine.decide(
+                    candidate_set,
+                    hints=decision_hints,
+                )
+                selected = next(
+                    (
+                        value
+                        for value in candidate_set.candidates
+                        if value.candidate_id == decision.selected_candidate_id
+                    ),
+                    candidate_set.selected,
+                )
+
                 detection = self.detector.detect(candidate).to_dict()
                 detection.update(candidate_set.to_dict())
+                detection["decision"] = decision.to_dict()
+                detection["decision_state"] = decision.state
+                detection["decision_confidence"] = decision.confidence
+                detection["review_required"] = decision.review_required
+
                 if selected is not None:
+                    detection["selected_candidate_id"] = selected.candidate_id
+                    detection["confidence"] = selected.confidence
                     detection["confidence_band"] = selected.confidence_band
                     detection["selected_source"] = selected.source
+                    detection["media_type"] = selected.media_type
+                    detection["title"] = selected.title
+                    detection["year"] = selected.year
+                    detection["season"] = selected.season
+                    detection["episode"] = selected.episode
+                    detection["episode_title"] = selected.episode_title
+                    detection["edition"] = selected.edition
+
                 result.append(
                     MediaItem.from_path(
                         candidate,

@@ -14,12 +14,12 @@ from services.optional_integrations import OptionalIntegrationManager
 class MediaHubSmartRenamerPlugin:
     """Windows-Smart-Renamer mit Desktop- und lokaler Weboberfläche.
 
-    Version 0.4.7 bleibt strikt im Vorschau-Modus. Es werden weder Dateien
+    Version 0.4.8 bleibt strikt im Vorschau-Modus. Es werden weder Dateien
     noch Ordner umbenannt. Das spätere Raspberry-Pi-Backend gehört in ein
     separates MediaHub-AI-Node-Plugin und ist hier bewusst nicht enthalten.
     """
 
-    VERSION = "0.4.7"
+    VERSION = "0.4.8"
 
     def __init__(
         self,
@@ -121,7 +121,7 @@ class MediaHubSmartRenamerPlugin:
             "mobile_responsive_ui": self.server is not None,
             "capability_status": capability_status,
             "message": (
-                "Smart Renamer v0.4.7 läuft eigenständig und aktiviert optionale Plugin-Integrationen nur bei tatsächlich verfügbarer Capability."
+                "Smart Renamer v0.4.8 nutzt eine konservative Decision Engine und läuft eigenständig und aktiviert optionale Plugin-Integrationen nur bei tatsächlich verfügbarer Capability."
             ),
         }
 
@@ -193,7 +193,7 @@ class MediaHubSmartRenamerPlugin:
 
     def execute_rename(self, *args, **kwargs):
         raise RuntimeError(
-            "Ausführung ist in Smart Renamer v0.4.7 noch gesperrt. "
+            "Ausführung ist in Smart Renamer v0.4.8 noch gesperrt. "
             "Es sind ausschließlich Vorschauen erlaubt."
         )
 

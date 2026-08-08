@@ -1,3 +1,16 @@
+## v0.4.8
+
+- Konservative Decision Engine für Erkennungskandidaten ergänzt.
+- Kandidaten werden nach Confidence, Quelle und optionalen Hinweisen gerankt.
+- Unbekannte Medientypen erhalten einen Sicherheitsabschlag.
+- Zu unsichere oder eng beieinanderliegende Treffer erzwingen Review.
+- Decision Score, Ranking und Gründe werden im Erkennungsmodell gespeichert.
+- Optionale `decision_hints` für spätere Learning-/KI-/Datenbank-Signale ergänzt.
+- Explizite Benutzermetadaten behalten immer Vorrang.
+- Decision Engine entscheidet nur für die Vorschau; Auto-Rename bleibt gesperrt.
+- Engine bleibt plugin-lokal, damit Smart Renamer weiterhin vollständig
+  eigenständig läuft.
+
 ## v0.4.7
 
 - Vollständig optionale Metadata-Editor-Integration vorbereitet.
