@@ -36,6 +36,7 @@ class MediaItem:
     detection_data: dict[str, Any] = field(default_factory=dict)
     ai_data: dict[str, Any] = field(default_factory=dict)
     quality_data: dict[str, Any] = field(default_factory=dict)
+    companion_files: list[dict[str, Any]] = field(default_factory=list)
 
     @classmethod
     def from_path(

@@ -8,6 +8,7 @@ from services.media_detection import MediaDetector
 from services.detection_candidates import DetectionCandidateService
 from services.decision_engine import DecisionEngine
 from services.folder_structure import FolderStructureAnalyzer
+from services.media_file_grouping import MediaFileGrouper
 
 
 class MediaScanner:
@@ -18,6 +19,7 @@ class MediaScanner:
         self.candidate_service = DetectionCandidateService(self.detector)
         self.decision_engine = DecisionEngine()
         self.folder_analyzer = FolderStructureAnalyzer()
+        self.file_grouper = MediaFileGrouper()
         self.decision_hint_provider = decision_hint_provider
 
     def scan(
@@ -113,6 +115,18 @@ class MediaScanner:
                         detection=detection,
                     )
                 )
+
+        # Begleitdateien jetzt zu Medienobjekten gruppieren, bevor
+        # Sammlungstyp und Ordnerkontext berechnet werden.
+        result, grouping_details = self.file_grouper.group(result)
+        for media in result:
+            media.detection_data["grouping_summary"] = {
+                "grouped_companions_total": sum(
+                    len(item.companion_files)
+                    for item in result
+                ),
+                "visible_media_items": len(result),
+            }
 
         detected_types = {
             media.media_type

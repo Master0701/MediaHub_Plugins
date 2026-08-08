@@ -1,6 +1,6 @@
 # MediaHub Smart Renamer
 
-**Version:** 0.5.4
+**Version:** 0.5.5
 
 - sichere Vorschau ohne Dateiveränderung
 - Dateien und Ordner einlesen
@@ -251,3 +251,25 @@ Vorrang. Die Ordneranalyse ergänzt nur fehlende Informationen.
 
 Damit ist die Grundlage für den ersten großen Praxistest mit echten
 Medienordnern vorbereitet.
+
+
+## Media File Grouping v0.5.5
+
+Begleitdateien werden jetzt nicht mehr als eigene Medienobjekte behandelt,
+wenn ein passendes Video gefunden wird.
+
+Gruppiert werden unter anderem:
+
+- Untertitel: SRT, ASS, SSA, SUB, IDX, SUP, VTT
+- Metadaten: NFO, XML, JSON
+- Bilder: Poster, Fanart, Thumb, Logo und allgemeine Bilder
+- Prüfsummen: SFV, MD5, SHA1, SHA256
+- Text-/Begleitdateien
+- Playlist-/Cue-Dateien
+
+Untertitelinformationen wie Sprache, `forced` und `SDH/HI` werden soweit aus
+dem Dateinamen erkennbar mitgespeichert.
+
+Wichtig: Kann eine Begleitdatei keinem Medium sicher zugeordnet werden,
+bleibt sie sichtbar und wird als `companion_unmatched` markiert. Dadurch geht
+bei unsicherer Gruppierung nichts stillschweigend verloren.

@@ -1,3 +1,15 @@
+## v0.5.5
+
+- Media File Grouping eingeführt.
+- IDX/SUB/SRT/ASS/SSA/SUP/VTT werden unter passenden Videos gruppiert.
+- SFV/MD5/SHA-Prüfsummen werden als Begleitdateien geführt.
+- NFO/XML/JSON-Metadaten können dem Medienobjekt zugeordnet werden.
+- Poster/Fanart/Thumb/Logo/Bilder werden gruppiert.
+- Subtitle-Sprache, Forced und SDH/HI werden soweit möglich erkannt.
+- Episode-Key-Gruppierung unterstützt auch reale Release-Namen wie S01E01rr.
+- Nicht sicher zuordenbare Begleitdateien bleiben sichtbar.
+- Begleitdateien verfälschen Sammlungstyp und Staffelzählung nicht mehr.
+
 ## v0.5.4
 
 - Ordnerstruktur- und Sammlungsanalyse ergänzt.

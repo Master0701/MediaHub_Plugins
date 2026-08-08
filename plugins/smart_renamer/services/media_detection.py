@@ -53,12 +53,12 @@ EXTRA_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 
 SERIES_PATTERNS = (
     re.compile(
-        r"(?ix)\bS(?P<season>\d{1,3})[ ._-]*E(?P<episode>\d{1,4})"
-        r"(?:[ ._-]*(?:E|-E?|to)[ ._-]*(?P<episode_end>\d{1,4}))?\b"
+        r"(?ix)\bS(?P<season>\d{1,3})[ ._-]*E(?P<episode>\d{1,4})(?!\d)"
+        r"(?:[ ._-]*(?:E|-E?|to)[ ._-]*(?P<episode_end>\d{1,4})(?!\d))?"
     ),
     re.compile(
-        r"(?ix)\b(?P<season>\d{1,3})x(?P<episode>\d{1,4})"
-        r"(?:[ ._-]*(?:-|x)?(?P<episode_end>\d{1,4}))?\b"
+        r"(?ix)\b(?P<season>\d{1,3})x(?P<episode>\d{1,4})(?!\d)"
+        r"(?:[ ._-]*(?:-|x)?(?P<episode_end>\d{1,4})(?!\d))?"
     ),
     re.compile(
         r"(?ix)\bStaffel[ ._-]*(?P<season>\d{1,3})"

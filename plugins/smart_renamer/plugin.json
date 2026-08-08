@@ -1,9 +1,9 @@
 {
   "id": "mediahub.smart_renamer",
   "name": "MediaHub Smart Renamer",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "author": "Master0701",
-  "description": "Windows-Smart-Renamer mit transaktionaler Rename-Engine, erweiterter Medienerkennung und Ordnerstruktur-/Sammlungsanalyse.",
+  "description": "Windows-Smart-Renamer mit transaktionaler Rename-Engine, Ordneranalyse und Media-File-Grouping für Begleitdateien.",
   "type": "tool",
   "enabled": true,
   "entry": "plugin.py",
@@ -98,7 +98,12 @@
     "season_folder_detection",
     "collection_context",
     "extra_folder_detection",
-    "folder_relation_mapping"
+    "folder_relation_mapping",
+    "media_file_grouping",
+    "subtitle_grouping",
+    "metadata_companion_grouping",
+    "image_companion_grouping",
+    "checksum_companion_grouping"
   ],
   "ui": {
     "enabled": true,
