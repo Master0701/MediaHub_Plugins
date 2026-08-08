@@ -9,17 +9,19 @@ from services.preview_service import RenamePreviewService
 from services.profile_service import ProfileService
 from services.learning_store import LearningStore
 from services.optional_integrations import OptionalIntegrationManager
+from services.rename_plan import RenamePlanService
+from services.transaction_service import RenameTransactionService
 
 
 class MediaHubSmartRenamerPlugin:
     """Windows-Smart-Renamer mit Desktop- und lokaler Weboberfläche.
 
-    Version 0.4.9 bleibt strikt im Vorschau-Modus. Es werden weder Dateien
+    Version 0.5.0 bleibt strikt im Vorschau-Modus. Es werden weder Dateien
     noch Ordner umbenannt. Das spätere Raspberry-Pi-Backend gehört in ein
     separates MediaHub-AI-Node-Plugin und ist hier bewusst nicht enthalten.
     """
 
-    VERSION = "0.4.9"
+    VERSION = "0.5.0"
 
     def __init__(
         self,
@@ -47,6 +49,8 @@ class MediaHubSmartRenamerPlugin:
         )
         self.profile_service = ProfileService(self.plugin_path)
         self.integrations = OptionalIntegrationManager(self.mediahub_api)
+        self.rename_plan_service = RenamePlanService()
+        self.transaction_service = RenameTransactionService(self.base_dir)
         self._prepare_web_runtime()
         self._register_routes()
 
@@ -80,6 +84,7 @@ class MediaHubSmartRenamerPlugin:
             "/smart-renamer/api/learning": self._web_learning,
             "/smart-renamer/api/integrations": self._web_integrations,
             "/smart-renamer/api/learning/decisions": self._web_learning_decisions,
+            "/smart-renamer/api/transactions/status": self._web_transaction_status,
             "/smart-renamer/assets/mediahub.css": self._stylesheet,
         }.items():
             self.server.add_route(path, handler, owner=self)
@@ -92,6 +97,16 @@ class MediaHubSmartRenamerPlugin:
         self.server.add_post_route(
             "/smart-renamer/api/learning/decision",
             self._web_record_learning_decision,
+            owner=self,
+        )
+        self.server.add_post_route(
+            "/smart-renamer/api/plan",
+            self._web_plan,
+            owner=self,
+        )
+        self.server.add_post_route(
+            "/smart-renamer/api/transaction/prepare",
+            self._web_prepare_transaction,
             owner=self,
         )
 
@@ -121,14 +136,16 @@ class MediaHubSmartRenamerPlugin:
             "version": self.VERSION,
             "safe_mode": True,
             "preview_only": True,
+            "transaction_planning": True,
             "automatic_install": True,
             "automatic_rename": False,
+            "execution_enabled": False,
             "desktop_ui": True,
             "web_ui": self.server is not None,
             "mobile_responsive_ui": self.server is not None,
             "capability_status": capability_status,
             "message": (
-                "Smart Renamer v0.4.9 verbindet die Decision Engine mit lokal bestätigten Lernhinweisen und läuft eigenständig und aktiviert optionale Plugin-Integrationen nur bei tatsächlich verfügbarer Capability."
+                "Smart Renamer v0.5.0 ergänzt sichere Rename-Pläne, Konflikt-Gates und Rollback-Vorbereitung und läuft eigenständig und aktiviert optionale Plugin-Integrationen nur bei tatsächlich verfügbarer Capability."
             ),
         }
 
@@ -217,6 +234,60 @@ class MediaHubSmartRenamerPlugin:
             },
         }
 
+    def create_rename_plan(
+        self,
+        items,
+        rules=None,
+        preferred_backend=None,
+    ):
+        preview = self.preview_rename(
+            items,
+            rules=rules,
+            preferred_backend=preferred_backend,
+        )
+        plan = self.rename_plan_service.create_from_preview(preview)
+        return {
+            "ok": True,
+            "plan": plan.to_dict(),
+            "execution_performed": False,
+        }
+
+    def prepare_rename_transaction(
+        self,
+        items,
+        rules=None,
+        preferred_backend=None,
+    ):
+        preview = self.preview_rename(
+            items,
+            rules=rules,
+            preferred_backend=preferred_backend,
+        )
+        plan = self.rename_plan_service.create_from_preview(preview)
+        paths = self.transaction_service.save_prepared_transaction(plan)
+        return {
+            "ok": True,
+            "plan": plan.to_dict(),
+            "transaction": paths,
+            "execution_performed": False,
+        }
+
+    def confirm_rename_plan(
+        self,
+        plan,
+        *,
+        user_confirmed: bool,
+    ):
+        receipt = self.transaction_service.confirm(
+            plan,
+            user_confirmed=user_confirmed,
+        )
+        return {
+            "ok": True,
+            "confirmation": receipt.to_dict(),
+            "execution_performed": False,
+        }
+
     def get_optional_integrations(self):
         return {
             "metadata_editor": self.integrations.metadata_status().to_dict(),
@@ -233,8 +304,9 @@ class MediaHubSmartRenamerPlugin:
 
     def execute_rename(self, *args, **kwargs):
         raise RuntimeError(
-            "Ausführung ist in Smart Renamer v0.4.9 noch gesperrt. "
-            "Es sind ausschließlich Vorschauen erlaubt."
+            "Ausführung ist in Smart Renamer v0.5.0 weiterhin gesperrt. "
+            "Vorschau, Rename-Plan, Bestätigung und Rollback-Vorbereitung "
+            "sind erlaubt; Dateisystemänderungen noch nicht."
         )
 
     def create_widget(self, parent=None):
@@ -336,6 +408,34 @@ class MediaHubSmartRenamerPlugin:
             "decision": result,
             "automatic_application": False,
         })
+
+    def _web_transaction_status(self, request=None):
+        return self._json({
+            "ok": True,
+            "transaction_planning": True,
+            "confirmation_required": True,
+            "rollback_preparation": True,
+            "execution_enabled": False,
+            "automatic_execution": False,
+        })
+
+    def _web_plan(self, payload, request=None):
+        source = dict(payload or {})
+        result = self.create_rename_plan(
+            list(source.get("items") or []),
+            rules=list(source.get("rules") or []),
+            preferred_backend=source.get("preferred_backend"),
+        )
+        return self._json(result)
+
+    def _web_prepare_transaction(self, payload, request=None):
+        source = dict(payload or {})
+        result = self.prepare_rename_transaction(
+            list(source.get("items") or []),
+            rules=list(source.get("rules") or []),
+            preferred_backend=source.get("preferred_backend"),
+        )
+        return self._json(result)
 
     def _web_integrations(self, request=None):
         return self._json({

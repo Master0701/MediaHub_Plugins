@@ -1,6 +1,6 @@
 # MediaHub Smart Renamer
 
-**Version:** 0.4.9
+**Version:** 0.5.0
 
 - sichere Vorschau ohne Dateiveränderung
 - Dateien und Ordner einlesen
@@ -133,3 +133,30 @@ Sicherheitsregeln:
 - Das bisherige Korrekturlernen (`original` → `corrected`) bleibt kompatibel.
 - Schema-1-Lerndaten werden beim nächsten Speichern verlustfrei in Schema 2
   überführt.
+
+
+## Sicherer Ausführungsplan v0.5.0
+
+v0.5.0 führt noch keine echte Dateisystem-Umbenennung aus. Stattdessen wird
+die vollständige Sicherheitsstrecke bis unmittelbar vor den späteren Commit
+aufgebaut.
+
+Enthalten:
+
+- unveränderlicher Rename-Plan aus der aktuellen Vorschau
+- eindeutige Plan-ID
+- SHA-256-Integritätshash über relevante Planinhalte
+- Konflikt-Gate: blockierende Preview-Probleme verhindern Freigabe
+- Review-Gate: unsichere Decision-Ergebnisse verhindern Freigabe
+- Status `awaiting_confirmation` nur bei konfliktfreiem, eindeutigem Plan
+- explizite Benutzerbestätigung als separater Schritt
+- Bestätigungs-Receipt/Token ohne Freischaltung einer Ausführung
+- vorbereitete `rollback.json` mit alten und geplanten neuen Pfaden
+- optionales Speichern von `rename_plan.json` + `rollback.json` ausschließlich
+  im MediaHub-Konfigurationsbereich
+- keine Medien-Datei oder kein Medien-Ordner wird dabei verändert
+- `execute_rename()` und der Transaktions-Commit bleiben weiterhin gesperrt
+
+Damit ist Vorschau → Plan → Konfliktprüfung → Bestätigung → Rollback-
+Vorbereitung vorhanden, während die tatsächliche Rename-Engine noch nicht
+freigeschaltet wird.

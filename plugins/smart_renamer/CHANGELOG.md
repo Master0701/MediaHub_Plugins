@@ -1,3 +1,16 @@
+## v0.5.0
+
+- Sicheren Rename-Plan als feste Grenze zwischen Vorschau und Ausführung ergänzt.
+- Plan-ID und SHA-256-Integritätshash eingeführt.
+- Blockierende Konflikte verhindern die Freigabe eines Plans.
+- Unsichere Decision-Ergebnisse (`review_required`) verhindern die Freigabe.
+- Explizites Bestätigungs-Gate mit Confirmation Receipt vorbereitet.
+- Rollback-Manifest mit Quell-/Zielpfaden und Dateizustand vorbereitet.
+- Plan und `rollback.json` können im Konfigurationsbereich gespeichert werden.
+- Transaktionsstatus- und Plan-API für Desktop/Web vorbereitet.
+- Medien-Dateien und -Ordner werden in v0.5.0 weiterhin nicht verändert.
+- `execute_rename()` und Transaktions-Commit bleiben ausdrücklich gesperrt.
+
 ## v0.4.9
 
 - Learning Store mit Decision Engine verbunden.
