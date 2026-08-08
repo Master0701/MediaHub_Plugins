@@ -69,3 +69,9 @@ patch_files/
 # Lokale Release-Cleanup-Pakete
 MediaHub_*_Release_Cleanup*.zip
 MediaHub_*_Release_Cleanup*.zip.sha256
+
+# Lokale Smart-Renamer-Praxistests
+MediaHub_SmartRenamer_Praxistest_*/
+smart_renamer_praxistest*.txt
+smart_renamer_praxistest*.json
+_smart_renamer_*_backup_*/
