@@ -17,12 +17,19 @@ function groups(){
 function rows(){
  const body=document.getElementById("mh-preview-rows"); if(!body||!state.payload)return;
  const term=(document.getElementById("mh-preview-filter")?.value||"").toLowerCase();
+ const priorityFilter=document.getElementById("mh-priority-filter")?.value||"";
+ const sortBy=document.getElementById("mh-priority-sort")?.value||"priority";
  const list=state.payload.rows.filter(r=>{
    const key=r.media_type==="series"?`series:season:${String(r.season||"00").padStart(2,"0")}`:r.media_type;
    if(state.group&&key!==state.group)return false;
-   return !term||`${r.current_name} ${r.suggested_name} ${r.relation_type}`.toLowerCase().includes(term);
+   if(priorityFilter&&(r.priority_level||"low")!==priorityFilter)return false;
+   return !term||`${r.current_name} ${r.suggested_name} ${r.relation_type} ${r.priority_label||""}`.toLowerCase().includes(term);
+ }).sort((a,b)=>{
+   if(sortBy==="name")return String(a.current_name||"").localeCompare(String(b.current_name||""),"de");
+   if(sortBy==="confidence")return Number(b.confidence||0)-Number(a.confidence||0);
+   return Number(b.priority_score||0)-Number(a.priority_score||0);
  });
- body.innerHTML=list.map(r=>`<tr data-id="${esc(r.id)}"><td>${esc(r.status)}</td><td>${esc(r.current_name)}</td><td>${esc(r.suggested_name||"—")}</td><td>${esc(r.relation_type)}</td><td>${Math.round((r.confidence||0)*100)}%</td><td><select data-decision="${esc(r.id)}"><option value="pending">Offen</option><option value="accepted">Übernehmen</option><option value="ignored">Ignorieren</option><option value="manual">Manuell</option><option value="review">Prüfen</option></select></td></tr>`).join("");
+ body.innerHTML=list.map(r=>`<tr data-id="${esc(r.id)}" data-priority="${esc(r.priority_level||"low")}"><td>${esc(r.status)}</td><td>${esc(r.current_name)}</td><td>${esc(r.suggested_name||"—")}</td><td>${esc(r.relation_type)}</td><td>${Math.round((r.confidence||0)*100)}%</td><td title="${esc(r.review_priority?.reason||"")}">${esc(r.priority_label||"Niedrige Priorität")}</td><td><select data-decision="${esc(r.id)}"><option value="pending">Offen</option><option value="accepted">Übernehmen</option><option value="ignored">Ignorieren</option><option value="manual">Manuell</option><option value="review">Prüfen</option></select></td></tr>`).join("");
  body.querySelectorAll("tr[data-id]").forEach(tr=>tr.onclick=e=>{
    if(e.target.closest("select"))return;
    state.selectedId=tr.dataset.id||"";
@@ -34,7 +41,7 @@ function rows(){
 }
 function detail(id){
  const r=state.payload?.rows.find(x=>x.id===id),el=document.getElementById("mh-preview-detail"); if(!r||!el)return;
- el.innerHTML=`<p><strong>${esc(r.current_name)}</strong></p><p>Relation: ${esc(r.relation_type)}</p><p>Profil: ${esc(r.profile_name)}</p><p>Aktion: ${esc(r.recommended_action)}</p><p>Begleitdateien: ${r.companion_count}</p><ul>${(r.warnings||[]).map(w=>`<li>${esc(w)}</li>`).join("")||"<li>Keine Warnungen</li>"}</ul>`;
+ el.innerHTML=`<p><strong>${esc(r.current_name)}</strong></p><p>Relation: ${esc(r.relation_type)}</p><p><strong>Priorität:</strong> ${esc(r.priority_label||"Niedrige Priorität")} (${Number(r.priority_score)||0})</p><p>${esc(r.review_priority?.reason||"")}</p><p>Profil: ${esc(r.profile_name)}</p><p>Aktion: ${esc(r.recommended_action)}</p><p>Begleitdateien: ${r.companion_count}</p><ul>${(r.warnings||[]).map(w=>`<li>${esc(w)}</li>`).join("")||"<li>Keine Warnungen</li>"}</ul>`;
 }
 async function loadAIStatus(){
  const statusEl=document.getElementById("mh-ai-review-status");
@@ -150,6 +157,8 @@ async function runAIReview(){
 }
 document.addEventListener("DOMContentLoaded",()=>{
  document.getElementById("mh-preview-filter")?.addEventListener("input",rows);
+ document.getElementById("mh-priority-filter")?.addEventListener("change",rows);
+ document.getElementById("mh-priority-sort")?.addEventListener("change",rows);
  document.getElementById("mh-ai-review-run")?.addEventListener("click",runAIReview);
  document.getElementById("mh-fusion-run")?.addEventListener("click",runDecisionFusion);
  document.getElementById("mh-evidence-run")?.addEventListener("click",runDecisionEvidence);

@@ -1,9 +1,9 @@
 {
   "id": "mediahub.smart_renamer",
   "name": "MediaHub Smart Renamer",
-  "version": "0.5.15",
+  "version": "0.5.16",
   "author": "Master0701",
-  "description": "Smart Renamer mit nachvollziehbaren Entscheidungsbelegen für Renamer, Relationen, Review-Gründe, optionale KI und Decision Fusion.",
+  "description": "Smart Renamer mit Review-Priorisierung, Konfliktgewichtung und prioritätsbasierter Sortierung in Web/Desktop.",
   "type": "tool",
   "enabled": true,
   "entry": "plugin.py",
@@ -141,7 +141,11 @@
     "decision_evidence",
     "review_evidence_sources",
     "decision_conflict_explanation",
-    "decision_explainability"
+    "decision_explainability",
+    "review_priority",
+    "priority_sorting",
+    "priority_filtering",
+    "conflict_first_review"
   ],
   "ui": {
     "enabled": true,

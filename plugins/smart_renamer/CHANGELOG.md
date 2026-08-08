@@ -1,3 +1,11 @@
+## v0.5.16
+
+- ReviewPriorityService ergänzt.
+- Konflikt-/Blocking-Fälle werden zuerst priorisiert.
+- Relation, Confidence und Review-Gründe fließen in Priorität ein.
+- Prioritätsfilter/-sortierung in Web und Desktop.
+- Keine Änderung an Rename-/Merge-/Split-Sperre.
+
 ## v0.5.15
 
 - Decision-Evidence-Service ergänzt.

@@ -106,4 +106,4 @@ def test_evidence_never_allows_execution():
 def test_version_0515():
     root = Path(__file__).resolve().parents[1]
     data = json.loads((root / "plugin.json").read_text(encoding="utf-8"))
-    assert data["version"] == "0.5.15"
+    assert tuple(int(x) for x in data["version"].split(".")) >= (0, 5, 15)

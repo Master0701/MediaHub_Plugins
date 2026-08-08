@@ -12,6 +12,7 @@ from services.review_service import ReviewService
 from services.ai_review_bridge import AIReviewBridge
 from services.decision_fusion import DecisionFusionService
 from services.decision_evidence import DecisionEvidenceService
+from services.review_priority import ReviewPriorityService
 from services.preview_presentation import PreviewPresentationService
 from services.web_picker_service import WindowsWebPathPicker
 from typing import Any
@@ -33,7 +34,7 @@ class MediaHubSmartRenamerPlugin:
     separates MediaHub-AI-Node-Plugin und ist hier bewusst nicht enthalten.
     """
 
-    VERSION = "0.5.15"
+    VERSION = "0.5.16"
 
     def __init__(
         self,
@@ -83,6 +84,7 @@ class MediaHubSmartRenamerPlugin:
         self.ai_review_bridge = AIReviewBridge(self.integrations)
         self.decision_fusion_service = DecisionFusionService()
         self.decision_evidence_service = DecisionEvidenceService()
+        self.review_priority_service = ReviewPriorityService()
         self.rename_plan_service = RenamePlanService()
         self.transaction_service = RenameTransactionService(self.base_dir)
         self._prepare_web_runtime()
@@ -120,6 +122,7 @@ class MediaHubSmartRenamerPlugin:
             "/smart-renamer/api/ai-review/status": self._web_ai_review_status,
             "/smart-renamer/api/decision-fusion/status": self._web_decision_fusion_status,
             "/smart-renamer/api/decision-evidence/status": self._web_decision_evidence_status,
+            "/smart-renamer/api/review-priority/status": self._web_review_priority_status,
             "/smart-renamer/api/learning/decisions": self._web_learning_decisions,
             "/smart-renamer/api/transactions/status": self._web_transaction_status,
             "/smart-renamer/assets/mediahub.css": self._stylesheet,
@@ -286,6 +289,15 @@ class MediaHubSmartRenamerPlugin:
             preferred_backend=preferred_backend,
         )
         result = self.preview_presentation.enrich(result)
+        rows_key = "preview_rows" if "preview_rows" in result else "changes"
+        if rows_key in result:
+            enriched_rows = self.review_priority_service.enrich_rows(
+                list(result.get(rows_key) or [])
+            )
+            result[rows_key] = enriched_rows
+            result["priority_summary"] = self.review_priority_service.summary(
+                enriched_rows
+            )
         return {
             **result,
             "optional_integrations": {
@@ -640,6 +652,15 @@ class MediaHubSmartRenamerPlugin:
             "human_confirmation_required": True,
         })
 
+    def _web_review_priority_status(self, request=None):
+        return self._json({
+            "ok": True,
+            "enabled": True,
+            "levels": ["critical", "high", "medium", "low"],
+            "execution_allowed": False,
+            "human_confirmation_required": True,
+        })
+
     def _web_decision_evidence(self, payload, request=None):
         source = dict(payload or {})
         if not source:
@@ -803,6 +824,8 @@ class NativeSmartRenamerWidget:
                 self.preview_status_filter.addItem("Sicher", "safe")
                 self.preview_status_filter.addItem("Review", "review")
                 self.preview_status_filter.addItem("Konflikt", "conflict")
+                self.preview_status_filter.addItem("Sofort prüfen", "critical")
+                self.preview_status_filter.addItem("Hohe Priorität", "high")
                 self.preview_status_filter.currentIndexChanged.connect(self._apply_preview_filters)
                 preview_head.addWidget(self.preview_status_filter)
 
@@ -811,6 +834,7 @@ class NativeSmartRenamerWidget:
                 self.preview_sort.addItem("Vorschlag", 2)
                 self.preview_sort.addItem("Relation", 3)
                 self.preview_sort.addItem("Confidence", 4)
+                self.preview_sort.addItem("Priorität", 6)
                 self.preview_sort.currentIndexChanged.connect(self._sort_preview)
                 preview_head.addWidget(self.preview_sort)
                 center_layout.addLayout(preview_head)
@@ -859,8 +883,8 @@ class NativeSmartRenamerWidget:
                 preview_actions.addWidget(self.preview_selected_count)
                 center_layout.addLayout(preview_actions)
 
-                self.table = QTableWidget(0, 9)
-                self.table.setHorizontalHeaderLabels(["Status", "Original", "Vorschlag", "Relation", "Confidence", "Review", "Quelle", "Hinweise", "Zielpfad"])
+                self.table = QTableWidget(0, 10)
+                self.table.setHorizontalHeaderLabels(["Status", "Original", "Vorschlag", "Relation", "Confidence", "Review", "Priorität", "Quelle", "Hinweise", "Zielpfad"])
                 self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
                 self.table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
                 self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -1096,7 +1120,9 @@ class NativeSmartRenamerWidget:
                         for key in ("original_name", "proposed_name", "relation_type", "issues", "source_path")
                     ).casefold()
                     visible = (not term or term in haystack) and (
-                        wanted == "all" or meta.get("status") == wanted
+                        wanted == "all"
+                        or meta.get("status") == wanted
+                        or meta.get("priority_level") == wanted
                     )
                     self.table.setRowHidden(row, not visible)
 
@@ -1126,8 +1152,15 @@ class NativeSmartRenamerWidget:
                     status = self._row_meta(row).get("status")
                     review += int(status == "review")
                     conflict += int(status == "conflict")
+                critical = 0
+                high = 0
+                for row in range(self.table.rowCount()):
+                    level = self._row_meta(row).get("priority_level")
+                    critical += int(level == "critical")
+                    high += int(level == "high")
                 self.preview_summary.setText(
-                    f"{self.table.rowCount()} Einträge · {review} Review · {conflict} Konflikte"
+                    f"{self.table.rowCount()} Einträge · {review} Review · {conflict} Konflikte · "
+                    f"{critical} sofort · {high} hoch"
                 )
 
             def _load_profiles(self):
@@ -1248,6 +1281,7 @@ class NativeSmartRenamerWidget:
                         relation,
                         f"{confidence*100:.0f}%",
                         review,
+                        str(item.get("priority_label") or "Niedrige Priorität"),
                         source,
                         issue_text,
                         item.get("target_path",""),
@@ -1260,15 +1294,26 @@ class NativeSmartRenamerWidget:
                         "relation_type": relation,
                         "confidence": confidence,
                         "review_required": bool(item.get("review_required")),
+                        "priority_level": str(item.get("priority_level") or "low"),
+                        "priority_score": int(item.get("priority_score") or 0),
+                        "priority_label": str(item.get("priority_label") or "Niedrige Priorität"),
                         "issues": issue_text,
                         "target_path": str(item.get("target_path") or ""),
                     }
                     for c,value in enumerate(values):
                         cell=QTableWidgetItem(str(value))
-                        if c in {1,2,7,8}:
+                        if c in {1,2,6,8,9}:
                             cell.setToolTip(str(value))
                         if c == 0:
                             cell.setData(Qt.ItemDataRole.UserRole, row_meta)
+                        if c == 6:
+                            cell.setData(
+                                Qt.ItemDataRole.UserRole + 1,
+                                int(item.get("priority_score") or 0),
+                            )
+                            cell.setToolTip(
+                                str((item.get("review_priority") or {}).get("reason") or "")
+                            )
                         self.table.setItem(r,c,cell)
                 self._update_preview_summary()
                 self._apply_preview_filters()

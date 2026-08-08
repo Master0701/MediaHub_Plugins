@@ -1,6 +1,6 @@
 # MediaHub Smart Renamer
 
-**Version:** 0.5.15
+**Version:** 0.5.16
 
 - sichere Vorschau ohne Dateiveränderung
 - Dateien und Ordner einlesen
@@ -425,3 +425,13 @@ Rename, Merge und Split bleiben gesperrt.
 - Widersprüche werden ausdrücklich als Konflikte markiert.
 - Web und Desktop können die Belege für genau einen ausgewählten Fall anzeigen.
 - Evidence ist reine Erklärung: keine automatische Rename-/Merge-/Split-Ausführung.
+
+
+## Review-Priorisierung v0.5.16
+
+- Konflikte und blockierende Fälle stehen ganz oben.
+- Split-/Multi-Episode und Split-Movie erhalten erhöhte Priorität.
+- Niedrige Confidence erhöht die Review-Priorität.
+- Bestehende Review-Gründe fließen in die Priorität ein.
+- Web/Desktop können nach Priorität filtern und sortieren.
+- Priorisierung ändert keine Entscheidung und führt niemals Dateien aus.

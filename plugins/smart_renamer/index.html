@@ -76,6 +76,18 @@ $('profile').onchange=e=>applyProfile(+e.target.value); $('plan').onclick=create
     <div class="mh-preview-controls">
       <label>Profil <select id="mh-profile-select"><option value="plex">Plex</option><option value="jellyfin">Jellyfin</option><option value="emby">Emby</option><option value="kodi">Kodi</option></select></label>
       <input id="mh-preview-filter" type="search" placeholder="Vorschau filtern …">
+<select id="mh-priority-filter" aria-label="Prioritätsfilter">
+  <option value="">Alle Prioritäten</option>
+  <option value="critical">Sofort prüfen</option>
+  <option value="high">Hohe Priorität</option>
+  <option value="medium">Prüfen</option>
+  <option value="low">Niedrige Priorität</option>
+</select>
+<select id="mh-priority-sort" aria-label="Sortierung">
+  <option value="priority">Priorität</option>
+  <option value="name">Name</option>
+  <option value="confidence">Confidence</option>
+</select>
       <select id="mh-status-filter">
         <option value="all">Alle Status</option><option value="safe">Sicher</option>
         <option value="review">Review</option><option value="conflict">Konflikt</option>
@@ -105,7 +117,7 @@ $('profile').onchange=e=>applyProfile(+e.target.value); $('plan').onclick=create
     <aside class="mh-preview-tree"><h3>Bibliothek</h3><div id="mh-preview-groups"></div></aside>
     <main class="mh-preview-table-wrap">
       <table class="mh-preview-table">
-        <thead><tr><th>Status</th><th>Original</th><th>Vorschlag</th><th>Relation</th><th>Confidence</th><th>Entscheidung</th></tr></thead>
+        <thead><tr><th>Status</th><th>Original</th><th>Vorschlag</th><th>Relation</th><th>Confidence</th><th>Priorität</th><th>Entscheidung</th></tr></thead>
         <tbody id="mh-preview-rows"></tbody>
       </table>
     </main>
