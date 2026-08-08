@@ -1,6 +1,6 @@
 # MediaHub Smart Renamer
 
-**Version:** 0.5.0
+**Version:** 0.5.1
 
 - sichere Vorschau ohne Dateiveränderung
 - Dateien und Ordner einlesen
@@ -160,3 +160,23 @@ Enthalten:
 Damit ist Vorschau → Plan → Konfliktprüfung → Bestätigung → Rollback-
 Vorbereitung vorhanden, während die tatsächliche Rename-Engine noch nicht
 freigeschaltet wird.
+
+
+## Plan- und Rollback-Oberfläche v0.5.1
+
+Die gemeinsame Desktop-/WebRemote-/Mobile-Oberfläche zeigt jetzt den in
+v0.5.0 eingeführten Sicherheitsplan sichtbar an.
+
+- eigener Button `Rename-Plan`
+- Planstatus, Plan-ID und SHA-256-Planhash
+- Anzahl Änderungen, Warnungen und blockierende Konflikte
+- sichtbarer Hinweis auf erforderliche Bestätigung
+- sichtbarer Status `Ausführung gesperrt`
+- `Rollback vorbereiten` wird nur bei technisch freigabefähigem Plan aktiv
+- Vorbereitung speichert ausschließlich Plan-/Rollback-Daten im
+  Konfigurationsbereich
+- kein Execute-Endpunkt wird von der Oberfläche aufgerufen
+- responsive Darstellung für Mobile Dashboard/WebRemote
+- Smart Renamer bleibt ohne andere Plugins vollständig nutzbar
+
+Die echte Rename-Transaktion bleibt weiterhin deaktiviert.

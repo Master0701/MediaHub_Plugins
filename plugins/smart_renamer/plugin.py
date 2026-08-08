@@ -16,12 +16,12 @@ from services.transaction_service import RenameTransactionService
 class MediaHubSmartRenamerPlugin:
     """Windows-Smart-Renamer mit Desktop- und lokaler Weboberfläche.
 
-    Version 0.5.0 bleibt strikt im Vorschau-Modus. Es werden weder Dateien
+    Version 0.5.1 bleibt strikt im Vorschau-Modus. Es werden weder Dateien
     noch Ordner umbenannt. Das spätere Raspberry-Pi-Backend gehört in ein
     separates MediaHub-AI-Node-Plugin und ist hier bewusst nicht enthalten.
     """
 
-    VERSION = "0.5.0"
+    VERSION = "0.5.1"
 
     def __init__(
         self,
@@ -145,7 +145,7 @@ class MediaHubSmartRenamerPlugin:
             "mobile_responsive_ui": self.server is not None,
             "capability_status": capability_status,
             "message": (
-                "Smart Renamer v0.5.0 ergänzt sichere Rename-Pläne, Konflikt-Gates und Rollback-Vorbereitung und läuft eigenständig und aktiviert optionale Plugin-Integrationen nur bei tatsächlich verfügbarer Capability."
+                "Smart Renamer v0.5.1 zeigt Rename-Plan, Konfliktstatus und Rollback-Bereitschaft direkt in der gemeinsamen Oberfläche und läuft eigenständig und aktiviert optionale Plugin-Integrationen nur bei tatsächlich verfügbarer Capability."
             ),
         }
 
@@ -304,7 +304,7 @@ class MediaHubSmartRenamerPlugin:
 
     def execute_rename(self, *args, **kwargs):
         raise RuntimeError(
-            "Ausführung ist in Smart Renamer v0.5.0 weiterhin gesperrt. "
+            "Ausführung ist in Smart Renamer v0.5.1 weiterhin gesperrt. "
             "Vorschau, Rename-Plan, Bestätigung und Rollback-Vorbereitung "
             "sind erlaubt; Dateisystemänderungen noch nicht."
         )

@@ -1,3 +1,14 @@
+## v0.5.1
+
+- Rename-Plan direkt in der gemeinsamen Desktop/Web/Mobile-Oberfläche sichtbar gemacht.
+- Planstatus, Plan-ID, Planhash, Änderungen, Warnungen und Blockierungen ergänzt.
+- Bestätigungsstatus und gesperrter Ausführungsstatus sichtbar gemacht.
+- Rollback-Vorbereitung nur für technisch freigabefähige Pläne aktivierbar.
+- Plan- und Rollback-Vorbereitung über bestehende sichere APIs angebunden.
+- Responsive Plananzeige ergänzt.
+- Oberfläche besitzt weiterhin keinen Execute-Aufruf.
+- Echte Dateisystem-Umbenennung bleibt gesperrt.
+
 ## v0.5.0
 
 - Sicheren Rename-Plan als feste Grenze zwischen Vorschau und Ausführung ergänzt.
