@@ -37,6 +37,15 @@ PLAYLIST_EXTENSIONS = {
     ".m3u", ".m3u8", ".pls", ".cue",
 }
 
+SYSTEM_COMPANION_NAMES = {
+    "thumbs.db",
+    "desktop.ini",
+}
+
+LINK_EXTENSIONS = {
+    ".url", ".lnk",
+}
+
 EPISODE_PATTERN = re.compile(
     r"(?i)\bS(?P<season>\d{1,3})[ ._-]*E(?P<episode>\d{1,4})\b"
 )
@@ -76,8 +85,7 @@ class MediaFileGrouper:
         primaries = [
             item
             for item in items
-            if item.extension.casefold() in VIDEO_EXTENSIONS
-            or not self.is_companion(item.path)
+            if not self.is_companion(item.path)
         ]
         companions = [
             item
@@ -133,7 +141,17 @@ class MediaFileGrouper:
 
     @classmethod
     def is_companion(cls, path: Path) -> bool:
-        suffix = Path(path).suffix.casefold()
+        path = Path(path)
+        suffix = path.suffix.casefold()
+        name = path.name.casefold()
+
+        if name in SYSTEM_COMPANION_NAMES:
+            return True
+        if suffix in LINK_EXTENSIONS:
+            return True
+        if cls._is_sample(path):
+            return True
+
         return suffix in (
             SUBTITLE_EXTENSIONS
             | METADATA_EXTENSIONS
@@ -143,13 +161,31 @@ class MediaFileGrouper:
             | PLAYLIST_EXTENSIONS
         )
 
+    @staticmethod
+    def _is_sample(path: Path) -> bool:
+        path = Path(path)
+        if any(part.casefold() == "sample" for part in path.parts[:-1]):
+            return True
+        tokens = {
+            token
+            for token in re.split(r"[^a-z0-9]+", path.stem.casefold())
+            if token
+        }
+        return "sample" in tokens
+
     @classmethod
     def describe(cls, path: Path) -> dict[str, Any]:
         path = Path(path)
         suffix = path.suffix.casefold()
         name = path.stem.casefold()
 
-        if suffix in SUBTITLE_EXTENSIONS:
+        if cls._is_sample(path):
+            role = "sample"
+        elif path.name.casefold() in SYSTEM_COMPANION_NAMES:
+            role = "system"
+        elif suffix in LINK_EXTENSIONS:
+            role = "link"
+        elif suffix in SUBTITLE_EXTENSIONS:
             role = "subtitle"
         elif suffix in METADATA_EXTENSIONS:
             role = "metadata"

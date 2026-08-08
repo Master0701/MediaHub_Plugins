@@ -188,9 +188,9 @@ class MediaDetector:
                 media_type="series",
                 title=title or self._fallback_title(normalized),
                 year=year,
-                season=season.zfill(2),
-                episode=episode.zfill(2),
-                episode_end=episode_end.zfill(2) if episode_end else "",
+                season=self._normalize_number(season, 2),
+                episode=self._normalize_number(episode, 2),
+                episode_end=self._normalize_number(episode_end, 2) if episode_end else "",
                 episode_title=episode_title,
                 edition=edition,
                 part=part,
@@ -291,6 +291,17 @@ class MediaDetector:
             confidence=0.25 if year else 0.10,
             evidence=tuple(evidence),
         )
+
+    @staticmethod
+    def _normalize_number(value: str, width: int = 2) -> str:
+        """Normalisiert numerische Release-Schreibweisen wie S011 -> S11."""
+        text = str(value or "").strip()
+        if not text:
+            return ""
+        try:
+            return str(int(text)).zfill(width)
+        except ValueError:
+            return text.zfill(width)
 
     @staticmethod
     def _normalize(value: str) -> str:
