@@ -24,3 +24,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .mh-preview-table th,.mh-preview-table td{padding:8px;border-bottom:1px solid #555;text-align:left;vertical-align:top}
 .mh-preview-lock{margin-top:12px;padding:10px;border:1px dashed #666;border-radius:8px}
 @media(max-width:1100px){.mh-preview-layout{grid-template-columns:1fr}}
+
+.mh-preview-bulkbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}
+.mh-preview-selected{outline:1px solid currentColor;background:rgba(127,127,127,.12)}
+.mh-preview-checkbox{width:16px;height:16px}

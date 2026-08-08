@@ -1,6 +1,6 @@
 # MediaHub Smart Renamer
 
-**Version:** 0.5.8
+**Version:** 0.5.9
 
 - sichere Vorschau ohne Dateiveränderung
 - Dateien und Ordner einlesen
@@ -354,3 +354,13 @@ Vorher/Nachher, Relationsstatus, Confidence, Filter, Detailansicht und reine
 Vorschauentscheidungen.
 
 Rename, Merge und Split bleiben weiterhin gesperrt.
+
+
+## GUI Wiring v0.5.9
+
+Letzter Infrastrukturstand vor dem ersten echten Oberflächentest:
+Mehrfachauswahl, Sammelentscheidungen, Statusfilter, Suche/Sortierung,
+manuelle Zielnamen und optionale Integrationspunkte für Metadata Editor und
+MediaHub-KI-Assistent. Beide Integrationen bleiben optional.
+
+Rename, Merge und Split bleiben gesperrt.

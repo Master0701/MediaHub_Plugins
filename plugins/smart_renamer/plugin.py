@@ -6,6 +6,8 @@ from services.naming_profiles import NamingProfileService
 from services.relation_preview_service import RelationPreviewService
 from services.interactive_preview_service import InteractivePreviewService
 from services.preview_decisions import PreviewDecisionStore
+from services.gui_preview_session import GUIPreviewSession
+from services.optional_preview_integrations import OptionalPreviewIntegrations
 from typing import Any
 
 from services.backend_registry import RenamerBackendRegistry
@@ -25,7 +27,7 @@ class MediaHubSmartRenamerPlugin:
     separates MediaHub-AI-Node-Plugin und ist hier bewusst nicht enthalten.
     """
 
-    VERSION = "0.5.8"
+    VERSION = "0.5.9"
 
     def __init__(
         self,
@@ -44,6 +46,10 @@ class MediaHubSmartRenamerPlugin:
         self.interactive_preview_service = InteractivePreviewService(
             self.relation_preview_service
         )
+        self.gui_preview_session = GUIPreviewSession(
+            self.preview_decision_store
+        )
+        self.optional_preview_integrations = OptionalPreviewIntegrations()
         self.mediahub_api = mediahub_api or api
         self.api = self.mediahub_api
         self.base_dir = Path(
@@ -843,4 +849,37 @@ class NativeSmartRenamerWidget:
     def clear_preview_decisions(self):
         self.preview_decision_store.clear()
         return {"ok": True}
+
+    def gui_preview_state(self):
+        return self.gui_preview_session.snapshot()
+
+    def gui_set_selection(self, item_ids):
+        return self.gui_preview_session.set_selection(item_ids)
+
+    def gui_toggle_selection(self, item_id: str):
+        return self.gui_preview_session.toggle_selection(item_id)
+
+    def gui_clear_selection(self):
+        return self.gui_preview_session.clear_selection()
+
+    def gui_set_group(self, group_key: str):
+        return self.gui_preview_session.set_group(group_key)
+
+    def gui_set_status_filter(self, status: str):
+        return self.gui_preview_session.set_status_filter(status)
+
+    def gui_set_sort(self, sort_by: str, direction: str = "asc"):
+        return self.gui_preview_session.set_sort(sort_by, direction)
+
+    def gui_set_search(self, search_text: str):
+        return self.gui_preview_session.set_search(search_text)
+
+    def gui_bulk_decision(self, state: str):
+        return self.gui_preview_session.bulk_decision(state)
+
+    def gui_manual_name(self, item_id: str, manual_name: str, note: str = ""):
+        return self.gui_preview_session.apply_manual_name(item_id, manual_name, note)
+
+    def optional_integration_status(self):
+        return self.optional_preview_integrations.status()
 

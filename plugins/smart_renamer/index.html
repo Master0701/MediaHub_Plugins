@@ -37,13 +37,31 @@ function renderPlan(plan){$('planPanel').hidden=false;$('planId').textContent=pl
 async function prepareTransaction(){const req=currentRequest(); if(!lastPlan||!lastPlan.executable)return; $('status').textContent='Rollback-Vorbereitung wird gespeichert …'; const response=await fetch('/smart-renamer/api/transaction/prepare',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(req)}); const data=await response.json(); if(!data.ok){$('status').textContent=data.error||'Transaktion konnte nicht vorbereitet werden.';return;} lastPlan=data.plan;renderPlan(lastPlan);$('planMessage').textContent='Rename-Plan und rollback.json wurden vorbereitet. Medien wurden NICHT verändert.';$('status').textContent='Rollback vorbereitet · Dateisystem unverändert · Direkte Web-Ausführung gesperrt';}
 $('profile').onchange=e=>applyProfile(+e.target.value); $('plan').onclick=createPlan; $('prepare').onclick=prepareTransaction; $('addRule').onclick=()=>{rules.push({type:'trim',label:'Leerzeichen bereinigen',source:'Benutzer',enabled:true});selected=rules.length-1;renderRules();selectRule(selected);schedule()}; $('deleteRule').onclick=()=>{if(selected>=0){rules.splice(selected,1);selected=Math.min(selected,rules.length-1);renderRules();if(selected>=0)selectRule(selected);schedule()}}; $('upRule').onclick=()=>{if(selected>0){[rules[selected-1],rules[selected]]=[rules[selected],rules[selected-1]];selected--;renderRules();schedule()}}; $('downRule').onclick=()=>{if(selected>=0&&selected<rules.length-1){[rules[selected+1],rules[selected]]=[rules[selected],rules[selected+1]];selected++;renderRules();schedule()}}; $('preview').onclick=preview; $('paths').oninput=schedule; ['enabled','type','source','old','new','value','case','start','padding','schema'].forEach(id=>$(id).addEventListener(id==='enabled'?'change':'input',saveEditor)); init().catch(e=>$('status').textContent=String(e));
 </script>
-<section id="relation-preview-v058" class="mh-preview-panel">
+<section id="relation-preview-v058" data-ui-version="0.5.9" class="mh-preview-panel">
   <div class="mh-preview-toolbar">
     <div><h2>Interaktive Vorschau</h2><p>Vorher → Vorschlag → Profil. Keine Ausführung.</p></div>
     <div class="mh-preview-controls">
       <label>Profil <select id="mh-profile-select"><option value="plex">Plex</option><option value="jellyfin">Jellyfin</option><option value="emby">Emby</option><option value="kodi">Kodi</option></select></label>
       <input id="mh-preview-filter" type="search" placeholder="Vorschau filtern …">
+      <select id="mh-status-filter">
+        <option value="all">Alle Status</option><option value="safe">Sicher</option>
+        <option value="review">Review</option><option value="conflict">Konflikt</option>
+      </select>
+      <select id="mh-sort-by">
+        <option value="current_name">Name</option><option value="confidence">Confidence</option>
+        <option value="relation_type">Relation</option><option value="season">Staffel</option>
+        <option value="episode">Episode</option>
+      </select>
+      <button type="button" id="mh-sort-direction">↑</button>
     </div>
+  </div>
+  <div class="mh-preview-bulkbar">
+    <button type="button" id="mh-select-visible">Sichtbare auswählen</button>
+    <button type="button" id="mh-clear-selection">Auswahl leeren</button>
+    <button type="button" data-bulk-state="accepted">Auswahl übernehmen</button>
+    <button type="button" data-bulk-state="ignored">Auswahl ignorieren</button>
+    <button type="button" data-bulk-state="review">Auswahl prüfen</button>
+    <span id="mh-selected-count">0 ausgewählt</span>
   </div>
   <div class="mh-preview-summary" id="mh-preview-summary">
     <span data-kind="safe">Sicher: 0</span>
@@ -63,5 +81,6 @@ $('profile').onchange=e=>applyProfile(+e.target.value); $('plan').onclick=create
   <div class="mh-preview-lock">🔒 Rename/Merge/Split bleiben bis zum späteren Sicherheitstest gesperrt.</div>
 </section>
 <script src="/smart-renamer/assets/interactive_preview.js"></script>
+<script src="/smart-renamer/assets/gui_wiring.js"></script>
 
 </body></html>

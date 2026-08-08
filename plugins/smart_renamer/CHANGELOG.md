@@ -1,3 +1,14 @@
+## v0.5.9
+
+- GUI Preview Session ergänzt.
+- Mehrfachauswahl und Sammelentscheidungen.
+- Statusfilter, Suche und Sortierung.
+- Manuelle Zielnamen im Vorschauzustand.
+- Optionale Metadata-Editor- und KI-Assistent-Brücke.
+- Fallback ohne optionale Plugins vollständig erhalten.
+- Rename/Merge/Split bleiben gesperrt.
+- Infrastrukturstand für ersten Oberflächentest abgeschlossen.
+
 ## v0.5.8
 
 - Interactive Preview Service ergänzt.
