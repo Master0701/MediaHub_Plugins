@@ -9,6 +9,7 @@ from services.detection_candidates import DetectionCandidateService
 from services.decision_engine import DecisionEngine
 from services.folder_structure import FolderStructureAnalyzer
 from services.media_file_grouping import MediaFileGrouper
+from services.media_relation_engine import MediaRelationEngine
 
 
 class MediaScanner:
@@ -20,6 +21,7 @@ class MediaScanner:
         self.decision_engine = DecisionEngine()
         self.folder_analyzer = FolderStructureAnalyzer()
         self.file_grouper = MediaFileGrouper()
+        self.relation_engine = MediaRelationEngine()
         self.decision_hint_provider = decision_hint_provider
 
     def scan(
@@ -182,5 +184,7 @@ class MediaScanner:
                     media.detection_data["is_extra"] = True
                     if media.media_type == "unknown":
                         media.media_type = "extra"
+
+        self.relation_engine.analyze_items(result)
 
         return result, skipped

@@ -1,6 +1,6 @@
 # MediaHub Smart Renamer
 
-**Version:** 0.5.5
+**Version:** 0.5.6
 
 - sichere Vorschau ohne Dateiveränderung
 - Dateien und Ordner einlesen
@@ -273,3 +273,43 @@ dem Dateinamen erkennbar mitgespeichert.
 Wichtig: Kann eine Begleitdatei keinem Medium sicher zugeordnet werden,
 bleibt sie sichtbar und wird als `companion_unmatched` markiert. Dadurch geht
 bei unsicherer Gruppierung nichts stillschweigend verloren.
+
+
+## Media Relation Engine v0.5.6
+
+Die Relation Engine führt gemeinsame, plattformneutrale Felder für komplexe
+Medienbeziehungen ein. Diese Struktur ist für Smart Renamer, Metadata Editor,
+MediaHub-KI-Assistent und Cut & Merge vorgesehen.
+
+Unterstützte Relationstypen:
+
+- `single`
+- `missing_episode`
+- `multi_episode`
+- `split_episode`
+- `split_movie`
+- `multi_part`
+- `duplicate_candidate`
+- `sample`
+- `unknown_relation`
+
+Wichtig: Eine Lücke in der Episodennummerierung wird zunächst nur als
+`missing_episode_candidates` markiert. Der Smart Renamer behauptet NICHT,
+dass die Episode tatsächlich fehlt. Ob sie in einer Doppel-/Mehrfachfolge
+enthalten ist, muss durch offizielle Metadaten, Benutzerentscheidung,
+KI-Auswertung oder spätere In-Video-Analyse bestätigt werden.
+
+### Namensprofile
+
+v0.5.6 bereitet getrennte Profile für Plex, Jellyfin, Emby und Kodi vor.
+Die Profile können später über die Oberfläche ausgewählt bzw. als eigenes
+Benutzerprofil überschrieben werden.
+
+Beispiele Plex:
+
+- Mehrfachfolge: `Titel - S01E05-E06`
+- Geteilte Episode: `Titel - S01E05 - pt1`
+- Geteilter Film: `Titel (Jahr) - pt1`
+
+Es wird in v0.5.6 weiterhin nichts automatisch geschnitten, zusammengefügt
+oder aufgrund einer Relation ohne Bestätigung umbenannt.

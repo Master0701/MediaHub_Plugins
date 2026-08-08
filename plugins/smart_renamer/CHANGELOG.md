@@ -1,3 +1,15 @@
+## v0.5.6
+
+- Gemeinsame Media-Relation-Engine eingeführt.
+- Multi-Episode-/Doppelfolgen-Muster werden erkannt.
+- Split-Episode/Split-Movie über Part/CD/Disc/DVD/PT/Teil-Marker vorbereitet.
+- Part-Gruppen und Merge-Kandidaten werden erkannt.
+- Episodenlücken werden konservativ als Kandidaten markiert.
+- Fehlende Episode und in anderer Datei enthaltene Episode werden ausdrücklich nicht gleichgesetzt.
+- Naming-Profile für Plex, Jellyfin, Emby und Kodi vorbereitet.
+- Plex-kompatible Relations-Namensschemata vorbereitet.
+- Keine automatische Merge-/Split-/Rename-Ausführung durch Relationsanalyse.
+
 ## v0.5.5
 
 - Media File Grouping eingeführt.
