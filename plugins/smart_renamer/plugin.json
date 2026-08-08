@@ -1,9 +1,9 @@
 {
   "id": "mediahub.smart_renamer",
   "name": "MediaHub Smart Renamer",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "author": "Master0701",
-  "description": "Windows-Smart-Renamer mit transaktionaler Rename-Engine und erweiterter lokaler Erkennung für Serien, Mehrfachfolgen, Filme, Extras und Editionen.",
+  "description": "Windows-Smart-Renamer mit transaktionaler Rename-Engine, erweiterter Medienerkennung und Ordnerstruktur-/Sammlungsanalyse.",
   "type": "tool",
   "enabled": true,
   "entry": "plugin.py",
@@ -93,7 +93,12 @@
     "episode_only_detection",
     "media_extra_detection",
     "media_part_detection",
-    "advanced_edition_detection"
+    "advanced_edition_detection",
+    "folder_structure_detection",
+    "season_folder_detection",
+    "collection_context",
+    "extra_folder_detection",
+    "folder_relation_mapping"
   ],
   "ui": {
     "enabled": true,

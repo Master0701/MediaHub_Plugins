@@ -1,6 +1,6 @@
 # MediaHub Smart Renamer
 
-**Version:** 0.5.3
+**Version:** 0.5.4
 
 - sichere Vorschau ohne Dateiveränderung
 - Dateien und Ordner einlesen
@@ -228,3 +228,26 @@ Neu erkannt werden unter anderem:
 
 Diese lokale Erkennung bleibt vollständig ohne MediaHub-KI lauffähig. Ist die
 KI später vorhanden, kann sie schwierige oder unklare Fälle ergänzen.
+
+
+## Ordnerstruktur- und Sammlungsanalyse v0.5.4
+
+Der Scanner betrachtet jetzt nicht mehr nur einzelne Dateien, sondern ergänzt
+bei Verzeichnis-Scans einen gemeinsamen Ordnerkontext.
+
+Erkannt werden unter anderem:
+
+- Serien-/Sammlungsname aus dem Scan-Root
+- Staffelordner wie `Staffel 01`, `Season 2`, `S03`
+- Extra-/Bonus-/Trailer-/Special-Ordner
+- CD/Disc/Disk/Part/Teil-Unterordner
+- dominante Sammlungsklasse (`series`, `movie`, `music`, `audiobook`, `mixed`)
+- Beziehungen jeder Datei zu ihrem übergeordneten Ordner
+- Season-/Part-Werte aus Ordnern, wenn sie im Dateinamen fehlen
+- strukturierter `folder_context` und `folder_relation` im MediaItem
+
+Explizite/manuelle Metadaten und sichere Einzeldateierkennung behalten immer
+Vorrang. Die Ordneranalyse ergänzt nur fehlende Informationen.
+
+Damit ist die Grundlage für den ersten großen Praxistest mit echten
+Medienordnern vorbereitet.

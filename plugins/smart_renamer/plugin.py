@@ -16,12 +16,12 @@ from services.transaction_service import RenameTransactionService
 class MediaHubSmartRenamerPlugin:
     """Windows-Smart-Renamer mit Desktop- und lokaler Weboberfläche.
 
-    Version 0.5.3 bleibt strikt im Vorschau-Modus. Es werden weder Dateien
+    Version 0.5.4 bleibt strikt im Vorschau-Modus. Es werden weder Dateien
     noch Ordner umbenannt. Das spätere Raspberry-Pi-Backend gehört in ein
     separates MediaHub-AI-Node-Plugin und ist hier bewusst nicht enthalten.
     """
 
-    VERSION = "0.5.3"
+    VERSION = "0.5.4"
 
     def __init__(
         self,
@@ -147,7 +147,7 @@ class MediaHubSmartRenamerPlugin:
             "mobile_responsive_ui": self.server is not None,
             "capability_status": capability_status,
             "message": (
-                "Smart Renamer v0.5.3 erweitert die lokale Film-/Serienerkennung um Mehrfachfolgen, Extras, Parts und zusätzliche Editionen und läuft eigenständig und aktiviert optionale Plugin-Integrationen nur bei tatsächlich verfügbarer Capability."
+                "Smart Renamer v0.5.4 ergänzt vollständige Ordnerstruktur- und Sammlungsanalyse auf Basis der lokalen Erkennung und läuft eigenständig und aktiviert optionale Plugin-Integrationen nur bei tatsächlich verfügbarer Capability."
             ),
         }
 

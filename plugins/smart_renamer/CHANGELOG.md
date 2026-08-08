@@ -1,3 +1,15 @@
+## v0.5.4
+
+- Ordnerstruktur- und Sammlungsanalyse ergänzt.
+- Staffelordner `Staffel`, `Season` und `Sxx` erkannt.
+- Extra-/Bonus-/Trailer-/Special-Ordner erkannt.
+- CD/Disc/Disk/Part/Teil-Unterordner als Part-Kontext erkannt.
+- Sammlungstyp und Sammlungstitel pro Scan-Root ermittelt.
+- `folder_context` und `folder_relation` pro MediaItem gespeichert.
+- Fehlende Staffel-/Part-Werte können aus Ordnerstruktur ergänzt werden.
+- Explizite Metadaten und sichere Einzeldateierkennung behalten Vorrang.
+- Grundlage für echten Ordner-Praxistest geschaffen.
+
 ## v0.5.3
 
 - Mehrfachfolgen-Erkennung für mehrere verbreitete Namensmuster ergänzt.

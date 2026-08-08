@@ -7,6 +7,7 @@ from models.media_item import MediaItem
 from services.media_detection import MediaDetector
 from services.detection_candidates import DetectionCandidateService
 from services.decision_engine import DecisionEngine
+from services.folder_structure import FolderStructureAnalyzer
 
 
 class MediaScanner:
@@ -16,6 +17,7 @@ class MediaScanner:
         self.detector = MediaDetector()
         self.candidate_service = DetectionCandidateService(self.detector)
         self.decision_engine = DecisionEngine()
+        self.folder_analyzer = FolderStructureAnalyzer()
         self.decision_hint_provider = decision_hint_provider
 
     def scan(
@@ -124,5 +126,47 @@ class MediaScanner:
         )
         for media in result:
             media.detection_data["collection_media_type"] = collection_type
+
+        # Ordnerkontext wird pro als Verzeichnis übergebenem Scan-Root ergänzt.
+        for source_item in items:
+            source = Path(str(source_item.get("path") or ""))
+            if not source.is_dir():
+                continue
+
+            members = []
+            try:
+                source_resolved = source.resolve()
+            except OSError:
+                source_resolved = source
+
+            for media in result:
+                try:
+                    media.path.resolve().relative_to(source_resolved)
+                    members.append(media)
+                except Exception:
+                    continue
+
+            if not members:
+                continue
+
+            context = self.folder_analyzer.analyze(source, members)
+            payload = context.to_dict()
+
+            for media in members:
+                relation = payload["item_relations"].get(str(media.path), {})
+                media.detection_data["folder_context"] = payload
+                media.detection_data["folder_relation"] = dict(relation)
+
+                # Ordnerstruktur ergänzt fehlende Felder, überschreibt aber
+                # niemals explizite/manuelle oder bereits sichere Erkennung.
+                if not media.season and relation.get("season"):
+                    media.season = str(relation["season"])
+                if not media.part and relation.get("part"):
+                    media.part = str(relation["part"])
+                if relation.get("is_extra_folder"):
+                    media.is_extra = True
+                    media.detection_data["is_extra"] = True
+                    if media.media_type == "unknown":
+                        media.media_type = "extra"
 
         return result, skipped
