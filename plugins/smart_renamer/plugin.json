@@ -1,108 +1,113 @@
 {
-    "id":  "mediahub.smart_renamer",
-    "name":  "MediaHub Smart Renamer",
-    "version":  "0.4.4",
-    "author":  "Master0701",
-    "description":  "Windows-Smart-Renamer mit gemeinsamer Desktop-, WebRemote- und Mobile-Oberfläche, stabiler v0.4.0-Darstellung, eingebetteten Profilen und sicherer Live-Vorschau.",
-    "type":  "tool",
-    "enabled":  true,
-    "entry":  "plugin.py",
-    "class_name":  "MediaHubSmartRenamerPlugin",
-    "icon":  "✏️",
-    "safe_mode":  true,
-    "minimum_mediahub_version":  "1.0.18",
-    "minimum_mediahub":  "1.0.18",
-    "shared_runtime":  "mediahub_web_core",
-    "network_scope":  "local_only",
-    "has_settings":  false,
-    "development_status":  "development",
-    "catalog":  {
-                    "visible":  true,
-                    "auto_install":  false,
-                    "channel":  "development"
-                },
-    "permissions":  [
-                        "read_library",
-                        "read_metadata",
-                        "read_local_files",
-                        "network.local"
-                    ],
-    "required_tools":  [
-
-                       ],
-    "optional_tools":  [
-                           {
-                               "id":  "renamer",
-                               "required":  false,
-                               "purpose":  "Optionales Windows-Backend für komplexe Regelstapel und ReNamer-Presets",
-                               "install_with_plugin":  true
-                           }
-                       ],
-    "capabilities":  [
-                         "rename_backend_discovery",
-                         "rename_capability_status",
-                         "rename_files",
-                         "rename_folders",
-                         "preview_changes",
-                         "custom_naming_schemes",
-                         "undo_plan",
-                         "desktop_ui",
-                         "web_ui",
-                         "mobile_responsive_ui",
-                         "media_model",
-                         "preview_model",
-                         "profile_management",
-                         "learning_rule_candidates",
-                         "live_preview",
-                         "rule_stack_management",
-                         "rule_source_tracking",
-                         "responsive_workspace"
-                     ],
-    "ui":  {
-               "enabled":  true,
-               "type":  "window",
-               "title":  "Smart Renamer",
-               "icon":  "✏️",
-               "order":  40,
-               "web":  {
-                           "enabled":  true,
-                           "title":  "Smart Renamer",
-                           "route":  "/smart-renamer",
-                           "icon":  "✏️",
-                           "order":  40,
-                           "shell":  false
-                       }
-           },
-    "license":  {
-                    "project_license":  "TBD",
-                    "third_party_licenses":  [
-                                                 {
-                                                     "name":  "ReNamer",
-                                                     "vendor":  "Furious Technologies Limited",
-                                                     "usage":  "Optionales externes Windows-Backend",
-                                                     "bundled":  false,
-                                                     "homepage":  "https://www.den4b.com/products/renamer",
-                                                     "download":  "https://www.den4b.com/download/renamer/portable",
-                                                     "license":  "Lite: CC BY-NC-ND 3.0, nur nicht-kommerziell; Pro-Lizenz für kommerzielle Nutzung",
-                                                     "license_url":  "https://www.den4b.com/license"
-                                                 }
-                                             ]
-                },
-    "install_declared_tools_on_plugin_install":  true,
-    "preferred_backend":  "renamer_windows",
-    "fallback_backend":  "mediahub_native",
-    "tool_setup":  {
-                       "renamer":  {
-                                       "defaults_dir":  "defaults/renamer",
-                                       "overwrite_defaults_on_fresh_install":  true,
-                                       "license_acceptance":  {
-                                                                  "key":  "renamer-lite-noncommercial-v1",
-                                                                  "title":  "ReNamer Portable – Lizenzhinweis",
-                                                                  "text":  "MediaHub kann ReNamer Portable automatisch im zentralen Tool-Ordner installieren.",
-                                                                  "details":  "ReNamer Lite darf ausschließlich privat beziehungsweise nicht-kommerziell verwendet werden. Für kommerzielle Nutzung ist eine Pro-Lizenz des Herstellers erforderlich.\n\nMit „Ja, installieren“ bestätigst du, dass diese Installation nicht-kommerziell verwendet wird.",
-                                                                  "accept_button":  "Ja, nicht-kommerziell installieren",
-                                                                  "cancel_button":  "Abbrechen"
-                                                              }
-                                   }
-                   }
+  "id": "mediahub.smart_renamer",
+  "name": "MediaHub Smart Renamer",
+  "version": "0.4.5",
+  "author": "Master0701",
+  "description": "Windows-Smart-Renamer mit sicherer Live-Vorschau und neuer lokaler Medienerkennung für Filme, Serien, Hörbücher, Musik und Editions.",
+  "type": "tool",
+  "enabled": true,
+  "entry": "plugin.py",
+  "class_name": "MediaHubSmartRenamerPlugin",
+  "icon": "✏️",
+  "safe_mode": true,
+  "minimum_mediahub_version": "1.0.18",
+  "minimum_mediahub": "1.0.18",
+  "shared_runtime": "mediahub_web_core",
+  "network_scope": "local_only",
+  "has_settings": false,
+  "development_status": "development",
+  "catalog": {
+    "visible": true,
+    "auto_install": false,
+    "channel": "development"
+  },
+  "permissions": [
+    "read_library",
+    "read_metadata",
+    "read_local_files",
+    "network.local"
+  ],
+  "required_tools": [],
+  "optional_tools": [
+    {
+      "id": "renamer",
+      "required": false,
+      "purpose": "Optionales Windows-Backend für komplexe Regelstapel und ReNamer-Presets",
+      "install_with_plugin": true
+    }
+  ],
+  "capabilities": [
+    "rename_backend_discovery",
+    "rename_capability_status",
+    "rename_files",
+    "rename_folders",
+    "preview_changes",
+    "custom_naming_schemes",
+    "undo_plan",
+    "desktop_ui",
+    "web_ui",
+    "mobile_responsive_ui",
+    "media_model",
+    "preview_model",
+    "profile_management",
+    "learning_rule_candidates",
+    "live_preview",
+    "rule_stack_management",
+    "rule_source_tracking",
+    "responsive_workspace",
+    "local_media_detection",
+    "movie_detection",
+    "series_detection",
+    "audiobook_detection",
+    "music_detection",
+    "edition_detection",
+    "mixed_collection_detection"
+  ],
+  "ui": {
+    "enabled": true,
+    "type": "window",
+    "title": "Smart Renamer",
+    "icon": "✏️",
+    "order": 40,
+    "web": {
+      "enabled": true,
+      "title": "Smart Renamer",
+      "route": "/smart-renamer",
+      "icon": "✏️",
+      "order": 40,
+      "shell": false
+    }
+  },
+  "license": {
+    "project_license": "TBD",
+    "third_party_licenses": [
+      {
+        "name": "ReNamer",
+        "vendor": "Furious Technologies Limited",
+        "usage": "Optionales externes Windows-Backend",
+        "bundled": false,
+        "homepage": "https://www.den4b.com/products/renamer",
+        "download": "https://www.den4b.com/download/renamer/portable",
+        "license": "Lite: CC BY-NC-ND 3.0, nur nicht-kommerziell; Pro-Lizenz für kommerzielle Nutzung",
+        "license_url": "https://www.den4b.com/license"
+      }
+    ]
+  },
+  "install_declared_tools_on_plugin_install": true,
+  "preferred_backend": "renamer_windows",
+  "fallback_backend": "mediahub_native",
+  "tool_setup": {
+    "renamer": {
+      "defaults_dir": "defaults/renamer",
+      "overwrite_defaults_on_fresh_install": true,
+      "license_acceptance": {
+        "key": "renamer-lite-noncommercial-v1",
+        "title": "ReNamer Portable – Lizenzhinweis",
+        "text": "MediaHub kann ReNamer Portable automatisch im zentralen Tool-Ordner installieren.",
+        "details": "ReNamer Lite darf ausschließlich privat beziehungsweise nicht-kommerziell verwendet werden. Für kommerzielle Nutzung ist eine Pro-Lizenz des Herstellers erforderlich.\n\nMit „Ja, installieren“ bestätigst du, dass diese Installation nicht-kommerziell verwendet wird.",
+        "accept_button": "Ja, nicht-kommerziell installieren",
+        "cancel_button": "Abbrechen"
+      }
+    }
+  }
 }

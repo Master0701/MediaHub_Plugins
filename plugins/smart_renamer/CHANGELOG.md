@@ -1,4 +1,16 @@
-﻿## v0.4.4
+## v0.4.5
+
+- Konservative lokale Medienerkennung als neue Scanner-Stufe ergänzt.
+- Filme, Serien, Hörbücher und Musik werden aus Dateiname, Pfad und Endung klassifiziert.
+- Serienmuster `SxxExx`, `x`-Notation und deutschsprachige Staffel-/Folge-Angaben ergänzt.
+- Jahr, Episodentitel und typische Schnittfassungen/Editionen werden erkannt.
+- Gemischte Scan-Gruppen werden als `mixed` markiert.
+- Manuell bzw. extern gelieferte Metadaten behalten immer Vorrang.
+- Erkennungsdaten und Vertrauenswert werden im MediaModel gespeichert.
+- Schema-Platzhalter `[edition]`, `[fassung]` und `[medientyp]` ergänzt.
+- Echte Umbenennung bleibt weiterhin gesperrt.
+
+## v0.4.4
 
 - Web- und Mobile-OberflÃ¤che wieder funktionsfÃ¤hig.
 - BeschÃ¤digten JavaScript-Zeilentrenner in der Pfadverarbeitung repariert.

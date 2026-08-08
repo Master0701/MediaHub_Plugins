@@ -23,8 +23,11 @@ class MediaItem:
     season: str = ""
     episode: str = ""
     episode_title: str = ""
+    edition: str = ""
+    detection_confidence: float = 0.0
     source: str = "filesystem"
     metadata: dict[str, Any] = field(default_factory=dict)
+    detection_data: dict[str, Any] = field(default_factory=dict)
     ai_data: dict[str, Any] = field(default_factory=dict)
     quality_data: dict[str, Any] = field(default_factory=dict)
 
@@ -35,10 +38,25 @@ class MediaItem:
         *,
         metadata: dict[str, Any] | None = None,
         source: str = "filesystem",
+        detection: dict[str, Any] | None = None,
     ) -> "MediaItem":
         path = Path(path)
         stat = path.stat() if path.exists() else None
         data = dict(metadata or {})
+        detected = dict(detection or {})
+
+        def value(*keys: str, default: str = "") -> str:
+            for key in keys:
+                if data.get(key) not in (None, ""):
+                    return str(data[key])
+            for key in keys:
+                if detected.get(key) not in (None, ""):
+                    return str(detected[key])
+            return default
+
+        media_type = value("media_type", default="unknown")
+        title = value("titel", "title", default=path.stem)
+
         return cls(
             path=path,
             name=path.name,
@@ -48,18 +66,17 @@ class MediaItem:
             item_type="folder" if path.is_dir() else "file",
             size=(stat.st_size if stat and path.is_file() else None),
             modified_time=(stat.st_mtime if stat else None),
-            media_type=str(data.get("media_type") or "unknown"),
-            title=str(data.get("titel") or data.get("title") or path.stem),
-            year=str(data.get("jahr") or data.get("year") or ""),
-            season=str(data.get("staffel") or data.get("season") or ""),
-            episode=str(data.get("episode") or ""),
-            episode_title=str(
-                data.get("episodentitel")
-                or data.get("episode_title")
-                or ""
-            ),
+            media_type=media_type,
+            title=title,
+            year=value("jahr", "year"),
+            season=value("staffel", "season"),
+            episode=value("episode"),
+            episode_title=value("episodentitel", "episode_title"),
+            edition=value("edition", "fassung"),
+            detection_confidence=float(detected.get("confidence") or 0.0),
             source=source,
             metadata=data,
+            detection_data=detected,
         )
 
     def rule_metadata(self) -> dict[str, Any]:
@@ -70,6 +87,9 @@ class MediaItem:
             "staffel": self.season,
             "episode": self.episode,
             "episodentitel": self.episode_title,
+            "edition": self.edition,
+            "fassung": self.edition,
+            "medientyp": self.media_type,
             "media_type": self.media_type,
         }
 

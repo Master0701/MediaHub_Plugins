@@ -1,6 +1,6 @@
 # MediaHub Smart Renamer
 
-**Version:** 0.4.3
+**Version:** 0.4.5
 
 - sichere Vorschau ohne Dateiveränderung
 - Dateien und Ordner einlesen
@@ -41,3 +41,15 @@
 - Kein Überschreiben von `window.fetch` mehr.
 - Profil-API bleibt nur als Rückfallweg erhalten.
 - Layout und CSS bleiben unverändert.
+
+## Lokale Medienerkennung v0.4.5
+
+- Serienmuster wie `S02E03`, `2x03` sowie `Staffel 2 Folge 3`
+- Film-Erkennung über Videoformat und Jahreszahl
+- Hörbuch-Erkennung über M4B/AA/AAX sowie eindeutige Hörbuch-/Kapitelhinweise
+- Musik-Erkennung für Audioformate und nummerierte Tracks
+- Editions-Erkennung, unter anderem Director's Cut, Extended, Theatrical, Uncut und Remastered
+- gemischte Scan-Gruppen werden als `mixed` gekennzeichnet
+- vorhandene/manuell gelieferte Metadaten haben immer Vorrang vor der lokalen Erkennung
+- neue Schema-Platzhalter: `[edition]`, `[fassung]`, `[medientyp]`
+- weiterhin reine Vorschau; echte Umbenennung bleibt gesperrt

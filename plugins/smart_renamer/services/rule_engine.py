@@ -31,6 +31,21 @@ class RenameRuleEngine:
             "staffel": str((metadata or {}).get("staffel") or ""),
             "episode": str((metadata or {}).get("episode") or ""),
             "episodentitel": str((metadata or {}).get("episodentitel") or ""),
+            "edition": str(
+                (metadata or {}).get("edition")
+                or (metadata or {}).get("fassung")
+                or ""
+            ),
+            "fassung": str(
+                (metadata or {}).get("fassung")
+                or (metadata or {}).get("edition")
+                or ""
+            ),
+            "medientyp": str(
+                (metadata or {}).get("medientyp")
+                or (metadata or {}).get("media_type")
+                or ""
+            ),
             "nummer": str(item_index + 1),
             "endung": extension.lstrip("."),
         }

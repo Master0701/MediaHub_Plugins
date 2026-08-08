@@ -4,10 +4,14 @@ from pathlib import Path
 from typing import Any
 
 from models.media_item import MediaItem
+from services.media_detection import MediaDetector
 
 
 class MediaScanner:
     """Liest Dateien und Ordner deterministisch in gemeinsame MediaItems ein."""
+
+    def __init__(self) -> None:
+        self.detector = MediaDetector()
 
     def scan(
         self,
@@ -41,12 +45,28 @@ class MediaScanner:
                 if key in seen:
                     continue
                 seen.add(key)
+
+                detection = self.detector.detect(candidate).to_dict()
                 result.append(
                     MediaItem.from_path(
                         candidate,
                         metadata=dict(item.get("metadata") or {}),
                         source=str(item.get("source") or "filesystem"),
+                        detection=detection,
                     )
                 )
+
+        detected_types = {
+            media.media_type
+            for media in result
+            if media.media_type not in {"", "unknown"}
+        }
+        collection_type = (
+            "mixed"
+            if len(detected_types) > 1
+            else (next(iter(detected_types)) if detected_types else "unknown")
+        )
+        for media in result:
+            media.detection_data["collection_media_type"] = collection_type
 
         return result, skipped
