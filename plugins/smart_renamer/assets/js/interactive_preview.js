@@ -58,7 +58,41 @@ function updateAIButton(){
  if(button)button.disabled=!(state.aiStatus?.available&&state.selectedId);
  const fusion=document.getElementById("mh-fusion-run");
  if(fusion)fusion.disabled=!state.selectedId;
+ const evidence=document.getElementById("mh-evidence-run");
+ if(evidence)evidence.disabled=!state.selectedId;
 }
+async function runDecisionEvidence(){
+ const row=state.payload?.rows.find(x=>x.id===state.selectedId);
+ const resultEl=document.getElementById("mh-evidence-result");
+ if(!row||!resultEl)return;
+ resultEl.textContent="Belege werden geladen …";
+ try{
+   const response=await fetch("/smart-renamer/api/decision-evidence",{
+     method:"POST",
+     headers:{"Content-Type":"application/json"},
+     body:JSON.stringify(row)
+   });
+   const data=await response.json();
+   if(!response.ok||data.ok===false)throw new Error(data.error||("HTTP "+response.status));
+   const evidence=data.evidence||{};
+   const items=evidence.items||[];
+   resultEl.innerHTML=
+     items.map(item=>{
+       const support=item.supports_decision===true?" · unterstützt":
+                     item.supports_decision===false?" · widerspricht":"";
+       return `<div class="mh-evidence-item">`+
+         `<strong>${esc(item.label||item.source||"Quelle")}</strong>: `+
+         `${esc(item.value||"—")} · ${Math.round((Number(item.confidence)||0)*100)}%${esc(support)}`+
+         (item.detail?`<br><small>${esc(item.detail)}</small>`:"")+
+         `</div>`;
+     }).join("")+
+     `<div><strong>Konflikte:</strong> ${Number(evidence.conflict_count)||0}</div>`+
+     `<em>Nur Erklärung · keine automatische Ausführung.</em>`;
+ }catch(error){
+   resultEl.textContent="Entscheidungsbelege fehlgeschlagen: "+error;
+ }
+}
+
 async function runDecisionFusion(){
  const row=state.payload?.rows.find(x=>x.id===state.selectedId);
  const resultEl=document.getElementById("mh-fusion-result");
@@ -118,6 +152,7 @@ document.addEventListener("DOMContentLoaded",()=>{
  document.getElementById("mh-preview-filter")?.addEventListener("input",rows);
  document.getElementById("mh-ai-review-run")?.addEventListener("click",runAIReview);
  document.getElementById("mh-fusion-run")?.addEventListener("click",runDecisionFusion);
+ document.getElementById("mh-evidence-run")?.addEventListener("click",runDecisionEvidence);
  loadAIStatus();
 });
 window.MediaHubSmartRenamerPreview={render};

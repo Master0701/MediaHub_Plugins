@@ -53,3 +53,8 @@ button:disabled{opacity:.45;cursor:not-allowed}
 /* Smart Renamer v0.5.14 – Decision Fusion */
 .mh-fusion-result{grid-column:1/-1;padding:8px;border-radius:6px;background:rgba(127,127,127,.08);min-height:38px}
 #mh-fusion-run{justify-self:start}
+
+/* Smart Renamer v0.5.15 – Review Evidence */
+.mh-evidence-result{grid-column:1/-1;padding:8px;border-radius:6px;background:rgba(127,127,127,.06);min-height:38px}
+.mh-evidence-item{padding:4px 0;border-bottom:1px solid rgba(127,127,127,.18)}
+#mh-evidence-run{justify-self:start}

@@ -71,4 +71,4 @@ def test_web_and_desktop_fusion_controls_present():
 def test_version_0514():
     root = Path(__file__).resolve().parents[1]
     data = json.loads((root / "plugin.json").read_text(encoding="utf-8"))
-    assert data["version"] == "0.5.14"
+    assert tuple(int(x) for x in data["version"].split(".")) >= (0, 5, 14)

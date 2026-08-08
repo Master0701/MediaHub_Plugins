@@ -1,9 +1,9 @@
 {
   "id": "mediahub.smart_renamer",
   "name": "MediaHub Smart Renamer",
-  "version": "0.5.14",
+  "version": "0.5.15",
   "author": "Master0701",
-  "description": "Smart Renamer mit Decision Fusion zwischen Renamer-Analyse, optionaler KI und manueller Review-Entscheidung.",
+  "description": "Smart Renamer mit nachvollziehbaren Entscheidungsbelegen für Renamer, Relationen, Review-Gründe, optionale KI und Decision Fusion.",
   "type": "tool",
   "enabled": true,
   "entry": "plugin.py",
@@ -137,7 +137,11 @@
     "ai_review_web_ui",
     "decision_fusion",
     "ai_renamer_agreement",
-    "ai_renamer_conflict_review"
+    "ai_renamer_conflict_review",
+    "decision_evidence",
+    "review_evidence_sources",
+    "decision_conflict_explanation",
+    "decision_explainability"
   ],
   "ui": {
     "enabled": true,

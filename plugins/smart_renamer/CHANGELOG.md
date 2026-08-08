@@ -1,3 +1,12 @@
+## v0.5.15
+
+- Decision-Evidence-Service ergänzt.
+- Erkennungsquellen und Confidence einzeln nachvollziehbar.
+- Renamer-, Relations-, Review-, Metadaten-, KI- und Fusion-Belege unterstützt.
+- Konflikte/Widersprüche explizit markiert.
+- Evidence-API sowie Web-/Desktop-Anzeige ergänzt.
+- Keine automatische Rename-/Merge-/Split-Ausführung.
+
 ## v0.5.14
 
 - Decision-Fusion-Service ergänzt.

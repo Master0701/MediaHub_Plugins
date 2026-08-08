@@ -1,6 +1,6 @@
 # MediaHub Smart Renamer
 
-**Version:** 0.5.14
+**Version:** 0.5.15
 
 - sichere Vorschau ohne Dateiveränderung
 - Dateien und Ordner einlesen
@@ -414,3 +414,14 @@ Rename, Merge und Split bleiben gesperrt.
 - Niedrige Sicherheit bleibt ein Review-Fall.
 - Web und Desktop zeigen Agreement, kombinierte Confidence und Begründung.
 - Auch bei hoher Confidence gibt Decision Fusion niemals eine Dateisystem-Ausführung frei.
+
+
+## Review Evidence / Decision Explanation v0.5.15
+
+- Für einen Review-Fall werden einzelne Belege nach Quelle ausgewiesen.
+- Quellen können Renamer-Erkennung, Relation/Staffel-Episode, Review-Gründe,
+  Metadatenhinweise, optionale KI und Decision Fusion sein.
+- Jede Quelle kann eigene Confidence und Detailbegründung anzeigen.
+- Widersprüche werden ausdrücklich als Konflikte markiert.
+- Web und Desktop können die Belege für genau einen ausgewählten Fall anzeigen.
+- Evidence ist reine Erklärung: keine automatische Rename-/Merge-/Split-Ausführung.

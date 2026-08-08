@@ -11,6 +11,7 @@ from services.optional_preview_integrations import OptionalPreviewIntegrations
 from services.review_service import ReviewService
 from services.ai_review_bridge import AIReviewBridge
 from services.decision_fusion import DecisionFusionService
+from services.decision_evidence import DecisionEvidenceService
 from services.preview_presentation import PreviewPresentationService
 from services.web_picker_service import WindowsWebPathPicker
 from typing import Any
@@ -32,7 +33,7 @@ class MediaHubSmartRenamerPlugin:
     separates MediaHub-AI-Node-Plugin und ist hier bewusst nicht enthalten.
     """
 
-    VERSION = "0.5.14"
+    VERSION = "0.5.15"
 
     def __init__(
         self,
@@ -81,6 +82,7 @@ class MediaHubSmartRenamerPlugin:
         self.integrations = OptionalIntegrationManager(self.mediahub_api)
         self.ai_review_bridge = AIReviewBridge(self.integrations)
         self.decision_fusion_service = DecisionFusionService()
+        self.decision_evidence_service = DecisionEvidenceService()
         self.rename_plan_service = RenamePlanService()
         self.transaction_service = RenameTransactionService(self.base_dir)
         self._prepare_web_runtime()
@@ -117,6 +119,7 @@ class MediaHubSmartRenamerPlugin:
             "/smart-renamer/api/integrations": self._web_integrations,
             "/smart-renamer/api/ai-review/status": self._web_ai_review_status,
             "/smart-renamer/api/decision-fusion/status": self._web_decision_fusion_status,
+            "/smart-renamer/api/decision-evidence/status": self._web_decision_evidence_status,
             "/smart-renamer/api/learning/decisions": self._web_learning_decisions,
             "/smart-renamer/api/transactions/status": self._web_transaction_status,
             "/smart-renamer/assets/mediahub.css": self._stylesheet,
@@ -140,6 +143,11 @@ class MediaHubSmartRenamerPlugin:
         self.server.add_post_route(
             "/smart-renamer/api/decision-fusion",
             self._web_decision_fusion,
+            owner=self,
+        )
+        self.server.add_post_route(
+            "/smart-renamer/api/decision-evidence",
+            self._web_decision_evidence,
             owner=self,
         )
         self.server.add_post_route(
@@ -624,6 +632,29 @@ class MediaHubSmartRenamerPlugin:
             **self.analyze_and_fuse_review(source),
         })
 
+    def _web_decision_evidence_status(self, request=None):
+        return self._json({
+            "ok": True,
+            "enabled": True,
+            "execution_allowed": False,
+            "human_confirmation_required": True,
+        })
+
+    def _web_decision_evidence(self, payload, request=None):
+        source = dict(payload or {})
+        if not source:
+            return self._json({
+                "ok": False,
+                "error": "Decision-Evidence-Payload fehlt.",
+                "execution_allowed": False,
+                "human_confirmation_required": True,
+            }, 400)
+        combined = self.analyze_and_fuse_review(source)
+        return self._json({
+            "ok": True,
+            **combined,
+        })
+
     def _web_preview(self, payload, request=None):
         source = dict(payload or {})
         result = self.preview_rename(
@@ -815,6 +846,14 @@ class NativeSmartRenamerWidget:
                 self.fusion_button.clicked.connect(self._run_decision_fusion_for_selection)
                 preview_actions.addWidget(self.fusion_button)
 
+                self.evidence_button = QPushButton("Belege anzeigen")
+                self.evidence_button.setToolTip(
+                    "Zeigt nachvollziehbare Quellen, Confidence und Konflikte "
+                    "für den ausgewählten Fall."
+                )
+                self.evidence_button.clicked.connect(self._run_decision_evidence_for_selection)
+                preview_actions.addWidget(self.evidence_button)
+
                 preview_actions.addStretch(1)
                 self.preview_selected_count = QLabel("0 ausgewählt")
                 preview_actions.addWidget(self.preview_selected_count)
@@ -933,6 +972,7 @@ class NativeSmartRenamerWidget:
                     + "\nReview nötig: " + ("Ja" if result.get("review_required") else "Nein")
                     + "\nBegründung: " + str(result.get("reason") or "—")
                     + "\n\nKeine automatische Ausführung."
+                    + self._format_evidence_detail()
                 )
 
             def _run_decision_fusion_for_selection(self):
@@ -960,6 +1000,59 @@ class NativeSmartRenamerWidget:
                     self.status.setText(
                         "Keine KI verfügbar. Renamer-Bewertung bleibt aktiv."
                     )
+
+            def _format_evidence_detail(self):
+                result = self.last_evidence_result
+                if not result:
+                    return ""
+                items = result.get("items") or []
+                lines = ["\n\nEntscheidungsbelege:"]
+                for item in items:
+                    confidence = float(item.get("confidence") or 0)
+                    support = item.get("supports_decision")
+                    suffix = ""
+                    if support is True:
+                        suffix = " · unterstützt"
+                    elif support is False:
+                        suffix = " · widerspricht"
+                    lines.append(
+                        "- "
+                        + str(item.get("label") or item.get("source") or "Quelle")
+                        + ": "
+                        + str(item.get("value") or "—")
+                        + f" · {confidence*100:.0f}%"
+                        + suffix
+                    )
+                    if item.get("detail"):
+                        lines.append("  " + str(item.get("detail")))
+                lines.append(
+                    "\nKonflikte: " + str(result.get("conflict_count") or 0)
+                )
+                lines.append("Keine automatische Ausführung.")
+                return "\n".join(lines)
+
+            def _run_decision_evidence_for_selection(self):
+                rows = sorted({index.row() for index in self.table.selectedIndexes()})
+                if len(rows) != 1:
+                    self.status.setText(
+                        "Für Entscheidungsbelege bitte genau einen Vorschau-Eintrag auswählen."
+                    )
+                    return
+
+                meta = self._row_meta(rows[0])
+                ai_result = self.last_ai_review or self.plugin.analyze_review_with_ai(meta)
+                fusion_result = self.last_fusion_result or self.plugin.fuse_review_decision(
+                    meta, ai_result
+                )
+                self.last_ai_review = ai_result
+                self.last_fusion_result = fusion_result
+                self.last_evidence_result = self.plugin.build_decision_evidence(
+                    meta, ai_result, fusion_result
+                )
+                self._preview_selection_changed()
+                self.status.setText(
+                    "Entscheidungsbelege angezeigt. Keine Datei wurde verändert."
+                )
 
             def _refresh_ai_review_status(self):
                 status = self.plugin.ai_review_status()
@@ -1301,13 +1394,26 @@ class NativeSmartRenamerWidget:
         result["human_confirmation_required"] = True
         return result
 
+    def build_decision_evidence(self, renamer_payload, ai_result=None, fusion_result=None):
+        result = self.decision_evidence_service.build(
+            dict(renamer_payload or {}),
+            dict(ai_result or {}),
+            dict(fusion_result or {}),
+        )
+        result["execution_locked"] = True
+        result["execution_allowed"] = False
+        result["human_confirmation_required"] = True
+        return result
+
     def analyze_and_fuse_review(self, payload):
         source = dict(payload or {})
         ai_result = self.analyze_review_with_ai(source)
         fusion = self.fuse_review_decision(source, ai_result)
+        evidence = self.build_decision_evidence(source, ai_result, fusion)
         return {
             "ai": ai_result,
             "fusion": fusion,
+            "evidence": evidence,
             "execution_locked": True,
             "execution_allowed": False,
             "human_confirmation_required": True,
