@@ -1,4 +1,4 @@
-# MediaHub Plugins v0.5.9 – vollständiges Release
+# MediaHub Plugins v0.5.10 – vollständiges Release
 
 ## MediaHub KI-Assistent v7.0.5
 
@@ -13,7 +13,7 @@
 
 - Mobile MediaHub-Oberfläche für Handy und Tablet mit einklappbarer linker Sidebar, QR-Code und Geräte-Kopplung.
 
-## MediaHub Smart Renamer v0.4.4
+## MediaHub Smart Renamer v0.5.16
 
 - Windows-Smart-Renamer mit gemeinsamer Desktop-, WebRemote- und Mobile-Oberfläche, stabiler v0.4.0-Darstellung, eingebetteten Profilen und sicherer Live-Vorschau.
 

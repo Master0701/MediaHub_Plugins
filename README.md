@@ -9,11 +9,11 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - **MediaHub Listen & Export 0.0.0**
 - **MediaHub Metadata Editor 0.3.6**
 - **MediaHub Mobile Dashboard 0.1.7**
-- **MediaHub Smart Renamer 0.4.4**
+- **MediaHub Smart Renamer 0.5.16**
 - **MediaHub WebRemote 0.13.7**
 - **MediaHub AI Test Provider 1.0.0**
 
-# MediaHub Plugins v0.5.9 – vollständiges Release
+# MediaHub Plugins v0.5.10 – vollständiges Release
 
 ## MediaHub KI-Assistent v7.0.5
 
@@ -28,7 +28,7 @@ Offizielles Erweiterungs-Repository für MediaHub.
 
 - Mobile MediaHub-Oberfläche für Handy und Tablet mit einklappbarer linker Sidebar, QR-Code und Geräte-Kopplung.
 
-## MediaHub Smart Renamer v0.4.4
+## MediaHub Smart Renamer v0.5.16
 
 - Windows-Smart-Renamer mit gemeinsamer Desktop-, WebRemote- und Mobile-Oberfläche, stabiler v0.4.0-Darstellung, eingebetteten Profilen und sicherer Live-Vorschau.
 
@@ -56,7 +56,7 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - **MediaHub Listen & Export 0.0.0** – mindestens MediaHub v1.0.17
 - **MediaHub Metadata Editor 0.3.6** – mindestens MediaHub v1.0.5
 - **MediaHub Mobile Dashboard 0.1.7** – mindestens MediaHub v1.0.5
-- **MediaHub Smart Renamer 0.4.4** – mindestens MediaHub v1.0.18
+- **MediaHub Smart Renamer 0.5.16** – mindestens MediaHub v1.0.18
 - **MediaHub WebRemote 0.13.7** – mindestens MediaHub v1.0.5
 - **MediaHub AI Test Provider 1.0.0** – AI-Node API 1
 
