@@ -1,3 +1,89 @@
+## v0.5.16 GUI Fix 9
+
+- Live-Vorschau der Regelbearbeitung repariert und vollständig verdrahtet.
+- Desktop: Position, Länge, Anzahl, Fundstelle, RegEx, Checkboxen und alle übrigen Regel-Felder lösen automatisch eine neue Vorschau aus.
+- Web: die seit Fix 4 ergänzten Advanced-Rule-Felder sind jetzt ebenfalls an `saveEditor()`/Live-Vorschau angeschlossen.
+- Live-Vorschau reagiert nach 120 ms Debounce.
+- Beim Aktivieren von Live-Vorschau wird sofort neu berechnet.
+- Schema-Bausteine stoßen ebenfalls eine Aktualisierung an.
+- Fix 1–8 bleiben kumulativ enthalten.
+- Rename/Merge/Split bleiben gesperrt.
+
+## v0.5.16 GUI Fix 8
+
+- Positionsangaben zählen für Benutzer jetzt ab 1.
+- Position 1 = erstes Zeichen.
+- Position 7 + Länge 1 entfernt exakt das siebte Zeichen.
+- Einfügen an Position verwendet dieselbe 1-basierte Logik.
+- Desktop und Web zeigen die Zählweise direkt an.
+- Fix 1–7 kumulativ enthalten.
+- Rename/Merge/Split bleiben gesperrt.
+
+## v0.5.16 GUI Fix 7
+
+- Fehler behoben: `.mkv` kann jetzt als Fundstelle verwendet werden.
+- Neue sichere Regel `Text direkt vor Dateiendung entfernen`.
+- Neue Regel `Zeichen direkt vor Fundstelle entfernen`.
+- Bestehende Regel klar als `Vor/Nach Fundstelle entfernen (alles)` bezeichnet.
+- Beispiel `rsg-12-monkeys-s01e01rr-sd.mkv` + Wert `-sd` ergibt `rsg-12-monkeys-s01e01rr.mkv`.
+- Fix 1–6 kumulativ enthalten.
+- Rename/Merge/Split bleiben gesperrt.
+
+## v0.5.16 GUI Fix 6
+
+- Alle Vorschau-Spalten im Desktop frei in der Breite verstellbar.
+- Original/Vorschlag starten breiter.
+- Relation, Confidence, Review, Priorität, Quelle, Hinweise und Zielpfad ebenfalls frei verstellbar.
+- Horizontaler Scrollbalken bleibt verfügbar.
+- Web-Vorschautabellen erhalten ebenfalls ziehbare Spaltengrenzen.
+- Fix 1–5 bleiben kumulativ enthalten.
+- Rename/Merge/Split bleiben gesperrt.
+
+## v0.5.16 GUI Fix 5
+- Regelstapel als modularer Regelbaukasten überarbeitet.
+- Rechts werden nur die Eigenschaften des ausgewählten Regelmoduls gezeigt.
+- Namensschema/Beschriftungs-Reihenfolge nur noch im Schema-Modul.
+- Advanced Rules aus Fix 4 bleiben enthalten.
+- Desktop und Web modularisiert.
+- Rename/Merge/Split bleiben gesperrt.
+
+## v0.5.16 GUI Fix 4
+- Advanced Rule Editor: positionsbezogen entfernen/einfügen.
+- Erweitertes Suchen/Ersetzen inkl. ganzes Wort, erstes/alle Vorkommen und Groß-/Kleinschreibung.
+- RegEx-Ersetzen.
+- Vor/Nach Fundstelle entfernen.
+- Trennzeichen normalisieren (z. B. Punkte/Unterstriche).
+- Dateiendung standardmäßig geschützt.
+- Desktop/Web gleichwertig erweitert.
+- Fix 1–3 enthalten.
+- Rename/Merge/Split bleiben gesperrt.
+
+## v0.5.16 GUI Fix 3
+
+- Desktop-GUI-Absturz bei Auswahlereignissen behoben.
+- `last_ai_review`, `last_fusion_result` und `last_evidence_result`
+  werden jetzt vor dem Aufbau der Qt-Oberfläche initialisiert.
+- Fix 1 und Fix 2 sind kumulativ enthalten.
+- Profil-/Schema-Fixes bleiben vollständig enthalten.
+- Rename/Merge/Split bleiben gesperrt.
+
+## v0.5.16 GUI Fix 2
+
+- Plex/Jellyfin/Emby/Kodi: getrennte Film- und Serien-Schemata.
+- Staffel/Episode bleiben bei Serien erhalten.
+- Regeln können nach Medientyp gelten.
+- SxxExx wird zweistellig formatiert.
+- Desktop/Web: frei sortierbare Beschriftungs-Reihenfolge.
+- Hörbuchprofil unverändert.
+- Rename/Merge/Split bleiben gesperrt.
+
+## v0.5.16 GUI Fix 1
+
+- Desktop-GUI-Startfehler `ai_review_status` behoben.
+- Review-/KI-/Decision-Fusion-/Evidence-Fassade wieder korrekt am Hauptplugin verfügbar.
+- Web-API und Desktop-GUI greifen wieder auf dieselben Plugin-Methoden zu.
+- Keine Änderung an Rename-/Merge-/Split-Sperre.
+
 ## v0.5.16
 
 - ReviewPriorityService ergänzt.

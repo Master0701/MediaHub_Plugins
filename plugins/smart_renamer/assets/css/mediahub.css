@@ -63,3 +63,22 @@ button:disabled{opacity:.45;cursor:not-allowed}
 #mh-priority-filter,#mh-priority-sort{min-width:150px}
 tr[data-priority="critical"]{font-weight:700}
 tr[data-priority="high"]{font-weight:600}
+
+/* v0.5.16 GUI Fix 2 */
+.schema-order-actions{display:flex;gap:6px;flex-wrap:wrap}
+#schemaOrder{width:100%;min-height:130px}
+
+/* GUI Fix 4 – Advanced Rule Editor */
+
+/* v0.5.16 GUI Fix 5 – Modular Rule Editor */
+.rule-page[hidden]{display:none!important}
+.rule-page{padding-top:6px}
+
+/* v0.5.16 GUI Fix 6 – frei verstellbare Vorschau-Spalten */
+.preview-resizable{table-layout:fixed;min-width:max-content}
+.preview-resizable th,.preview-resizable td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mh-col-resizer{position:absolute;right:-4px;top:0;width:9px;height:100%;cursor:col-resize;user-select:none;touch-action:none;z-index:5}
+.mh-col-resizer:hover{background:rgba(127,127,127,.28)}
+
+/* v0.5.16 GUI Fix 11 – Regel-Übernahme */
+.rule-apply-actions{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 10px}

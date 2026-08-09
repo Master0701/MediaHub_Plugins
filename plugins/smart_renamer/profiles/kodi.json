@@ -5,13 +5,34 @@
     "movie",
     "series"
   ],
-  "description": "Vorbereitung für Kodi-konforme Namen.",
+  "description": "Kodi-konforme Film- und Seriennamen.",
   "rules": [
     {
       "type": "schema",
       "template": "[titel] ([jahr])",
       "label": "Kodi-Filmschema",
-      "source": "profile"
+      "source": "profile",
+      "media_types": [
+        "movie"
+      ],
+      "schema_order": [
+        "[titel]",
+        "[jahr]"
+      ]
+    },
+    {
+      "type": "schema",
+      "template": "[titel] - S[staffel]E[episode] - [episodentitel]",
+      "label": "Kodi-Serienschema",
+      "source": "profile",
+      "media_types": [
+        "series"
+      ],
+      "schema_order": [
+        "[titel]",
+        "S[staffel]E[episode]",
+        "[episodentitel]"
+      ]
     }
   ]
 }

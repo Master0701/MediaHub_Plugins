@@ -24,6 +24,7 @@ from services.learning_store import LearningStore
 from services.optional_integrations import OptionalIntegrationManager
 from services.rename_plan import RenamePlanService
 from services.transaction_service import RenameTransactionService
+from services.rule_stack_merge import merge_profile_rules
 
 
 class MediaHubSmartRenamerPlugin:
@@ -689,6 +690,161 @@ class MediaHubSmartRenamerPlugin:
         )
 
 
+    def save_custom_naming_profile(
+        self,
+        *,
+        profile_id: str,
+        display_name: str,
+        multi_episode_template: str,
+        split_episode_template: str,
+        split_movie_template: str,
+        custom_fields=None,
+    ):
+        profile = self.naming_profile_service.save_custom_profile(
+            profile_id=profile_id,
+            display_name=display_name,
+            multi_episode_template=multi_episode_template,
+            split_episode_template=split_episode_template,
+            split_movie_template=split_movie_template,
+            custom_fields=custom_fields,
+        )
+        return profile.to_dict()
+
+    def delete_custom_naming_profile(self, profile_id: str):
+        return self.naming_profile_service.delete_custom_profile(profile_id)
+
+    def build_relation_preview(self, items, *, profile_id: str = "plex"):
+        return self.relation_preview_service.build_many(
+            items,
+            profile_id=profile_id,
+        )
+
+    def build_interactive_preview(self, items, *, profile_id: str = "plex"):
+        return self.interactive_preview_service.build(items, profile_id=profile_id)
+
+    def set_preview_decision(
+        self,
+        item_id: str,
+        *,
+        state: str,
+        manual_name: str = "",
+        note: str = "",
+    ):
+        return self.preview_decision_store.set(
+            item_id,
+            state=state,
+            manual_name=manual_name,
+            note=note,
+        )
+
+    def get_preview_decisions(self):
+        return self.preview_decision_store.all()
+
+    def clear_preview_decisions(self):
+        self.preview_decision_store.clear()
+        return {"ok": True}
+
+    def gui_preview_state(self):
+        return self.gui_preview_session.snapshot()
+
+    def gui_set_selection(self, item_ids):
+        return self.gui_preview_session.set_selection(item_ids)
+
+    def gui_toggle_selection(self, item_id: str):
+        return self.gui_preview_session.toggle_selection(item_id)
+
+    def gui_clear_selection(self):
+        return self.gui_preview_session.clear_selection()
+
+    def gui_set_group(self, group_key: str):
+        return self.gui_preview_session.set_group(group_key)
+
+    def gui_set_status_filter(self, status: str):
+        return self.gui_preview_session.set_status_filter(status)
+
+    def gui_set_sort(self, sort_by: str, direction: str = "asc"):
+        return self.gui_preview_session.set_sort(sort_by, direction)
+
+    def gui_set_search(self, search_text: str):
+        return self.gui_preview_session.set_search(search_text)
+
+    def gui_bulk_decision(self, state: str):
+        return self.gui_preview_session.bulk_decision(state)
+
+    def gui_manual_name(
+        self,
+        item_id: str,
+        manual_name: str,
+        note: str = "",
+    ):
+        return self.gui_preview_session.apply_manual_name(
+            item_id,
+            manual_name,
+            note,
+        )
+
+    def optional_integration_status(self):
+        return self.optional_preview_integrations.status()
+
+    def classify_preview_review(self, row):
+        return self.review_service.classify(dict(row or {}))
+
+    def ai_review_status(self):
+        return self.ai_review_bridge.status()
+
+    def analyze_review_with_ai(self, payload):
+        result = self.ai_review_bridge.analyze(dict(payload or {}))
+        result["execution_locked"] = True
+        result["execution_allowed"] = False
+        result["requires_human_confirmation"] = True
+        result["human_confirmation_required"] = True
+        return result
+
+    def fuse_review_decision(self, renamer_payload, ai_result=None):
+        result = self.decision_fusion_service.fuse(
+            dict(renamer_payload or {}),
+            dict(ai_result or {}),
+        )
+        result["execution_locked"] = True
+        result["execution_allowed"] = False
+        result["human_confirmation_required"] = True
+        return result
+
+    def build_decision_evidence(
+        self,
+        renamer_payload,
+        ai_result=None,
+        fusion_result=None,
+    ):
+        result = self.decision_evidence_service.build(
+            dict(renamer_payload or {}),
+            dict(ai_result or {}),
+            dict(fusion_result or {}),
+        )
+        result["execution_locked"] = True
+        result["execution_allowed"] = False
+        result["human_confirmation_required"] = True
+        return result
+
+    def analyze_and_fuse_review(self, payload):
+        source = dict(payload or {})
+        ai_result = self.analyze_review_with_ai(source)
+        fusion = self.fuse_review_decision(source, ai_result)
+        evidence = self.build_decision_evidence(
+            source,
+            ai_result,
+            fusion,
+        )
+        return {
+            "ai": ai_result,
+            "fusion": fusion,
+            "evidence": evidence,
+            "execution_locked": True,
+            "execution_allowed": False,
+            "human_confirmation_required": True,
+        }
+
+
 class NativeSmartRenamerWidget:
     """Dreispaltige Desktop-Oberfläche mit Live-Vorschau."""
 
@@ -709,6 +865,7 @@ class NativeSmartRenamerWidget:
             QListWidgetItem,
             QPushButton,
             QSpinBox,
+            QStackedWidget,
             QSplitter,
             QTableWidget,
             QTableWidgetItem,
@@ -720,6 +877,16 @@ class NativeSmartRenamerWidget:
             RULE_TYPES = [
                 ("replace", "Suchen und Ersetzen", "Benutzer"),
                 ("remove", "Text entfernen", "Benutzer"),
+                ("replace_advanced", "Erweitert suchen/ersetzen", "Benutzer"),
+                ("regex_replace", "RegEx ersetzen", "Benutzer"),
+                ("remove_range", "Zeichenbereich entfernen", "Benutzer"),
+                ("remove_start", "Zeichen am Anfang entfernen", "Benutzer"),
+                ("remove_end", "Zeichen am Ende entfernen", "Benutzer"),
+                ("insert_at", "Text an Position einfügen", "Benutzer"),
+                ("remove_relative", "Vor/Nach Fundstelle entfernen (alles)", "Benutzer"),
+                ("remove_before_extension", "Text direkt vor Dateiendung entfernen", "Benutzer"),
+                ("remove_count_before_marker", "Zeichen direkt vor Fundstelle entfernen", "Benutzer"),
+                ("normalize_separators", "Trennzeichen normalisieren", "Benutzer"),
                 ("prefix", "Präfix", "Benutzer"),
                 ("suffix", "Suffix", "Benutzer"),
                 ("trim", "Leerzeichen bereinigen", "Benutzer"),
@@ -735,9 +902,16 @@ class NativeSmartRenamerWidget:
                 self.rules: list[dict] = []
                 self._profiles = []
                 self._updating_form = False
+
+                # Review/KI state must exist BEFORE _build().
+                # During widget construction Qt can emit selection signals.
+                self.last_ai_review = None
+                self.last_fusion_result = None
+                self.last_evidence_result = None
+
                 self.preview_timer = QTimer(self)
                 self.preview_timer.setSingleShot(True)
-                self.preview_timer.setInterval(250)
+                self.preview_timer.setInterval(35)
                 self.preview_timer.timeout.connect(self._preview)
                 self._build()
                 self._load_profiles()
@@ -781,6 +955,7 @@ class NativeSmartRenamerWidget:
                 toolbar.addStretch(1)
                 self.live_check = QCheckBox("Live-Vorschau")
                 self.live_check.setChecked(True)
+                self.live_check.stateChanged.connect(lambda state: self._live_preview_toggled(bool(state)))
                 toolbar.addWidget(self.live_check)
                 preview_button = QPushButton("Vorschau aktualisieren")
                 preview_button.clicked.connect(self._preview)
@@ -795,14 +970,14 @@ class NativeSmartRenamerWidget:
                 self.path_list = QListWidget()
                 self.path_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
                 left_layout.addWidget(self.path_list, 1)
-                left_layout.addWidget(QLabel("Regelstapel"))
+                left_layout.addWidget(QLabel("Regelstapel – aktive Regelmodule"))
                 self.rule_list = QListWidget()
                 self.rule_list.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
                 self.rule_list.model().rowsMoved.connect(self._rules_reordered)
                 self.rule_list.currentRowChanged.connect(self._rule_selected)
                 left_layout.addWidget(self.rule_list, 1)
                 rule_buttons = QHBoxLayout()
-                for label, handler in (("+", self._add_rule),("–", self._delete_rule),("↑", lambda:self._move_rule(-1)),("↓", lambda:self._move_rule(1)),("Kopieren", self._copy_rule)):
+                for label, handler in (("Regel +", self._add_rule),("Entfernen", self._delete_rule),("↑", lambda:self._move_rule(-1)),("↓", lambda:self._move_rule(1)),("Kopieren", self._copy_rule)):
                     b=QPushButton(label); b.clicked.connect(handler); rule_buttons.addWidget(b)
                 left_layout.addLayout(rule_buttons)
 
@@ -891,7 +1066,17 @@ class NativeSmartRenamerWidget:
                 self.table.setWordWrap(False)
                 self.table.setMinimumWidth(650)
                 self.table.itemSelectionChanged.connect(self._preview_selection_changed)
-                header=self.table.horizontalHeader(); header.setMinimumSectionSize(65); header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents); header.setSectionResizeMode(1,QHeaderView.ResizeMode.Stretch); header.setSectionResizeMode(2,QHeaderView.ResizeMode.Stretch)
+                header=self.table.horizontalHeader()
+                header.setMinimumSectionSize(55)
+                header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+                header.setStretchLastSection(False)
+                header.setToolTip("Spaltengrenzen ziehen, um jede Spalte frei zu verbreitern oder zu verkleinern.")
+                self.table.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+                self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+                self.table.setWordWrap(False)
+                for column,width in {0:70,1:300,2:340,3:125,4:105,5:85,6:145,7:130,8:260,9:340}.items():
+                    if column < self.table.columnCount():
+                        self.table.setColumnWidth(column,width)
                 center_layout.addWidget(self.table,1)
 
                 center_layout.addWidget(QLabel("Ausgewählter Eintrag"))
@@ -901,29 +1086,102 @@ class NativeSmartRenamerWidget:
                 self.preview_details.setPlaceholderText("Zeile auswählen, um vollständige Namen und Details zu sehen.")
                 center_layout.addWidget(self.preview_details)
 
-                # Right: rule editor
+                # Right: rule editor - modular
                 right=QWidget(); right_layout=QVBoxLayout(right); right_layout.setContentsMargins(0,0,0,0)
                 right_layout.addWidget(QLabel("Regel-Eigenschaften"))
-                self.enabled = QCheckBox("Regel aktiv")
-                self.enabled.stateChanged.connect(self._form_changed)
-                right_layout.addWidget(self.enabled)
-                form=QFormLayout()
+                self.enabled=QCheckBox("Regel aktiv"); self.enabled.stateChanged.connect(self._form_changed); right_layout.addWidget(self.enabled)
+
+                common=QFormLayout()
                 self.rule_type=QComboBox()
                 for kind,label,_ in self.RULE_TYPES: self.rule_type.addItem(label,kind)
                 self.rule_type.currentIndexChanged.connect(self._type_changed)
-                self.rule_source=QComboBox(); self.rule_source.addItems(["Benutzer", "Profil", "KI", "ReNamer", "Plugin"])
+                self.rule_source=QComboBox(); self.rule_source.addItems(["Benutzer","Profil","KI","ReNamer","Plugin"])
+                common.addRow("Regeltyp",self.rule_type); common.addRow("Quelle",self.rule_source)
+                right_layout.addLayout(common)
+                rule_action_row=QHBoxLayout()
+                self.apply_rule_button=QPushButton("Regel übernehmen")
+                self.apply_rule_button.setToolTip("Aktuelle Regel in den Regelstapel übernehmen und Vorschau aktualisieren.")
+                self.apply_rule_button.clicked.connect(self._apply_current_rule)
+                rule_action_row.addWidget(self.apply_rule_button)
+                self.new_rule_button=QPushButton("Neue Regel")
+                self.new_rule_button.setToolTip("Eine weitere Benutzerregel anlegen.")
+                self.new_rule_button.clicked.connect(self._add_rule)
+                rule_action_row.addWidget(self.new_rule_button)
+                right_layout.addLayout(rule_action_row)
+                rule_source_hint=QLabel("Profilregel = grün. Beim ersten Bearbeiten wird genau eine blaue Benutzerregel angelegt und automatisch ausgewählt.")
+                rule_source_hint.setWordWrap(True)
+                right_layout.addWidget(rule_source_hint)
+
                 self.search=QLineEdit(); self.replacement=QLineEdit(); self.value=QLineEdit()
                 self.case_mode=QComboBox(); self.case_mode.addItem("Unverändert",""); self.case_mode.addItem("klein","lower"); self.case_mode.addItem("GROSS","upper"); self.case_mode.addItem("Titel","title"); self.case_mode.addItem("Satz","sentence")
                 self.start_number=QSpinBox(); self.start_number.setRange(0,999999); self.start_number.setValue(1)
                 self.padding=QSpinBox(); self.padding.setRange(1,12); self.padding.setValue(2)
                 self.schema=QLineEdit(); self.schema.setPlaceholderText("[titel] ([jahr])")
-                form.addRow("Regeltyp",self.rule_type); form.addRow("Quelle",self.rule_source); form.addRow("Suchen",self.search); form.addRow("Ersetzen",self.replacement); form.addRow("Wert",self.value); form.addRow("Schreibweise",self.case_mode); form.addRow("Startnummer",self.start_number); form.addRow("Stellen",self.padding); form.addRow("Schema",self.schema)
-                right_layout.addLayout(form)
+                self.position=QSpinBox(); self.position.setRange(1,9999); self.position.setValue(1); self.position.setToolTip("1 = erstes Zeichen, 2 = zweites Zeichen usw.")
+                self.length=QSpinBox(); self.length.setRange(-1,9999); self.length.setValue(1)
+                self.count_chars=QSpinBox(); self.count_chars.setRange(0,9999)
+                self.needle=QLineEdit(); self.regex_pattern=QLineEdit(); self.regex_replacement=QLineEdit()
+                self.case_sensitive=QCheckBox("Groß-/Kleinschreibung beachten")
+                self.replace_all=QCheckBox("Alle Vorkommen"); self.replace_all.setChecked(True)
+                self.whole_word=QCheckBox("Nur ganzes Wort")
+                self.include_match=QCheckBox("Fundstelle mit entfernen")
+                self.relative_mode=QComboBox(); self.relative_mode.addItem("Vor Fundstelle entfernen","before"); self.relative_mode.addItem("Nach Fundstelle entfernen","after")
+                self.separators=QLineEdit("._")
+
+                self.rule_stack=QStackedWidget(); self.rule_pages={}
+                def add_page(key, rows):
+                    page=QWidget(); form=QFormLayout(page); form.setContentsMargins(0,0,0,0)
+                    for label,widget in rows: form.addRow(label,widget)
+                    self.rule_pages[key]=page; self.rule_stack.addWidget(page)
+                    return form
+
+                add_page("basic",[("Suchen",self.search),("Ersetzen",self.replacement),("Wert",self.value)])
+                add_page("case",[("Schreibweise",self.case_mode)])
+                add_page("numbering",[("Startnummer",self.start_number),("Stellen",self.padding)])
+                schema_form=add_page("schema",[("Schema",self.schema)])
+                add_page("position",[("Position (1 = erstes Zeichen)",self.position),("Länge",self.length),("Anzahl Zeichen",self.count_chars)])
+                add_page("relative",[("Fundstelle",self.needle),("Vor/Nach",self.relative_mode),("Anzahl Zeichen",self.count_chars),("",self.include_match),("",self.case_sensitive)])
+                add_page("regex",[("RegEx-Muster",self.regex_pattern),("RegEx-Ersetzen",self.regex_replacement),("",self.case_sensitive),("",self.replace_all)])
+                add_page("replace_adv",[("Suchen",self.search),("Ersetzen",self.replacement),("",self.case_sensitive),("",self.replace_all),("",self.whole_word)])
+                add_page("separator",[("Trennzeichen",self.separators)])
+
+                schema_form.addRow(QLabel("Beschriftungs-Reihenfolge"))
+                self.schema_part_combo=QComboBox()
+                for label,token in (
+                    ("Titel","[titel]"),("Jahr","[jahr]"),("Staffel + Episode (SxxExx)","S[staffel]E[episode]"),
+                    ("Staffel","S[staffel]"),("Episode","E[episode]"),("Episodentitel","[episodentitel]"),
+                    ("Edition/Fassung","[edition]"),("Teil","[teil]"),("Nummer","[nummer]"),("Originalname","[original]"),("Endung","[endung]")
+                ): self.schema_part_combo.addItem(label,token)
+                schema_add=QWidget(); schema_add_l=QHBoxLayout(schema_add); schema_add_l.setContentsMargins(0,0,0,0); schema_add_l.addWidget(self.schema_part_combo,1)
+                b=QPushButton("Hinzufügen"); b.clicked.connect(self._add_schema_part); schema_add_l.addWidget(b); schema_form.addRow(schema_add)
+                self.schema_parts=QListWidget(); self.schema_parts.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove); self.schema_parts.setMaximumHeight(150); schema_form.addRow(self.schema_parts)
+                schema_btn=QWidget(); schema_btn_l=QHBoxLayout(schema_btn); schema_btn_l.setContentsMargins(0,0,0,0)
+                for label,handler in (("↑",lambda:self._move_schema_part(-1)),("↓",lambda:self._move_schema_part(1)),("Entfernen",self._remove_schema_part),("Schema übernehmen",self._apply_schema_order)):
+                    bb=QPushButton(label); bb.clicked.connect(handler); schema_btn_l.addWidget(bb)
+                schema_form.addRow(schema_btn)
+                hint=QLabel("Nur im Namensschema-Modul: Reihenfolge frei wählen oder Schema direkt bearbeiten."); hint.setWordWrap(True); schema_form.addRow(hint)
+
+                right_layout.addWidget(self.rule_stack,1)
                 placeholders=QLabel("Platzhalter: [titel] [jahr] [staffel] [episode] [episodentitel] [nummer] [original] [endung]")
-                placeholders.setWordWrap(True); right_layout.addWidget(placeholders); right_layout.addStretch(1)
-                for widget in (self.rule_source,self.search,self.replacement,self.value,self.case_mode,self.start_number,self.padding,self.schema):
-                    signal = getattr(widget, 'textChanged', None) or getattr(widget, 'currentIndexChanged', None) or getattr(widget, 'valueChanged', None)
-                    signal.connect(self._form_changed)
+                placeholders.setWordWrap(True); right_layout.addWidget(placeholders)
+
+                # Jede editierbare Regel-Eigenschaft aktualisiert den Regelstapel und
+                # stößt eine debouncte Live-Vorschau an. Keine Felder dürfen hier fehlen.
+                for widget in (
+                    self.rule_source,self.search,self.replacement,self.value,self.case_mode,
+                    self.start_number,self.padding,self.schema,self.position,self.length,self.count_chars,
+                    self.needle,self.regex_pattern,self.regex_replacement,self.relative_mode,self.separators,
+                    self.case_sensitive,self.replace_all,self.whole_word,self.include_match
+                ):
+                    if hasattr(widget, "textChanged"):
+                        widget.textChanged.connect(self._form_changed)
+                    elif hasattr(widget, "valueChanged"):
+                        widget.valueChanged.connect(self._form_changed)
+                    elif hasattr(widget, "currentIndexChanged"):
+                        widget.currentIndexChanged.connect(self._form_changed)
+                    elif hasattr(widget, "stateChanged"):
+                        widget.stateChanged.connect(self._form_changed)
+
 
                 outer.addWidget(left); outer.addWidget(center); outer.addWidget(right)
                 left.setMinimumWidth(145)
@@ -1174,10 +1432,14 @@ class NativeSmartRenamerWidget:
                 if 0 <= index < len(self._profiles): self._apply_profile(self._profiles[index])
 
             def _apply_profile(self, profile):
-                self.rules = [dict(rule) for rule in profile.get("rules",[])]
-                for rule in self.rules:
-                    rule.setdefault("enabled",True); rule.setdefault("source","Profil")
-                self._render_rules(); self._schedule_preview()
+                # A profile switch may replace profile-owned rules only.
+                # User/AI/ReNamer/Plugin rules must survive the switch.
+                self.rules = merge_profile_rules(
+                    self.rules,
+                    profile.get("rules", []),
+                )
+                self._render_rules()
+                self._schedule_preview()
 
             def _render_rules(self, current=0):
                 self.rule_list.blockSignals(True); self.rule_list.clear()
@@ -1213,30 +1475,140 @@ class NativeSmartRenamerWidget:
                 # Keep safe deterministic behavior by rebuilding from current visible labels only when buttons are used.
                 self._render_rules(self.rule_list.currentRow())
 
+            def _schema_label_for_token(self, token):
+                return {
+                    "[titel]":"Titel","[jahr]":"Jahr","S[staffel]E[episode]":"Staffel + Episode (SxxExx)",
+                    "S[staffel]":"Staffel","E[episode]":"Episode","[episodentitel]":"Episodentitel",
+                    "[edition]":"Edition/Fassung","[teil]":"Teil","[nummer]":"Nummer",
+                    "[original]":"Originalname","[endung]":"Endung",
+                }.get(str(token),str(token))
+
+            def _load_schema_parts(self, rule):
+                self.schema_parts.clear()
+                order=list(rule.get("schema_order") or [])
+                for token in order:
+                    item=QListWidgetItem(self._schema_label_for_token(token))
+                    item.setData(Qt.ItemDataRole.UserRole,token)
+                    self.schema_parts.addItem(item)
+
+            def _add_schema_part(self):
+                token=self.schema_part_combo.currentData()
+                item=QListWidgetItem(self._schema_label_for_token(token)); item.setData(Qt.ItemDataRole.UserRole,token)
+                self.schema_parts.addItem(item); self.schema_parts.setCurrentRow(self.schema_parts.count()-1)
+                self._form_changed()
+
+            def _remove_schema_part(self):
+                row=self.schema_parts.currentRow()
+                if row>=0:
+                    self.schema_parts.takeItem(row)
+                    self._form_changed()
+
+            def _move_schema_part(self, delta):
+                row=self.schema_parts.currentRow(); target=row+delta
+                if row<0 or target<0 or target>=self.schema_parts.count(): return
+                item=self.schema_parts.takeItem(row); self.schema_parts.insertItem(target,item); self.schema_parts.setCurrentRow(target)
+                self._form_changed()
+
+            def _apply_schema_order(self):
+                tokens=[self.schema_parts.item(i).data(Qt.ItemDataRole.UserRole) for i in range(self.schema_parts.count())]
+                self.schema.setText(" - ".join(str(x) for x in tokens if x)); self._form_changed()
+
+            def _rule_page_key(self, kind):
+                return {
+                    "replace":"basic","remove":"basic","prefix":"basic","suffix":"basic","trim":"basic",
+                    "case":"case","numbering":"numbering","schema":"schema",
+                    "remove_range":"position","remove_start":"position","remove_end":"position","insert_at":"position",
+                    "remove_relative":"relative","remove_before_extension":"basic","remove_count_before_marker":"relative","regex_replace":"regex","replace_advanced":"replace_adv",
+                    "normalize_separators":"separator",
+                }.get(str(kind or ""),"basic")
+
+            def _show_rule_page(self, kind):
+                page=self.rule_pages.get(self._rule_page_key(kind))
+                if page is not None: self.rule_stack.setCurrentWidget(page)
+
+            def _apply_current_rule(self):
+                """Editorwerte übernehmen, Regelstapel aktualisieren und Vorschau sofort neu planen."""
+                row=self.rule_list.currentRow()
+                if not (0 <= row < len(self.rules)):
+                    self._add_rule()
+                    row=self.rule_list.currentRow()
+                self._form_changed()
+                self._render_rules(row)
+                self._schedule_preview()
+
             def _rule_selected(self,row):
                 if not (0 <= row < len(self.rules)): return
                 rule=self.rules[row]; self._updating_form=True
                 self.enabled.setChecked(bool(rule.get("enabled",True)))
-                idx=self.rule_type.findData(rule.get("type")); self.rule_type.setCurrentIndex(max(0,idx))
+                idx=self.rule_type.findData(rule.get("type")); self.rule_type.setCurrentIndex(max(0,idx)); self._show_rule_page(rule.get("type"))
                 self.rule_source.setCurrentText(str(rule.get("source") or "Benutzer"))
                 self.search.setText(str(rule.get("old") or "")); self.replacement.setText(str(rule.get("new") or "")); self.value.setText(str(rule.get("value") or ""))
                 idx=self.case_mode.findData(rule.get("mode") or ""); self.case_mode.setCurrentIndex(max(0,idx))
                 self.start_number.setValue(int(rule.get("start",1))); self.padding.setValue(int(rule.get("padding",2))); self.schema.setText(str(rule.get("template") or ""))
+                self.position.setValue(max(1,int(rule.get("position") or 1))); self.length.setValue(int(rule.get("length") if rule.get("length") not in (None,"") else 1))
+                self.count_chars.setValue(int(rule.get("count") or 0)); self.needle.setText(str(rule.get("needle") or ""))
+                self.regex_pattern.setText(str(rule.get("pattern") or "")); self.regex_replacement.setText(str(rule.get("replacement") or ""))
+                self.case_sensitive.setChecked(bool(rule.get("case_sensitive"))); self.replace_all.setChecked(bool(rule.get("replace_all",True)))
+                self.whole_word.setChecked(bool(rule.get("whole_word"))); self.include_match.setChecked(bool(rule.get("include_match")))
+                idx=self.relative_mode.findData(str(rule.get("relative_mode") or "before")); self.relative_mode.setCurrentIndex(max(0,idx))
+                self.separators.setText(str(rule.get("separators") or "._"))
+                self._load_schema_parts(rule)
                 self._updating_form=False
 
-            def _type_changed(self,*_): self._form_changed()
+            def _type_changed(self,*_):
+                self._show_rule_page(self.rule_type.currentData())
+                self._form_changed()
 
             def _form_changed(self,*_):
                 if self._updating_form: return
                 row=self.rule_list.currentRow()
                 if not (0 <= row < len(self.rules)): return
+
+                original_rule=self.rules[row]
+                original_source=str(original_rule.get("source") or "").strip().casefold()
+                if original_source in ("profil","profile"):
+                    clone=dict(original_rule)
+                    clone["source"]="Benutzer"
+                    clone["label"]=str(clone.get("label") or clone.get("type") or "Regel") + " (Benutzer)"
+                    self.rules.append(clone)
+                    row=len(self.rules)-1
+
+                    # Wichtig: Die neue blaue Benutzerregel sofort sichtbar
+                    # machen UND auswählen. Sonst würde die nächste
+                    # Feldänderung erneut die grüne Profilregel kopieren.
+                    self._updating_form=True
+                    try:
+                        self._render_rules(row)
+                        self.rule_list.setCurrentRow(row)
+                        self.rule_source.blockSignals(True)
+                        self.rule_source.setCurrentText("Benutzer")
+                        self.rule_source.blockSignals(False)
+                    finally:
+                        self._updating_form=False
+
                 kind=self.rule_type.currentData(); rule=self.rules[row]
-                rule.update({"type":kind,"enabled":self.enabled.isChecked(),"source":self.rule_source.currentText(),"old":self.search.text(),"new":self.replacement.text(),"value":self.value.text(),"mode":self.case_mode.currentData(),"start":self.start_number.value(),"padding":self.padding.value(),"template":self.schema.text()})
+                rule.update({"type":kind,"enabled":self.enabled.isChecked(),"source":self.rule_source.currentText(),
+                    "old":self.search.text(),"new":self.replacement.text(),"value":self.value.text(),"mode":self.case_mode.currentData(),
+                    "start":self.start_number.value(),"padding":self.padding.value(),"template":self.schema.text(),
+                    "schema_order":[self.schema_parts.item(i).data(Qt.ItemDataRole.UserRole) for i in range(self.schema_parts.count())],
+                    "position":self.position.value(),"length":self.length.value(),"count":self.count_chars.value(),"needle":self.needle.text(),
+                    "pattern":self.regex_pattern.text(),"replacement":self.regex_replacement.text(),
+                    "case_sensitive":self.case_sensitive.isChecked(),"replace_all":self.replace_all.isChecked(),"whole_word":self.whole_word.isChecked(),
+                    "include_match":self.include_match.isChecked(),"relative_mode":self.relative_mode.currentData(),"separators":self.separators.text()})
                 labels=dict((k,l) for k,l,_ in self.RULE_TYPES); rule["label"]=labels.get(kind,kind)
                 self._render_rules(row); self._schedule_preview()
 
             def _schedule_preview(self):
-                if self.live_check.isChecked(): self.preview_timer.start()
+                if not self.live_check.isChecked():
+                    return
+                if not self.paths:
+                    return
+                self.status.setText("Live-Vorschau wird aktualisiert …")
+                self.preview_timer.start()
+
+            def _live_preview_toggled(self, checked):
+                if checked:
+                    self._schedule_preview()
 
             def _add_files(self):
                 paths,_=QFileDialog.getOpenFileNames(self,"Dateien hinzufügen")

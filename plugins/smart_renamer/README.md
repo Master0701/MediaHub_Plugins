@@ -435,3 +435,9 @@ Rename, Merge und Split bleiben gesperrt.
 - Bestehende Review-Gründe fließen in die Priorität ein.
 - Web/Desktop können nach Priorität filtern und sortieren.
 - Priorisierung ändert keine Entscheidung und führt niemals Dateien aus.
+
+
+## v0.5.16 GUI Fix 2
+Profilwechsel behält bei Serien Staffel/Episode. Zusätzlich können Titel,
+Jahr, SxxExx, Episodentitel, Edition, Teil usw. in Desktop und Web frei
+angeordnet werden.

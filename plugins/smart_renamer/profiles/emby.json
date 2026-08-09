@@ -5,13 +5,34 @@
     "movie",
     "series"
   ],
-  "description": "Vorbereitung für Emby-konforme Namen.",
+  "description": "Emby-konforme Film- und Seriennamen.",
   "rules": [
     {
       "type": "schema",
       "template": "[titel] ([jahr])",
       "label": "Emby-Filmschema",
-      "source": "profile"
+      "source": "profile",
+      "media_types": [
+        "movie"
+      ],
+      "schema_order": [
+        "[titel]",
+        "[jahr]"
+      ]
+    },
+    {
+      "type": "schema",
+      "template": "[titel] - S[staffel]E[episode] - [episodentitel]",
+      "label": "Emby-Serienschema",
+      "source": "profile",
+      "media_types": [
+        "series"
+      ],
+      "schema_order": [
+        "[titel]",
+        "S[staffel]E[episode]",
+        "[episodentitel]"
+      ]
     }
   ]
 }

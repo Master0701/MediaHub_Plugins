@@ -10,8 +10,8 @@
   <button type="button" id="pickFolder">📁 Ordner auswählen</button>
 </div>
 <textarea id="paths" rows="8" placeholder="Je Zeile ein Datei- oder Ordnerpfad"></textarea>
-<small>Alternativ kann ein Pfad weiterhin direkt eingetragen werden.</small><h2>Regelstapel</h2><div id="rules"></div><div class="row"><button id="addRule">+ Regel</button><button id="deleteRule">Löschen</button><button id="upRule">↑</button><button id="downRule">↓</button></div></aside>
-<section class="panel preview"><h2>Vorschau</h2><div class="table-wrap"><table><thead><tr><th>Status</th><th class="name-col">Original</th><th class="name-col">Vorschlag</th><th>Relation</th><th>Confidence</th><th>Review</th><th>Quelle</th><th>Hinweise</th></tr></thead><tbody id="results"></tbody></table></div>
+<small>Alternativ kann ein Pfad weiterhin direkt eingetragen werden.</small><h2>Regelstapel – aktive Regelmodule</h2><div id="rules"></div><div class="row"><button id="addRule">+ Regel</button><button id="deleteRule">Löschen</button><button id="upRule">↑</button><button id="downRule">↓</button></div></aside>
+<section class="panel preview"><h2>Vorschau</h2><div class="table-wrap"><table class="preview-resizable"><thead><tr><th>Status</th><th class="name-col">Original</th><th class="name-col">Vorschlag</th><th>Relation</th><th>Confidence</th><th>Review</th><th>Quelle</th><th>Hinweise</th></tr></thead><tbody id="results"></tbody></table></div>
 <section class="plan-panel" id="planPanel" hidden>
 <h2>Sicherer Rename-Plan</h2>
 <div class="plan-summary" id="planSummary"></div>
@@ -24,7 +24,29 @@
 <div id="planMessage" class="plan-message"></div>
 </section>
 </section>
-<aside class="panel editor"><h2>Eigenschaften</h2><label><input id="enabled" type="checkbox" checked> Aktiv</label><label>Typ<select id="type"><option value="replace">Suchen/Ersetzen</option><option value="remove">Entfernen</option><option value="prefix">Präfix</option><option value="suffix">Suffix</option><option value="trim">Leerzeichen</option><option value="case">Schreibweise</option><option value="numbering">Nummerierung</option><option value="schema">Namensschema</option></select></label><label>Quelle<select id="source"><option>Benutzer</option><option>Profil</option><option>KI</option><option>ReNamer</option><option>Plugin</option></select></label><label>Suchen<input id="old"></label><label>Ersetzen<input id="new"></label><label>Wert<input id="value"></label><label>Schreibweise<select id="case"><option value="">Unverändert</option><option value="lower">klein</option><option value="upper">GROSS</option><option value="title">Titel</option><option value="sentence">Satz</option></select></label><label>Start<input id="start" type="number" value="1"></label><label>Stellen<input id="padding" type="number" value="2"></label><label>Schema<input id="schema" placeholder="[titel] ([jahr])"></label><small>[titel] [jahr] [staffel] [episode] [episodentitel] [nummer] [original] [endung]</small></aside>
+<aside class="panel editor"><h2>Eigenschaften</h2><label><input id="enabled" type="checkbox" checked> Aktiv</label><label>Typ<select id="type"><option value="replace">Suchen/Ersetzen</option><option value="remove">Entfernen</option><option value="prefix">Präfix</option><option value="suffix">Suffix</option><option value="trim">Leerzeichen</option><option value="case">Schreibweise</option><option value="numbering">Nummerierung</option><option value="replace_advanced">Erweitert suchen/ersetzen</option>
+<option value="regex_replace">RegEx ersetzen</option><option value="remove_range">Zeichenbereich entfernen</option>
+<option value="remove_start">Zeichen am Anfang entfernen</option><option value="remove_end">Zeichen am Ende entfernen</option>
+<option value="insert_at">Text an Position einfügen</option><option value="remove_relative">Vor/Nach Fundstelle entfernen (alles)</option><option value="remove_before_extension">Text direkt vor Dateiendung entfernen</option><option value="remove_count_before_marker">Zeichen direkt vor Fundstelle entfernen</option>
+<option value="normalize_separators">Trennzeichen normalisieren</option><option value="schema">Namensschema</option></select></label><label>Quelle<select id="source"><option>Benutzer</option><option>Profil</option><option>KI</option><option>ReNamer</option><option>Plugin</option></select></label><div class="rule-apply-actions"><button type="button" id="applyRule">Regel übernehmen</button><button type="button" id="newRule">Neue Regel</button></div><small class="rule-source-hint">Profilregel = grün. Eigene Regeln laufen nach dem Profilnamen.</small><div class="rule-page" data-page="basic"><label>Suchen<input id="old"></label><label>Ersetzen<input id="new"></label><label>Wert<input id="value"></label></div><label>Schreibweise<select id="case"><option value="">Unverändert</option><option value="lower">klein</option><option value="upper">GROSS</option><option value="title">Titel</option><option value="sentence">Satz</option></select></label><label>Start<input id="start" type="number" value="1"></label><label>Stellen<input id="padding" type="number" value="2"></label><div class="rule-page" data-page="schema"><label>Schema<input id="schema" placeholder="[titel] ([jahr])"></label>
+<div class="rule-page" data-page="position"><label>Position (1 = erstes Zeichen)<input id="position" type="number" min="1" value="1"></label><label>Länge<input id="length" type="number" value="1"></label><label>Anzahl Zeichen<input id="countChars" type="number" value="0"></label></div><div class="rule-page" data-page="relative"><label>Fundstelle<input id="needle"></label><label>Vor/Nach<select id="relativeMode2"><option value="before">Vor Fundstelle entfernen</option><option value="after">Nach Fundstelle entfernen</option></select></label></div>
+<div class="rule-page" data-page="regex"><label>RegEx-Muster<input id="regexPattern"></label><label>RegEx-Ersetzen<input id="regexReplacement"></label></div>
+<label class="legacy-relative-mode" hidden>Vor/Nach<select id="relativeMode"><option value="before">Vor Fundstelle entfernen</option><option value="after">Nach Fundstelle entfernen</option></select></label>
+<div class="rule-page" data-page="separator"><label>Trennzeichen<input id="separators" value="._"></label></div>
+<label><input id="caseSensitive" type="checkbox"> Groß-/Kleinschreibung beachten</label>
+<label><input id="replaceAll" type="checkbox" checked> Alle Vorkommen</label>
+<label><input id="wholeWord" type="checkbox"> Nur ganzes Wort</label>
+<label><input id="includeMatch" type="checkbox"> Fundstelle mit entfernen</label>
+<label>Beschriftungs-Baustein<select id="schemaPart">
+<option value="[titel]">Titel</option><option value="[jahr]">Jahr</option>
+<option value="S[staffel]E[episode]">Staffel + Episode (SxxExx)</option>
+<option value="S[staffel]">Staffel</option><option value="E[episode]">Episode</option>
+<option value="[episodentitel]">Episodentitel</option><option value="[edition]">Edition/Fassung</option>
+<option value="[teil]">Teil</option><option value="[nummer]">Nummer</option>
+<option value="[original]">Originalname</option><option value="[endung]">Endung</option></select></label>
+<div class="schema-order-actions"><button type="button" id="schemaAdd">Hinzufügen</button><button type="button" id="schemaUp">↑</button><button type="button" id="schemaDown">↓</button><button type="button" id="schemaRemove">Entfernen</button></div>
+<select id="schemaOrder" size="7"></select><button type="button" id="schemaApply">Reihenfolge als Schema übernehmen</button>
+<small>Reihenfolge frei wählen; Schema bleibt direkt editierbar.</small></div></aside>
 </section><footer id="status">Bereit · Direkte Web-Ausführung gesperrt</footer></main>
 <script>
 const $=id=>document.getElementById(id); let profiles=[],rules=[],selected=-1,timer,lastPreview=null,lastPlan=null;
@@ -59,16 +81,69 @@ async function pickPaths(kind){
 async function init(){profiles=Array.isArray(window.__SMART_RENAMER_PROFILES__)?window.__SMART_RENAMER_PROFILES__:[]; if(!profiles.length){profiles=(await (await fetch('/smart-renamer/api/profiles',{cache:'no-store'})).json()).items||[];} $('profile').innerHTML=profiles.map((p,i)=>`<option value="${i}">${esc(p.name)}</option>`).join(''); if(profiles.length){applyProfile(0);} const b=await (await fetch('/smart-renamer/api/backends',{cache:'no-store'})).json(); $('backend').textContent='Backend: '+(b.capabilities?.active_preview_backend_id||'nicht verfügbar');}
 function applyProfile(i){rules=(profiles[i]?.rules||[]).map(r=>({...r,enabled:r.enabled!==false,source:r.source||'Profil'})); renderRules(); schedule();}
 function renderRules(){const icons={Benutzer:'🟦',Profil:'🟩',KI:'🟨',ReNamer:'🟪',Plugin:'⬜'}; $('rules').innerHTML=rules.map((r,i)=>`<button class="rule ${i===selected?'active':''}" data-i="${i}">${icons[r.source]||'⬜'} ${r.enabled===false?'☐':'☑'} ${esc(r.label||r.type)}</button>`).join(''); document.querySelectorAll('.rule').forEach(b=>b.onclick=()=>selectRule(+b.dataset.i)); if(selected>=rules.length) selected=rules.length-1;}
-function selectRule(i){selected=i; renderRules(); const r=rules[i]||{}; $('enabled').checked=r.enabled!==false; $('type').value=r.type||'trim'; $('source').value=r.source||'Benutzer'; $('old').value=r.old||''; $('new').value=r.new||''; $('value').value=r.value||''; $('case').value=r.mode||''; $('start').value=r.start||1; $('padding').value=r.padding||2; $('schema').value=r.template||'';}
-function saveEditor(){if(selected<0)return; const names={replace:'Suchen und Ersetzen',remove:'Text entfernen',prefix:'Präfix',suffix:'Suffix',trim:'Leerzeichen bereinigen',case:'Schreibweise',numbering:'Nummerierung',schema:'Namensschema'}; rules[selected]={...rules[selected],enabled:$('enabled').checked,type:$('type').value,source:$('source').value,old:$('old').value,new:$('new').value,value:$('value').value,mode:$('case').value,start:+$('start').value,padding:+$('padding').value,template:$('schema').value,label:names[$('type').value]}; renderRules(); schedule();}
-function schedule(){if(!$('live').checked)return; clearTimeout(timer); timer=setTimeout(preview,300)}
+function schemaLabel(t){return ({'[titel]':'Titel','[jahr]':'Jahr','S[staffel]E[episode]':'Staffel + Episode (SxxExx)','S[staffel]':'Staffel','E[episode]':'Episode','[episodentitel]':'Episodentitel','[edition]':'Edition/Fassung','[teil]':'Teil','[nummer]':'Nummer','[original]':'Originalname','[endung]':'Endung'})[t]||t;}
+function renderSchemaOrder(order=[]){const el=$('schemaOrder');el.innerHTML='';order.forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=schemaLabel(t);el.appendChild(o);});}
+function schemaOrderValues(){return [...$('schemaOrder').options].map(o=>o.value);}
+function rulePageFor(type){
+ return {replace:'basic',remove:'basic',prefix:'basic',suffix:'basic',trim:'basic',case:'basic',numbering:'basic',schema:'schema',remove_range:'position',remove_start:'position',remove_end:'position',insert_at:'position',remove_relative:'relative',remove_before_extension:'basic',remove_count_before_marker:'relative',regex_replace:'regex',replace_advanced:'basic',normalize_separators:'separator'}[type]||'basic';
+}
+function showRulePage(type){
+ const page=rulePageFor(type);
+ document.querySelectorAll('.rule-page').forEach(el=>el.hidden=el.dataset.page!==page);
+}
+function selectRule(i){selected=i; renderRules(); const r=rules[i]||{}; showRulePage(r.type||'trim'); $('enabled').checked=r.enabled!==false; $('type').value=r.type||'trim'; $('source').value=r.source||'Benutzer'; $('old').value=r.old||''; $('new').value=r.new||''; $('value').value=r.value||''; $('case').value=r.mode||''; $('start').value=r.start||1; $('padding').value=r.padding||2; $('schema').value=r.template||''; $('position').value=r.position||1; $('length').value=(r.length??1); $('countChars').value=r.count||0; $('needle').value=r.needle||''; $('regexPattern').value=r.pattern||''; $('regexReplacement').value=r.replacement||''; $('caseSensitive').checked=!!r.case_sensitive; $('replaceAll').checked=r.replace_all!==false; $('wholeWord').checked=!!r.whole_word; $('includeMatch').checked=!!r.include_match; $('relativeMode').value=r.relative_mode||'before'; if($('relativeMode2'))$('relativeMode2').value=r.relative_mode||'before'; $('separators').value=r.separators||'._'; renderSchemaOrder(r.schema_order||[]);}
+function saveEditor(){if(selected<0)return; if($('relativeMode2'))$('relativeMode').value=$('relativeMode2').value; const names={replace:'Suchen und Ersetzen',remove:'Text entfernen',prefix:'Präfix',suffix:'Suffix',trim:'Leerzeichen bereinigen',case:'Schreibweise',numbering:'Nummerierung',schema:'Namensschema'}; rules[selected]={...rules[selected],enabled:$('enabled').checked,type:$('type').value,source:$('source').value,old:$('old').value,new:$('new').value,value:$('value').value,mode:$('case').value,start:+$('start').value,padding:+$('padding').value,template:$('schema').value,schema_order:schemaOrderValues(),position:+$('position').value,length:+$('length').value,count:+$('countChars').value,needle:$('needle').value,pattern:$('regexPattern').value,replacement:$('regexReplacement').value,case_sensitive:$('caseSensitive').checked,replace_all:$('replaceAll').checked,whole_word:$('wholeWord').checked,include_match:$('includeMatch').checked,relative_mode:$('relativeMode').value,separators:$('separators').value,label:names[$('type').value]}; renderRules(); schedule();}
+function schedule(){if(!$('live').checked)return; clearTimeout(timer); timer=setTimeout(preview,35)}
 function currentRequest(){return {items:$('paths').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean).map(path=>({path,recursive:true})),rules};}
 function resetPlan(){lastPlan=null;$('planPanel').hidden=true;$('plan').disabled=!lastPreview;$('prepare').disabled=true;}
-async function preview(){const req=currentRequest(); if(!req.items.length){lastPreview=null;resetPlan();$('results').innerHTML='';$('status').textContent='Keine Pfade ausgewählt · Direkte Web-Ausführung gesperrt';return;} const data=await (await fetch('/smart-renamer/api/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(req)})).json(); lastPreview=data;resetPlan();$('plan').disabled=false; const rows=data.preview_rows||data.changes||[]; $('results').innerHTML=rows.map(r=>{const sev=r.highest_severity||(r.blocked?'blocking':'info'); const icon={info:'✓',warning:'⚠',error:'!',blocking:'✖'}[sev]||'✓'; const issues=(r.issues||[]).map(x=>x.message||x).join('; ')||(r.warnings||[]).join('; '); const src=(r.rule_sources||[]).join(', ')||r.change_source||'unverändert'; const relation=r.relation_type||'single'; const confidence=Math.round((Number(r.confidence)||0)*100)+'%'; const review=r.review_required?'Ja':'Nein'; return `<tr class="${sev}"><td>${icon}</td><td class="filename-cell" title="${esc(r.original_name)}">${esc(r.original_name)}</td><td class="filename-cell" title="${esc(r.proposed_name)}">${esc(r.proposed_name)}</td><td>${esc(relation)}</td><td>${confidence}</td><td>${review}</td><td>${esc(src)}</td><td class="hints-cell" title="${esc(issues)}">${esc(issues)}</td></tr>`}).join(''); const s=data.summary||{}; $('status').textContent=`Dateien: ${s.item_count??s.total_count??rows.length} · Änderungen: ${s.changed_count??0} · Blockierend: ${s.blocking_count??0} · Warnungen: ${s.warning_row_count??0} · Backend: ${data.selected_backend||'–'} · Direkte Web-Ausführung gesperrt`;}
+function enableResizableColumns(){
+ document.querySelectorAll('table.preview-resizable').forEach(table=>{
+  [...table.querySelectorAll('thead th')].forEach((th,index)=>{
+   if(th.querySelector('.mh-col-resizer'))return;
+   th.style.position='relative';
+   const handle=document.createElement('span');
+   handle.className='mh-col-resizer';
+   handle.title='Spaltenbreite ziehen';
+   handle.addEventListener('pointerdown',event=>{
+    event.preventDefault(); event.stopPropagation();
+    const startX=event.clientX, startWidth=th.getBoundingClientRect().width;
+    const move=e=>{
+     const width=Math.max(55,startWidth+(e.clientX-startX));
+     th.style.width=width+'px'; th.style.minWidth=width+'px';
+     table.querySelectorAll('tbody tr').forEach(row=>{
+      const cell=row.children[index];
+      if(cell){cell.style.width=width+'px';cell.style.minWidth=width+'px';}
+     });
+    };
+    const up=()=>{
+     window.removeEventListener('pointermove',move);
+     window.removeEventListener('pointerup',up);
+    };
+    window.addEventListener('pointermove',move);
+    window.addEventListener('pointerup',up);
+   });
+   th.appendChild(handle);
+  });
+ });
+}
+async function preview(){const req=currentRequest(); if(!req.items.length){lastPreview=null;resetPlan();$('results').innerHTML='';$('status').textContent='Keine Pfade ausgewählt · Direkte Web-Ausführung gesperrt';return;} const data=await (await fetch('/smart-renamer/api/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(req)})).json(); lastPreview=data;resetPlan();$('plan').disabled=false; const rows=data.preview_rows||data.changes||[]; $('results').innerHTML=rows.map(r=>{const sev=r.highest_severity||(r.blocked?'blocking':'info'); const icon={info:'✓',warning:'⚠',error:'!',blocking:'✖'}[sev]||'✓'; const issues=(r.issues||[]).map(x=>x.message||x).join('; ')||(r.warnings||[]).join('; '); const src=(r.rule_sources||[]).join(', ')||r.change_source||'unverändert'; const relation=r.relation_type||'single'; const confidence=Math.round((Number(r.confidence)||0)*100)+'%'; const review=r.review_required?'Ja':'Nein'; return `<tr class="${sev}"><td>${icon}</td><td class="filename-cell" title="${esc(r.original_name)}">${esc(r.original_name)}</td><td class="filename-cell" title="${esc(r.proposed_name)}">${esc(r.proposed_name)}</td><td>${esc(relation)}</td><td>${confidence}</td><td>${review}</td><td>${esc(src)}</td><td class="hints-cell" title="${esc(issues)}">${esc(issues)}</td></tr>`}).join(''); const s=data.summary||{}; $('status').textContent=`Dateien: ${s.item_count??s.total_count??rows.length} · Änderungen: ${s.changed_count??0} · Blockierend: ${s.blocking_count??0} · Warnungen: ${s.warning_row_count??0} · Backend: ${data.selected_backend||'–'} · Direkte Web-Ausführung gesperrt`; enableResizableColumns();}
 async function createPlan(){const req=currentRequest(); if(!req.items.length)return; $('status').textContent='Rename-Plan wird erstellt …'; const response=await fetch('/smart-renamer/api/plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(req)}); const data=await response.json(); if(!data.ok){$('status').textContent=data.error||'Rename-Plan konnte nicht erstellt werden.';return;} lastPlan=data.plan;renderPlan(lastPlan);$('prepare').disabled=!lastPlan.executable;$('status').textContent=`Plan ${lastPlan.status} · Änderungen: ${lastPlan.changed_count} · Blockierend: ${lastPlan.blocking_count} · Direkte Web-Ausführung gesperrt`;}
 function renderPlan(plan){$('planPanel').hidden=false;$('planId').textContent=plan.plan_id||'–';$('planHash').textContent=plan.plan_hash||'–';$('planState').textContent=plan.status||'–';$('planState').className='badge '+(plan.status==='awaiting_confirmation'?'ready':plan.status==='blocked'?'blocked':'review');$('planSummary').innerHTML=`<span>Änderungen <b>${plan.changed_count??0}</b></span><span>Blockierend <b>${plan.blocking_count??0}</b></span><span>Warnungen <b>${plan.warning_count??0}</b></span>`;$('planConfirm').textContent=plan.requires_confirmation?'Bestätigung erforderlich':'Keine Bestätigung';$('planExecution').textContent=plan.automatic_execution?'Automatik aktiv':'Direkte Web-Ausführung gesperrt';$('planMessage').textContent=plan.executable?'Plan ist technisch freigabefähig, wird aber noch NICHT ausgeführt.':'Plan ist nicht freigabefähig. Konflikte/Review zuerst beheben.';}
 async function prepareTransaction(){const req=currentRequest(); if(!lastPlan||!lastPlan.executable)return; $('status').textContent='Rollback-Vorbereitung wird gespeichert …'; const response=await fetch('/smart-renamer/api/transaction/prepare',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(req)}); const data=await response.json(); if(!data.ok){$('status').textContent=data.error||'Transaktion konnte nicht vorbereitet werden.';return;} lastPlan=data.plan;renderPlan(lastPlan);$('planMessage').textContent='Rename-Plan und rollback.json wurden vorbereitet. Medien wurden NICHT verändert.';$('status').textContent='Rollback vorbereitet · Dateisystem unverändert · Direkte Web-Ausführung gesperrt';}
-$('profile').onchange=e=>applyProfile(+e.target.value); $('plan').onclick=createPlan; $('prepare').onclick=prepareTransaction; $('addRule').onclick=()=>{rules.push({type:'trim',label:'Leerzeichen bereinigen',source:'Benutzer',enabled:true});selected=rules.length-1;renderRules();selectRule(selected);schedule()}; $('deleteRule').onclick=()=>{if(selected>=0){rules.splice(selected,1);selected=Math.min(selected,rules.length-1);renderRules();if(selected>=0)selectRule(selected);schedule()}}; $('upRule').onclick=()=>{if(selected>0){[rules[selected-1],rules[selected]]=[rules[selected],rules[selected-1]];selected--;renderRules();schedule()}}; $('downRule').onclick=()=>{if(selected>=0&&selected<rules.length-1){[rules[selected+1],rules[selected]]=[rules[selected],rules[selected+1]];selected++;renderRules();schedule()}}; $('pickFiles').onclick=()=>pickPaths('files');$('pickFolder').onclick=()=>pickPaths('folder');$('preview').onclick=preview; $('paths').oninput=schedule; ['enabled','type','source','old','new','value','case','start','padding','schema'].forEach(id=>$(id).addEventListener(id==='enabled'?'change':'input',saveEditor)); init().catch(e=>$('status').textContent=String(e));
+$('type').addEventListener('change',e=>showRulePage(e.target.value));
+$('applyRule').onclick=()=>{saveEditor();schedule();};
+$('newRule').onclick=()=>{addRule();schedule();};
+$('schemaAdd').onclick=()=>{const t=$('schemaPart').value,o=document.createElement('option');o.value=t;o.textContent=schemaLabel(t);$('schemaOrder').appendChild(o);saveEditor();};
+$('schemaRemove').onclick=()=>{const e=$('schemaOrder'),i=e.selectedIndex;if(i>=0){e.remove(i);saveEditor();}};
+$('schemaUp').onclick=()=>{const e=$('schemaOrder'),i=e.selectedIndex;if(i>0){const o=e.options[i];e.insertBefore(o,e.options[i-1]);e.selectedIndex=i-1;}};
+$('schemaDown').onclick=()=>{const e=$('schemaOrder'),i=e.selectedIndex;if(i>=0&&i<e.options.length-1){const o=e.options[i];e.insertBefore(e.options[i+1],o);e.selectedIndex=i+1;}};
+$('schemaApply').onclick=()=>{$('schema').value=schemaOrderValues().join(' - ');saveEditor();};
+$('profile').onchange=e=>applyProfile(+e.target.value); $('plan').onclick=createPlan; $('prepare').onclick=prepareTransaction; $('addRule').onclick=()=>{rules.push({type:'trim',label:'Leerzeichen bereinigen',source:'Benutzer',enabled:true});selected=rules.length-1;renderRules();selectRule(selected);schedule()}; $('deleteRule').onclick=()=>{if(selected>=0){rules.splice(selected,1);selected=Math.min(selected,rules.length-1);renderRules();if(selected>=0)selectRule(selected);schedule()}}; $('upRule').onclick=()=>{if(selected>0){[rules[selected-1],rules[selected]]=[rules[selected],rules[selected-1]];selected--;renderRules();schedule()}}; $('downRule').onclick=()=>{if(selected>=0&&selected<rules.length-1){[rules[selected+1],rules[selected]]=[rules[selected],rules[selected+1]];selected++;renderRules();schedule()}}; $('pickFiles').onclick=()=>pickPaths('files');$('pickFolder').onclick=()=>pickPaths('folder');$('preview').onclick=preview; $('paths').oninput=schedule;
+const liveEditorFields=['enabled','type','source','old','new','value','case','start','padding','schema','position','length','countChars','needle','regexPattern','regexReplacement','caseSensitive','replaceAll','wholeWord','includeMatch','relativeMode','relativeMode2','separators'];
+liveEditorFields.forEach(id=>{const el=$(id);if(!el)return;el.addEventListener((el.type==='checkbox'||el.tagName==='SELECT')?'change':'input',saveEditor);});
+$('live').addEventListener('change',()=>{if($('live').checked)schedule();});
+init().catch(e=>$('status').textContent=String(e));
+enableResizableColumns();
 </script>
 <section id="relation-preview-v058" data-ui-version="0.5.9" class="mh-preview-panel">
   <div class="mh-preview-toolbar">
@@ -116,7 +191,7 @@ $('profile').onchange=e=>applyProfile(+e.target.value); $('plan').onclick=create
   <div class="mh-preview-layout">
     <aside class="mh-preview-tree"><h3>Bibliothek</h3><div id="mh-preview-groups"></div></aside>
     <main class="mh-preview-table-wrap">
-      <table class="mh-preview-table">
+      <table class="mh-preview-table preview-resizable">
         <thead><tr><th>Status</th><th>Original</th><th>Vorschlag</th><th>Relation</th><th>Confidence</th><th>Priorität</th><th>Entscheidung</th></tr></thead>
         <tbody id="mh-preview-rows"></tbody>
       </table>
