@@ -199,7 +199,7 @@
     }
   },
   "license": {
-    "project_license": "TBD",
+    "project_license": "Proprietary",
     "third_party_licenses": [
       {
         "name": "ReNamer",

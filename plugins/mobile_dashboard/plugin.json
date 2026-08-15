@@ -53,5 +53,9 @@
       "shell": true
     },
     "route": "/mobile"
+  },
+  "license": {
+    "project_license": "Proprietary",
+    "third_party_licenses": []
   }
 }

@@ -44,7 +44,7 @@
     "order": 100
   },
   "license": {
-    "project_license": "TBD",
+    "project_license": "Proprietary",
     "third_party_licenses": []
   },
   "minimum_mediahub": "1.0.17"

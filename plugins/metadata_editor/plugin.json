@@ -42,5 +42,9 @@
       "order": 30,
       "shell": false
     }
+  },
+  "license": {
+    "project_license": "Proprietary",
+    "third_party_licenses": []
   }
 }

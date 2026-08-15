@@ -52,5 +52,9 @@
       "shell": true
     },
     "route": "/"
+  },
+  "license": {
+    "project_license": "Proprietary",
+    "third_party_licenses": []
   }
 }

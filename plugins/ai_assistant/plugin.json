@@ -766,5 +766,9 @@
       "maximum_frames": 4,
       "requires_user_approval": true
     }
+  },
+  "license": {
+    "project_license": "Proprietary",
+    "third_party_licenses": []
   }
 }

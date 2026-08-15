@@ -704,6 +704,7 @@ ALLOWED_RELEASE_ROOTS = (
 
 ALLOWED_RELEASE_FILES = {
     ".gitignore",
+    "LICENSE",
     "README.md",
     "pyproject.toml",
     "CHANGELOG.md",
