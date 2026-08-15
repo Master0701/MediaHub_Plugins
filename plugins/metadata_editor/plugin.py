@@ -22,7 +22,7 @@ from mediahub_web_core.settings import WebRuntimeSettingsStore, connection_info
 class MediaHubMetadataEditorPlugin:
     """Lokaler, sicherer Metadaten- und NFO-Editor für MediaHub."""
 
-    VERSION = "0.3.8"
+    VERSION = "0.4.1"
     EDITABLE_FIELDS = (
         "title", "description", "year", "season", "episode",
         "series", "channel", "playlist", "published_at",
@@ -56,8 +56,12 @@ class MediaHubMetadataEditorPlugin:
         self.data_dir = self.base_dir / "plugin_data" / "metadata_editor"
         self.drafts_file = self.data_dir / "drafts.json"
         self.backup_dir = self.data_dir / "backups"
+        self.recovery_dir = self.data_dir / "recovery"
         self.local_folder_state_file = self.data_dir / "local_folder.json"
+        self.local_sources_file = self.data_dir / "local_sources.json"
+        self.scan_state_file = self.data_dir / "scan_state.json"
         self._draft_lock = threading.Lock()
+        self._session_drafts: dict[str, dict[str, Any]] = {}
         self._register_routes()
 
     def start(self):
@@ -232,8 +236,12 @@ class MediaHubMetadataEditorPlugin:
         return {
             "version": self.VERSION,
             "url": f"{active_url}/metadata-editor" if active_url else "/metadata-editor",
-            "drafts_file": str(self.drafts_file),
+            "drafts_file": "",
+            "draft_storage": "session_only",
             "backup_dir": str(self.backup_dir),
+            "recovery_dir": str(self.recovery_dir),
+            "local_sources_file": str(self.local_sources_file),
+            "scan_state_file": str(self.scan_state_file),
             "write_api_available": self._write_api_available(),
             "direct_nfo_available": True,
         }
@@ -324,41 +332,186 @@ class MediaHubMetadataEditorPlugin:
             result.append(normalized)
         return result
 
-    def _load_last_local_folder(self) -> str:
-        if not self.local_folder_state_file.exists():
-            return ""
-        try:
-            data = json.loads(
-                self.local_folder_state_file.read_text(encoding="utf-8-sig")
-            )
-            value = str((data or {}).get("folder") or "").strip()
-            return value if value and Path(value).is_dir() else ""
-        except Exception:
-            return ""
 
-    def _save_last_local_folder(self, folder: Path) -> None:
+    def _load_local_sources(self) -> list[str]:
+        # Nur Quellordner werden dauerhaft gespeichert, keine Medienliste.
+        sources: list[str] = []
+        if self.local_sources_file.exists():
+            try:
+                data = json.loads(
+                    self.local_sources_file.read_text(encoding="utf-8-sig")
+                )
+                raw_sources = data.get("sources", []) if isinstance(data, dict) else []
+                seen: set[str] = set()
+                for value in raw_sources:
+                    path = Path(str(value or "")).expanduser()
+                    if not path.is_dir():
+                        continue
+                    resolved = str(path.resolve())
+                    key = resolved.casefold()
+                    if key not in seen:
+                        seen.add(key)
+                        sources.append(resolved)
+            except Exception:
+                sources = []
+
+        if not sources and self.local_folder_state_file.exists():
+            try:
+                legacy = json.loads(
+                    self.local_folder_state_file.read_text(encoding="utf-8-sig")
+                )
+                value = str((legacy or {}).get("folder") or "").strip()
+                path = Path(value).expanduser() if value else None
+                if path is not None and path.is_dir():
+                    sources = [str(path.resolve())]
+                    self._save_local_sources(sources)
+            except Exception:
+                pass
+        return sources
+
+    def _save_local_sources(self, sources) -> None:
+        unique: list[str] = []
+        seen: set[str] = set()
+        for value in sources or []:
+            path = Path(str(value or "")).expanduser()
+            if not path.is_dir():
+                continue
+            resolved = str(path.resolve())
+            key = resolved.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            unique.append(resolved)
+
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        temporary = self.local_folder_state_file.with_suffix(".tmp")
+        temporary = self.local_sources_file.with_suffix(".tmp")
         temporary.write_text(
             json.dumps(
-                {"folder": str(folder.resolve())},
+                {"schema_version": 1, "sources": unique},
                 ensure_ascii=False,
                 indent=2,
             ),
             encoding="utf-8",
         )
-        temporary.replace(self.local_folder_state_file)
+        temporary.replace(self.local_sources_file)
+
+    def remember_local_source(self, folder) -> list[str]:
+        root = Path(str(folder or "")).expanduser()
+        if not root.is_dir():
+            raise ValueError("Der ausgewählte Ordner wurde nicht gefunden.")
+        resolved = str(root.resolve())
+        sources = self._load_local_sources()
+        if resolved.casefold() not in {source.casefold() for source in sources}:
+            sources.append(resolved)
+            self._save_local_sources(sources)
+        return self._load_local_sources()
+
+    def forget_local_source(self, folder) -> list[str]:
+        target = str(Path(str(folder or "")).expanduser().resolve()).casefold()
+        sources = [
+            source
+            for source in self._load_local_sources()
+            if source.casefold() != target
+        ]
+        self._save_local_sources(sources)
+        return sources
+
+    def _load_last_local_folder(self) -> str:
+        sources = self._load_local_sources()
+        return sources[-1] if sources else ""
+
+    def _save_last_local_folder(self, folder: Path) -> None:
+        self.remember_local_source(folder)
+
+    def _load_scan_state(self) -> dict[str, dict[str, int]]:
+        if not self.scan_state_file.exists():
+            return {}
+        try:
+            data = json.loads(
+                self.scan_state_file.read_text(encoding="utf-8-sig")
+            )
+            files = data.get("files", {}) if isinstance(data, dict) else {}
+            return files if isinstance(files, dict) else {}
+        except Exception:
+            return {}
+
+    def _save_scan_state(self, state: dict[str, dict[str, int]]) -> None:
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        temporary = self.scan_state_file.with_suffix(".tmp")
+        temporary.write_text(
+            json.dumps(
+                {"schema_version": 1, "files": state},
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        temporary.replace(self.scan_state_file)
+
+    @staticmethod
+    def _scan_signature(path: Path) -> dict[str, int]:
+        stat = path.stat()
+        return {
+            "size": int(stat.st_size),
+            "mtime_ns": int(stat.st_mtime_ns),
+        }
+
+    @staticmethod
+    def _scan_state_belongs_to_root(state_path: str, root: Path) -> bool:
+        try:
+            Path(state_path).resolve().relative_to(root.resolve())
+            return True
+        except (OSError, ValueError):
+            return False
+
+    def scan_local_sources(
+        self,
+        *,
+        recursive: bool = True,
+    ) -> list[dict[str, Any]]:
+        result: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for source in self._load_local_sources():
+            try:
+                items = self.scan_local_folder(
+                    source,
+                    recursive=recursive,
+                    remember_source=False,
+                )
+            except (OSError, ValueError):
+                continue
+            for item in items:
+                key = str(
+                    item.get("path")
+                    or item.get("file_path")
+                    or item.get("id")
+                    or ""
+                ).casefold()
+                if key and key in seen:
+                    continue
+                if key:
+                    seen.add(key)
+                result.append(item)
+        return result
 
     def scan_local_folder(
         self,
         folder,
         *,
         recursive: bool = True,
+        remember_source: bool = True,
     ) -> list[dict[str, Any]]:
-        """Liest lokale Medien ein, ohne Dateien oder Metadaten zu verändern."""
         root = Path(str(folder or "")).expanduser()
         if not root.is_dir():
             raise ValueError("Der ausgewählte Ordner wurde nicht gefunden.")
+        root = root.resolve()
+
+        if remember_source:
+            self.remember_local_source(root)
+
+        previous_scan_state = self._load_scan_state()
+        next_scan_state = dict(previous_scan_state)
+        seen_in_root: set[str] = set()
 
         iterator = root.rglob("*") if recursive else root.glob("*")
         files = sorted(
@@ -373,12 +526,27 @@ class MediaHubMetadataEditorPlugin:
 
         result = []
         for position, path in enumerate(files):
+            resolved_path = path.resolve()
+            state_key = str(resolved_path)
+            signature = self._scan_signature(resolved_path)
+            previous_signature = previous_scan_state.get(state_key)
+
+            if previous_signature is None:
+                scan_status = "new"
+            elif previous_signature != signature:
+                scan_status = "changed"
+            else:
+                scan_status = "unchanged"
+
+            next_scan_state[state_key] = signature
+            seen_in_root.add(state_key.casefold())
+
             item = {
-                "id": f"local:{path.resolve()}",
+                "id": f"local:{resolved_path}",
                 "title": path.stem,
                 "filename": path.name,
-                "path": str(path.resolve()),
-                "file_path": str(path.resolve()),
+                "path": str(resolved_path),
+                "file_path": str(resolved_path),
                 "folder": str(path.parent.resolve()),
                 "source_type": "local_folder",
                 "local_exists": True,
@@ -392,9 +560,14 @@ class MediaHubMetadataEditorPlugin:
                 "channel": "",
                 "playlist": "",
                 "published_at": "",
+                "scan_status": scan_status,
+                "scan_size": signature["size"],
+                "scan_mtime_ns": signature["mtime_ns"],
             }
 
-            nfo_values, nfo_path, nfo_exists, nfo_error = self._read_nfo_metadata(item)
+            nfo_values, nfo_path, nfo_exists, nfo_error = (
+                self._read_nfo_metadata(item)
+            )
             for key, value in nfo_values.items():
                 if value not in (None, ""):
                     item[key] = value
@@ -404,9 +577,15 @@ class MediaHubMetadataEditorPlugin:
             item["nfo_error"] = nfo_error
             result.append(item)
 
-        self._save_last_local_folder(root)
-        return self._normalize_items(result)
+        for state_key in list(next_scan_state):
+            if (
+                self._scan_state_belongs_to_root(state_key, root)
+                and state_key.casefold() not in seen_in_root
+            ):
+                next_scan_state.pop(state_key, None)
 
+        self._save_scan_state(next_scan_state)
+        return self._normalize_items(result)
     def _clean_changes(self, payload):
         source = dict(payload or {})
         original, edited = dict(source.get("original") or {}), dict(source.get("edited") or {})
@@ -459,6 +638,16 @@ class MediaHubMetadataEditorPlugin:
             return self._json({"ok": False, "message": str(error)}, 500)
         if not isinstance(result, dict):
             result = {"ok": bool(result), "message": "Metadaten-Aktion ausgeführt."}
+        if result.get("ok"):
+            recovery = self._record_recovery(
+                action="metadata.update",
+                item_id=item_id,
+                target=str(edited.get("path") or original.get("path") or ""),
+                before=original,
+                after=edited,
+                result=result,
+            )
+            result.setdefault("recovery", str(recovery))
         return self._json(result, 200 if result.get("ok") else 409)
 
     def _media_path(self, item: dict) -> Path | None:
@@ -608,6 +797,49 @@ class MediaHubMetadataEditorPlugin:
         shutil.copy2(source, target)
         return target
 
+
+    def _record_recovery(
+        self,
+        *,
+        action: str,
+        item_id: str,
+        target: str = "",
+        before=None,
+        after=None,
+        backup: str = "",
+        result=None,
+    ) -> Path:
+        self.recovery_dir.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        safe_id = "".join(
+            char if char.isalnum() or char in "-_" else "_"
+            for char in str(item_id or "media")
+        )[:80] or "media"
+        path = self.recovery_dir / f"{stamp}_{safe_id}.json"
+        payload = {
+            "schema_version": 1,
+            "created_at": datetime.now().isoformat(timespec="seconds"),
+            "action": str(action or ""),
+            "item_id": str(item_id or ""),
+            "target": str(target or ""),
+            "backup": str(backup or ""),
+            "before": deepcopy(before),
+            "after": deepcopy(after),
+            "result": deepcopy(result),
+        }
+        temporary = path.with_suffix(".tmp")
+        temporary.write_text(
+            json.dumps(
+                payload,
+                ensure_ascii=False,
+                indent=2,
+                default=str,
+            ),
+            encoding="utf-8",
+        )
+        temporary.replace(path)
+        return path
+
     @staticmethod
     def _set_xml_text(root: ET.Element, tag: str, value: Any):
         node = root.find(tag)
@@ -649,7 +881,24 @@ class MediaHubMetadataEditorPlugin:
             temporary.replace(nfo_path)
         except Exception as error:
             return self._json({"ok": False, "message": f"NFO konnte nicht gespeichert werden: {error}"}, 500)
-        return self._json({"ok": True, "message": "NFO UTF-8-sicher gespeichert.", "path": str(nfo_path), "backup": str(backup or "")})
+        recovery = self._record_recovery(
+            action="nfo.write",
+            item_id=item_id,
+            target=str(nfo_path),
+            before={"backup": str(backup or ""), "existed": bool(backup)},
+            after={
+                field: edited.get(field, item.get(field, ""))
+                for field in self.EDITABLE_FIELDS
+            },
+            backup=str(backup or ""),
+        )
+        return self._json({
+            "ok": True,
+            "message": "NFO UTF-8-sicher gespeichert.",
+            "path": str(nfo_path),
+            "backup": str(backup or ""),
+            "recovery": str(recovery),
+        })
 
     def _replace_image(self, payload, request=None):
         source = dict(payload or {})
@@ -675,27 +924,43 @@ class MediaHubMetadataEditorPlugin:
                 existing.unlink()
         except Exception as error:
             return self._json({"ok": False, "message": f"Bild konnte nicht ersetzt werden: {error}"}, 500)
-        return self._json({"ok": True, "message": f"{kind.capitalize()} wurde ersetzt.", "path": str(target), "backup": str(backup or "")})
+        recovery = self._record_recovery(
+            action="image.replace",
+            item_id=item_id,
+            target=str(target),
+            before={
+                "backup": str(backup or ""),
+                "previous": str(existing or ""),
+            },
+            after={
+                "source": str(source_path),
+                "target": str(target),
+                "kind": kind,
+            },
+            backup=str(backup or ""),
+        )
+        return self._json({
+            "ok": True,
+            "message": f"{kind.capitalize()} wurde ersetzt.",
+            "path": str(target),
+            "backup": str(backup or ""),
+            "recovery": str(recovery),
+        })
 
     def _read_drafts(self):
         with self._draft_lock:
             return self._read_drafts_unlocked()
 
+
     def _read_drafts_unlocked(self):
-        if not self.drafts_file.exists():
-            return {}
-        try:
-            data = json.loads(self.drafts_file.read_text(encoding="utf-8-sig"))
-            return data if isinstance(data, dict) else {}
-        except Exception:
-            return {}
+        return deepcopy(self._session_drafts)
 
     def _write_drafts_unlocked(self, drafts):
-        self.data_dir.mkdir(parents=True, exist_ok=True)
-        temporary = self.drafts_file.with_suffix(".tmp")
-        temporary.write_text(json.dumps(drafts, ensure_ascii=False, indent=2), encoding="utf-8")
-        temporary.replace(self.drafts_file)
+        self._session_drafts = deepcopy(dict(drafts or {}))
 
+    def clear_session_drafts(self) -> None:
+        with self._draft_lock:
+            self._session_drafts.clear()
     def create_widget(self, parent=None):
         """Erzeugt die native Metadata-Editor-Oberfläche für MediaHub."""
         return NativeMetadataEditorWidget(self, parent=parent)
@@ -716,7 +981,10 @@ class NativeMetadataEditorWidget(QWidget):
         self._items = []
         self._library_items = []
         self._local_items = []
-        self._local_folder = self.plugin._load_last_local_folder()
+        self._local_sources = self.plugin._load_local_sources()
+        self._local_folder = (
+            self._local_sources[-1] if self._local_sources else ""
+        )
         self._current = None
         self._loading = False
 
@@ -1001,10 +1269,16 @@ class NativeMetadataEditorWidget(QWidget):
         self._refresh_ai_metadata_status()
         self.refresh()
 
+
     def refresh(self):
         from PySide6.QtWidgets import QMessageBox
+
         try:
-            raw = self.plugin.mediahub_api.get_library_videos() if self.plugin.mediahub_api else []
+            raw = (
+                self.plugin.mediahub_api.get_library_videos()
+                if self.plugin.mediahub_api
+                else []
+            )
             if isinstance(raw, dict):
                 raw = raw.get("videos", raw.get("items", []))
             self._library_items = self.plugin._normalize_items(raw)
@@ -1016,19 +1290,21 @@ class NativeMetadataEditorWidget(QWidget):
                 f"MediaHub-Bibliothek konnte nicht geladen werden:\n{error}",
             )
 
-        if self._local_folder:
+        self._local_sources = self.plugin._load_local_sources()
+        if self._local_sources:
             try:
-                self._local_items = self.plugin.scan_local_folder(self._local_folder)
+                self._local_items = self.plugin.scan_local_sources()
             except Exception as error:
                 self._local_items = []
                 QMessageBox.warning(
                     self,
                     "Metadata Editor",
-                    f"Lokaler Ordner konnte nicht aktualisiert werden:\n{error}",
+                    f"Lokale Quellen konnten nicht aktualisiert werden:\n{error}",
                 )
+        else:
+            self._local_items = []
 
         self._rebuild_items()
-
     def _rebuild_items(self):
         merged = {}
         for item in [*self._library_items, *self._local_items]:
@@ -1052,31 +1328,38 @@ class NativeMetadataEditorWidget(QWidget):
         self._items = list(merged.values())
         self._apply_filter()
 
+
     def _choose_local_folder(self):
         from PySide6.QtWidgets import QFileDialog, QMessageBox
 
         start = self._local_folder or str(self.plugin.base_dir)
         folder = QFileDialog.getExistingDirectory(
             self,
-            "Medienordner auswählen",
+            "Medienordner hinzufügen",
             start,
         )
         if not folder:
             return
 
         try:
+            self._local_sources = self.plugin.remember_local_source(folder)
             self._local_folder = folder
-            self._local_items = self.plugin.scan_local_folder(folder)
+            self._local_items = self.plugin.scan_local_sources()
             self._rebuild_items()
+
             for row in range(self.categories.count()):
                 item = self.categories.item(row)
                 if item and item.text() == "Lokaler Ordner":
                     self.categories.setCurrentRow(row)
                     break
+
             QMessageBox.information(
                 self,
                 "Metadata Editor",
-                f"{len(self._local_items)} lokale Mediendatei(en) eingelesen.",
+                (
+                    f"{len(self._local_items)} lokale Mediendatei(en) aus "
+                    f"{len(self._local_sources)} Quelle(n) eingelesen."
+                ),
             )
         except Exception as error:
             QMessageBox.warning(
@@ -1084,7 +1367,6 @@ class NativeMetadataEditorWidget(QWidget):
                 "Metadata Editor",
                 f"Ordner konnte nicht eingelesen werden:\n{error}",
             )
-
     def _select_source_category(self, label):
         for row in range(self.categories.count()):
             item = self.categories.item(row)

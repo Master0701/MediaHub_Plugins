@@ -1,13 +1,25 @@
 # Changelog
 
+## 0.4.1
+
+- Mehrere lokale Quellordner können dauerhaft als Medienquellen gespeichert werden.
+- Gespeicherte Quellordner können gemeinsam erneut und rekursiv eingelesen werden.
+- Beim erneuten Scan werden Dateien als `new`, `changed` oder `unchanged` erkannt.
+- Für die Änderungsverfolgung werden nur leichte Dateisignaturen aus Pfad, Größe und Änderungszeit verwendet.
+- Es wird keine dauerhafte vollständige Medien- oder Dateiliste geführt.
+- Die bisherige Einzelordner-Konfiguration wird in die neue Quellenverwaltung übernommen.
+- Metadaten-Entwürfe sind jetzt sitzungsbezogen und werden nicht mehr dauerhaft in `drafts.json` gespeichert.
+- Sitzungsentwürfe können vollständig verworfen werden.
+- Für tatsächliche Änderungen ist eine dauerhafte Recovery-Grundlage mit Vorher-/Nachher-Zustand vorbereitet.
+- Recovery-Daten werden getrennt von temporären Bearbeitungsentwürfen gespeichert.
+- Metadata Write bleibt weiterhin gesperrt; Schreibvorgänge erfolgen noch nicht automatisch.
+- Regressionstests für Quellenverwaltung, Neu-Scan, Sitzungsentwürfe und Recovery ergänzt.
 ## 0.3.8
 - Kleine **Poster-Vorschau** direkt neben den Metadaten.
 - Automatische Suche nach `poster.jpg/png` und `folder.jpg/png`.
 - Explizite Poster-/Cover-Pfade aus MediaHub-Einträgen werden berücksichtigt.
 - Nach **Poster ersetzen** wird die Vorschau sofort aktualisiert.
 - Fehlende oder unlesbare Poster werden eindeutig angezeigt.
-
-# Changelog
 
 ## 0.3.7
 - Neuer Button **Ordner laden…** in der nativen Metadata-Editor-Oberfläche.
