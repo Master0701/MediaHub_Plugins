@@ -33,7 +33,7 @@ def test_merge_preserves_user_values_and_new_defaults_without_importing_module()
     module = ast.Module(body=[fn], type_ignores=[])
     ast.fix_missing_locations(module)
 
-    namespace = {}
+    namespace = {"Any": object}
     exec(compile(module, str(SOURCE), "exec"), namespace)
     merge = namespace["_merge_source_configs"]
 
