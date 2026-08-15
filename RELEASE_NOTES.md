@@ -1,4 +1,4 @@
-# MediaHub Plugins v0.5.11 – Metadata-, KI- und Smart-Renamer-Update
+# MediaHub Plugins v0.5.11 – vollständiges Release
 
 ## MediaHub KI-Assistent v7.0.7
 
@@ -35,6 +35,11 @@
 - Metadata Write bleibt weiterhin gesperrt; KI-Ergebnisse sind aktuell ausschließlich Vorschläge/Entwürfe.
 - Umfangreiche Layout-, Dialog-, Ordner-, Poster- und KI-Metadaten-Tests ergänzt.
 
+## MediaHub Mobile Dashboard v0.1.7
+
+- Unveränderter Plugin-Stand in diesem Release.
+- Mobile Oberfläche für Handy und Tablet mit gemeinsamer lokaler MediaHub-Webbasis.
+
 ## MediaHub Smart Renamer v0.5.17
 
 - Zusammenarbeit mit dem MediaHub KI-Assistenten deutlich erweitert.
@@ -50,25 +55,10 @@
 - Native und optionale externe Backends bleiben getrennt und über die bestehende Backend-Auswahl steuerbar.
 - Umfangreiche neue Tests für KI-Review, Batch-Review, Metadaten-Anbindung und technische Dateinamenerkennung ergänzt.
 
-## MediaHub Mobile Dashboard v0.1.7
-
-- Unveränderter Plugin-Stand in diesem Release.
-- Mobile Oberfläche für Handy und Tablet mit gemeinsamer lokaler MediaHub-Webbasis.
-
 ## MediaHub WebRemote v0.13.7
 
 - Unveränderter Plugin-Stand in diesem Release.
 - Lokale Desktop-/PC-Weboberfläche für MediaHub.
-
-## MediaHub Hörbuchverwaltung v0.0.0
-
-- Weiterhin geplanter Plugin-Stand.
-- Noch kein veröffentlichungsfähiger Funktionsstand.
-
-## MediaHub Listen & Export v0.0.0
-
-- Weiterhin geplanter Plugin-Stand.
-- Noch kein veröffentlichungsfähiger Funktionsstand.
 
 ## MediaHub AI Test Provider v1.0.0
 
@@ -77,12 +67,7 @@
 
 ## Gemeinsamer Release-Stand
 
-- MediaHub KI-Assistent auf v7.0.7 aktualisiert.
-- MediaHub Metadata Editor auf v0.4.0 aktualisiert.
-- MediaHub Smart Renamer auf v0.5.17 aktualisiert.
-- Normale MediaHub-Plugins und AI-Node-Plugins bleiben getrennte Plugin-Typen im gemeinsamen Repository.
-- Plugin-Kataloge werden aus den aktuellen Manifesten neu erzeugt.
-- Alle veröffentlichungsfähigen Plugins werden vollständig neu gebaut.
-- Zu jedem erzeugten `.mhplugin` bzw. `.mhaiplugin` wird eine SHA-256-Prüfsumme erstellt.
-- Geplante Plugins mit Version 0.0.0 bleiben sichtbar, werden jedoch nicht als fertige Release-Pakete behandelt.
-- Provider-Zugangsdaten und benutzerspezifische Provider-Einstellungen gehören nicht in Release-Pakete und bleiben bei Updates erhalten.
+- Alle veröffentlichten Plugins wurden aus den aktuellen Manifesten vollständig neu gebaut.
+- Für jedes veröffentlichte Plugin stehen eine `.mhplugin`- oder `.mhaiplugin`-Datei und eine `.sha256`-Prüfsumme bereit.
+- Die MediaHub- und AI-Node-Plugin-Kataloge wurden aus den aktuellen Manifesten erzeugt.
+- Geplante Plugins mit Version 0.0.0 bleiben im Katalog sichtbar, werden aber nicht als veröffentlichte Release-Pakete geprüft.

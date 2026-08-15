@@ -11,8 +11,9 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - **MediaHub Mobile Dashboard 0.1.7**
 - **MediaHub Smart Renamer 0.5.17**
 - **MediaHub WebRemote 0.13.7**
+- **MediaHub AI Test Provider 1.0.0**
 
-# MediaHub Plugins v0.5.11 – Metadata-, KI- und Smart-Renamer-Update
+# MediaHub Plugins v0.5.11 – vollständiges Release
 
 ## MediaHub KI-Assistent v7.0.7
 
@@ -49,6 +50,11 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - Metadata Write bleibt weiterhin gesperrt; KI-Ergebnisse sind aktuell ausschließlich Vorschläge/Entwürfe.
 - Umfangreiche Layout-, Dialog-, Ordner-, Poster- und KI-Metadaten-Tests ergänzt.
 
+## MediaHub Mobile Dashboard v0.1.7
+
+- Unveränderter Plugin-Stand in diesem Release.
+- Mobile Oberfläche für Handy und Tablet mit gemeinsamer lokaler MediaHub-Webbasis.
+
 ## MediaHub Smart Renamer v0.5.17
 
 - Zusammenarbeit mit dem MediaHub KI-Assistenten deutlich erweitert.
@@ -64,25 +70,10 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - Native und optionale externe Backends bleiben getrennt und über die bestehende Backend-Auswahl steuerbar.
 - Umfangreiche neue Tests für KI-Review, Batch-Review, Metadaten-Anbindung und technische Dateinamenerkennung ergänzt.
 
-## MediaHub Mobile Dashboard v0.1.7
-
-- Unveränderter Plugin-Stand in diesem Release.
-- Mobile Oberfläche für Handy und Tablet mit gemeinsamer lokaler MediaHub-Webbasis.
-
 ## MediaHub WebRemote v0.13.7
 
 - Unveränderter Plugin-Stand in diesem Release.
 - Lokale Desktop-/PC-Weboberfläche für MediaHub.
-
-## MediaHub Hörbuchverwaltung v0.0.0
-
-- Weiterhin geplanter Plugin-Stand.
-- Noch kein veröffentlichungsfähiger Funktionsstand.
-
-## MediaHub Listen & Export v0.0.0
-
-- Weiterhin geplanter Plugin-Stand.
-- Noch kein veröffentlichungsfähiger Funktionsstand.
 
 ## MediaHub AI Test Provider v1.0.0
 
@@ -91,15 +82,10 @@ Offizielles Erweiterungs-Repository für MediaHub.
 
 ## Gemeinsamer Release-Stand
 
-- MediaHub KI-Assistent auf v7.0.7 aktualisiert.
-- MediaHub Metadata Editor auf v0.4.0 aktualisiert.
-- MediaHub Smart Renamer auf v0.5.17 aktualisiert.
-- Normale MediaHub-Plugins und AI-Node-Plugins bleiben getrennte Plugin-Typen im gemeinsamen Repository.
-- Plugin-Kataloge werden aus den aktuellen Manifesten neu erzeugt.
-- Alle veröffentlichungsfähigen Plugins werden vollständig neu gebaut.
-- Zu jedem erzeugten `.mhplugin` bzw. `.mhaiplugin` wird eine SHA-256-Prüfsumme erstellt.
-- Geplante Plugins mit Version 0.0.0 bleiben sichtbar, werden jedoch nicht als fertige Release-Pakete behandelt.
-- Provider-Zugangsdaten und benutzerspezifische Provider-Einstellungen gehören nicht in Release-Pakete und bleiben bei Updates erhalten.
+- Alle veröffentlichten Plugins wurden aus den aktuellen Manifesten vollständig neu gebaut.
+- Für jedes veröffentlichte Plugin stehen eine `.mhplugin`- oder `.mhaiplugin`-Datei und eine `.sha256`-Prüfsumme bereit.
+- Die MediaHub- und AI-Node-Plugin-Kataloge wurden aus den aktuellen Manifesten erzeugt.
+- Geplante Plugins mit Version 0.0.0 bleiben im Katalog sichtbar, werden aber nicht als veröffentlichte Release-Pakete geprüft.
 
 ## Kompatibilität
 
@@ -110,10 +96,12 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - **MediaHub Mobile Dashboard 0.1.7** – mindestens MediaHub v1.0.5
 - **MediaHub Smart Renamer 0.5.17** – mindestens MediaHub v1.0.18
 - **MediaHub WebRemote 0.13.7** – mindestens MediaHub v1.0.5
+- **MediaHub AI Test Provider 1.0.0** – AI-Node API 1
 
 ## Projektaufbau
 
-- `plugins/` – getrennte, einzeln installierbare Plugins
+- `plugins/` – MediaHub-Plugins (`.mhplugin`)
+- `ai_node_plugins/` – AI-Node-/Raspberry-Pi-Plugins (`.mhaiplugin`)
 - `shared/` – gemeinsam genutzte Laufzeiten, APIs und Design-Bausteine
 - `catalog/` – Plugin-Store- und Updatekataloge
 - `docs/` – Architektur-, Design- und Entwicklungsunterlagen
@@ -122,42 +110,19 @@ Offizielles Erweiterungs-Repository für MediaHub.
 
 Jedes Plugin bleibt optional und kann einzeln installiert, aktualisiert und entfernt werden.
 
-## Plugins bauen
+## Release ausführen
 
-Alle Plugins sauber neu erstellen:
-
-```powershell
-python build_plugins.py all --clean
-```
-
-Nur den KI-Assistenten erstellen:
+Lokaler Prüflauf ohne Veröffentlichung:
 
 ```powershell
-python build_plugins.py ai_assistant --clean
+release_plugins.cmd -Tag v0.5.5 -NoPush
 ```
 
-Die fertigen `.mhplugin`-Dateien und `.sha256`-Prüfsummen liegen anschließend unter `release/`.
-
-## Tests
-
-Alle Tests des KI-Assistenten ausführen:
+Vollständiges Release:
 
 ```powershell
-python -m pytest plugins/ai_assistant/tests -q
+release_plugins.cmd -Tag v0.5.5
 ```
 
-Python-Dateien zusätzlich kompilieren:
-
-```powershell
-python -m compileall plugins/ai_assistant
-```
-
-## Release vorbereiten
-
-```powershell
-python prepare_plugin_release.py
-```
-
-Dieser Befehl übernimmt `RELEASE_NOTES_PENDING.md` in die verfolgte Datei
-`RELEASE_NOTES.md` und aktualisiert diese README. Die temporäre Pending-Datei
-bleibt lokal und wird nicht in Git aufgenommen.
+Alle Versions- und Paketnamen werden automatisch aus den jeweiligen
+`plugins/*/plugin.json` und `ai_node_plugins/*/plugin.json` übernommen.
