@@ -1,7 +1,7 @@
 {
   "id": "mediahub.smart_renamer",
   "name": "MediaHub Smart Renamer",
-  "version": "0.5.16",
+  "version": "0.5.17",
   "author": "Master0701",
   "description": "Smart Renamer mit Review-Priorisierung, Konfliktgewichtung und prioritätsbasierter Sortierung in Web/Desktop.",
   "type": "tool",

@@ -2,29 +2,34 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from services.naming_profiles import NamingProfileService
-from services.relation_preview_service import RelationPreviewService
-from services.interactive_preview_service import InteractivePreviewService
-from services.preview_decisions import PreviewDecisionStore
-from services.gui_preview_session import GUIPreviewSession
-from services.optional_preview_integrations import OptionalPreviewIntegrations
-from services.review_service import ReviewService
-from services.ai_review_bridge import AIReviewBridge
-from services.decision_fusion import DecisionFusionService
-from services.decision_evidence import DecisionEvidenceService
-from services.review_priority import ReviewPriorityService
-from services.preview_presentation import PreviewPresentationService
-from services.web_picker_service import WindowsWebPathPicker
+from mediahub_smart_renamer_runtime.services.naming_profiles import NamingProfileService
+from mediahub_smart_renamer_runtime.services.relation_preview_service import RelationPreviewService
+from mediahub_smart_renamer_runtime.services.interactive_preview_service import InteractivePreviewService
+from mediahub_smart_renamer_runtime.services.preview_decisions import PreviewDecisionStore
+from mediahub_smart_renamer_runtime.services.gui_preview_session import GUIPreviewSession
+from mediahub_smart_renamer_runtime.services.optional_preview_integrations import OptionalPreviewIntegrations
+from mediahub_smart_renamer_runtime.services.review_service import ReviewService
+from mediahub_smart_renamer_runtime.services.ai_review_bridge import AIReviewBridge
+from mediahub_smart_renamer_runtime.services.batch_ai_review_bridge import BatchAIReviewBridge
+from mediahub_smart_renamer_runtime.services.metadata_capability_bridge import MetadataCapabilityBridge
+from mediahub_smart_renamer_runtime.services.decision_fusion import DecisionFusionService
+from mediahub_smart_renamer_runtime.services.decision_evidence import DecisionEvidenceService
+from mediahub_smart_renamer_runtime.services.review_priority import ReviewPriorityService
+from mediahub_smart_renamer_runtime.services.preview_presentation import PreviewPresentationService
+from mediahub_smart_renamer_runtime.services.candidate_review_context import CandidateReviewContextService
+from mediahub_smart_renamer_runtime.services.ai_review_recommendation import AIReviewRecommendationService
+from mediahub_smart_renamer_runtime.services.ai_review_comparison import AIReviewComparisonService
+from mediahub_smart_renamer_runtime.services.web_picker_service import WindowsWebPathPicker
 from typing import Any
 
-from services.backend_registry import RenamerBackendRegistry
-from services.preview_service import RenamePreviewService
-from services.profile_service import ProfileService
-from services.learning_store import LearningStore
-from services.optional_integrations import OptionalIntegrationManager
-from services.rename_plan import RenamePlanService
-from services.transaction_service import RenameTransactionService
-from services.rule_stack_merge import merge_profile_rules
+from mediahub_smart_renamer_runtime.services.backend_registry import RenamerBackendRegistry
+from mediahub_smart_renamer_runtime.services.preview_service import RenamePreviewService
+from mediahub_smart_renamer_runtime.services.profile_service import ProfileService
+from mediahub_smart_renamer_runtime.services.learning_store import LearningStore
+from mediahub_smart_renamer_runtime.services.optional_integrations import OptionalIntegrationManager
+from mediahub_smart_renamer_runtime.services.rename_plan import RenamePlanService
+from mediahub_smart_renamer_runtime.services.transaction_service import RenameTransactionService
+from mediahub_smart_renamer_runtime.services.rule_stack_merge import merge_profile_rules
 
 
 class MediaHubSmartRenamerPlugin:
@@ -60,6 +65,9 @@ class MediaHubSmartRenamerPlugin:
         self.optional_preview_integrations = OptionalPreviewIntegrations()
         self.review_service = ReviewService()
         self.preview_presentation = PreviewPresentationService()
+        self.candidate_review_context = CandidateReviewContextService()
+        self.ai_review_recommendation = AIReviewRecommendationService()
+        self.ai_review_comparison = AIReviewComparisonService()
         self.web_path_picker = WindowsWebPathPicker(
             self.plugin_path / "tools" / "web_path_picker.ps1"
         )
@@ -83,6 +91,8 @@ class MediaHubSmartRenamerPlugin:
         self.profile_service = ProfileService(self.plugin_path)
         self.integrations = OptionalIntegrationManager(self.mediahub_api)
         self.ai_review_bridge = AIReviewBridge(self.integrations)
+        self.batch_ai_review_bridge = BatchAIReviewBridge(self.integrations)
+        self.metadata_capability_bridge = MetadataCapabilityBridge(self.integrations)
         self.decision_fusion_service = DecisionFusionService()
         self.decision_evidence_service = DecisionEvidenceService()
         self.review_priority_service = ReviewPriorityService()
@@ -789,14 +799,88 @@ class MediaHubSmartRenamerPlugin:
     def classify_preview_review(self, row):
         return self.review_service.classify(dict(row or {}))
 
+    def batch_ai_review_status(self):
+        status=self.batch_ai_review_bridge.status()
+        status["metadata"] = self.metadata_capability_bridge.status()
+        return status
+
+    def analyze_batch_with_ai(self, items, *, reference=None, schema=None):
+        enriched=[]
+        metadata_status=self.metadata_capability_bridge.status()
+        for raw in list(items or []):
+            item=dict(raw or {})
+            path=str(item.get("source_path") or item.get("path") or "")
+            detected={
+                "media_type":str(item.get("media_type") or ""),
+                "title":str(item.get("title") or ""),
+                "year":str(item.get("year") or ""),
+                "season":str(item.get("season") or ""),
+                "episode":str(item.get("episode") or ""),
+                "series":str(item.get("series") or ""),
+            }
+            if metadata_status.get("read"):
+                item["metadata_read"] = self.metadata_capability_bridge.read({"path":path,"item":item})
+            if metadata_status.get("review"):
+                item["metadata_review"] = self.metadata_capability_bridge.review({"path":path,"item":item,"detected":detected})
+            try:
+                item["local_review"] = self.analyze_review_with_ai(item)
+            except Exception:
+                item["local_review"] = {}
+            enriched.append(item)
+        result=self.batch_ai_review_bridge.analyze({
+            "items":enriched,
+            "reference":dict(reference or {}),
+            "schema":dict(schema or {}),
+            "metadata_status":metadata_status,
+        })
+        result["metadata_status"]=metadata_status
+        result["execution_allowed"]=False
+        result["automatic_apply_allowed"]=False
+        result["metadata_write_allowed"]=False
+        result["human_confirmation_required"]=True
+        return result
+
     def ai_review_status(self):
         return self.ai_review_bridge.status()
 
     def analyze_review_with_ai(self, payload):
-        result = self.ai_review_bridge.analyze(dict(payload or {}))
+        review_context = self.candidate_review_context.build(
+            dict(payload or {})
+        )
+        result = self.ai_review_bridge.analyze(review_context)
+        structured = self.ai_review_recommendation.normalize(
+            result,
+            review_context,
+        )
+        result["structured_recommendation"] = structured
+        result["recommended_candidate_id"] = str(
+            structured.get("candidate_id") or ""
+        )
+        result["recommended_fields"] = dict(
+            structured.get("fields") or {}
+        )
+        result["candidate_count"] = int(
+            review_context.get("candidate_count") or 0
+        )
+        result["selected_candidate_id"] = str(
+            review_context.get("selected_candidate_id") or ""
+        )
+        result["review_context_enriched"] = True
         result["execution_locked"] = True
         result["execution_allowed"] = False
         result["requires_human_confirmation"] = True
+        result["human_confirmation_required"] = True
+        return result
+
+    def compare_review_recommendation(self, payload, ai_result=None):
+        source = dict(payload or {})
+        ai = dict(ai_result or {})
+        if not ai:
+            ai = self.analyze_review_with_ai(source)
+        result = self.ai_review_comparison.compare(source, ai)
+        result["execution_locked"] = True
+        result["execution_allowed"] = False
+        result["automatic_apply_allowed"] = False
         result["human_confirmation_required"] = True
         return result
 
@@ -837,8 +921,12 @@ class MediaHubSmartRenamerPlugin:
         )
         return {
             "ai": ai_result,
+            "structured_recommendation": dict(
+                ai_result.get("structured_recommendation") or {}
+            ),
             "fusion": fusion,
             "evidence": evidence,
+            "automatic_apply_allowed": False,
             "execution_locked": True,
             "execution_allowed": False,
             "human_confirmation_required": True,
@@ -906,6 +994,9 @@ class NativeSmartRenamerWidget:
                 # Review/KI state must exist BEFORE _build().
                 # During widget construction Qt can emit selection signals.
                 self.last_ai_review = None
+                self.last_batch_ai_review = None
+                self.ai_reference_meta = None
+                self.last_ai_comparison = None
                 self.last_fusion_result = None
                 self.last_evidence_result = None
 
@@ -986,6 +1077,14 @@ class NativeSmartRenamerWidget:
 
                 preview_head = QHBoxLayout()
                 preview_head.addWidget(QLabel("Vorschau"))
+
+                self.ai_review_status_label = QLabel("KI: wird geprüft …")
+                self.ai_review_status_label.setMinimumWidth(180)
+                self.ai_review_status_label.setToolTip(
+                    "Aktuell verfügbarer KI-Review-Provider für den Smart Renamer."
+                )
+                preview_head.addWidget(self.ai_review_status_label)
+
                 preview_head.addStretch(1)
                 preview_head.addWidget(QLabel("Suche:"))
                 self.preview_search = QLineEdit()
@@ -1017,46 +1116,73 @@ class NativeSmartRenamerWidget:
                 self.preview_summary = QLabel("0 Einträge · 0 Review · 0 Konflikte")
                 center_layout.addWidget(self.preview_summary)
 
-                preview_actions = QHBoxLayout()
-                for label, state in (
-                    ("Auswahl übernehmen", "accepted"),
-                    ("Auswahl ignorieren", "ignored"),
-                    ("Auswahl prüfen", "review"),
-                ):
-                    button = QPushButton(label)
-                    button.clicked.connect(lambda checked=False, s=state: self._set_selected_preview_state(s))
-                    preview_actions.addWidget(button)
+                preview_actions_top = QHBoxLayout()
+                preview_actions_top.setSpacing(10)
+
+                self.accept_button = QPushButton("Auswahl übernehmen")
+                self.accept_button.clicked.connect(
+                    lambda checked=False: self._set_selected_preview_state("accepted")
+                )
+                self.accept_button.setMinimumWidth(130)
+                preview_actions_top.addWidget(self.accept_button)
+
+                self.ignore_button = QPushButton("Auswahl ignorieren")
+                self.ignore_button.clicked.connect(
+                    lambda checked=False: self._set_selected_preview_state("ignored")
+                )
+                self.ignore_button.setMinimumWidth(125)
+                preview_actions_top.addWidget(self.ignore_button)
+
+                self.review_button = QPushButton("Auswahl prüfen")
+                self.review_button.clicked.connect(
+                    lambda checked=False: self._set_selected_preview_state("review")
+                )
+                self.review_button.setMinimumWidth(115)
+                preview_actions_top.addWidget(self.review_button)
+
                 self.ai_review_button = QPushButton("KI prüfen")
+                self.ai_review_button.setMinimumWidth(95)
                 self.ai_review_button.setToolTip(
-                    "Optionalen KI-Provider für genau einen ausgewählten Review-Fall fragen. "
-                    "Keine Datei wird verändert."
+                    "Ausgewählte Vorschauzeile mit dem verfügbaren KI-Provider prüfen."
                 )
                 self.ai_review_button.clicked.connect(self._run_ai_review_for_selection)
-                preview_actions.addWidget(self.ai_review_button)
+                preview_actions_top.addWidget(self.ai_review_button)
 
-                self.ai_review_status_label = QLabel("KI: wird geprüft …")
-                preview_actions.addWidget(self.ai_review_status_label)
+                self.ai_reference_button = QPushButton("Als Referenz")
+                self.ai_reference_button.setMinimumWidth(110)
+                self.ai_reference_button.clicked.connect(self._set_ai_reference_from_selection)
+                preview_actions_top.addWidget(self.ai_reference_button)
+
+                preview_actions_top.addStretch(1)
+                center_layout.addLayout(preview_actions_top)
+
+                preview_actions_bottom = QHBoxLayout()
+                preview_actions_bottom.setSpacing(10)
+
+                self.ai_batch_button = QPushButton("KI auf Auswahl")
+                self.ai_batch_button.setMinimumWidth(125)
+                self.ai_batch_button.setToolTip(
+                    "Ausgewählte Einträge gemeinsam mit der gesetzten Referenz prüfen."
+                )
+                self.ai_batch_button.clicked.connect(self._run_ai_batch_for_selection)
+                preview_actions_bottom.addWidget(self.ai_batch_button)
 
                 self.fusion_button = QPushButton("Entscheidung vergleichen")
-                self.fusion_button.setToolTip(
-                    "Renamer- und KI-Bewertung vergleichen. "
-                    "Bei Widerspruch bleibt der Fall zwingend auf Bitte prüfen."
-                )
+                self.fusion_button.setMinimumWidth(175)
                 self.fusion_button.clicked.connect(self._run_decision_fusion_for_selection)
-                preview_actions.addWidget(self.fusion_button)
+                preview_actions_bottom.addWidget(self.fusion_button)
 
                 self.evidence_button = QPushButton("Belege anzeigen")
-                self.evidence_button.setToolTip(
-                    "Zeigt nachvollziehbare Quellen, Confidence und Konflikte "
-                    "für den ausgewählten Fall."
-                )
+                self.evidence_button.setMinimumWidth(120)
                 self.evidence_button.clicked.connect(self._run_decision_evidence_for_selection)
-                preview_actions.addWidget(self.evidence_button)
+                preview_actions_bottom.addWidget(self.evidence_button)
 
-                preview_actions.addStretch(1)
                 self.preview_selected_count = QLabel("0 ausgewählt")
-                preview_actions.addWidget(self.preview_selected_count)
-                center_layout.addLayout(preview_actions)
+                self.preview_selected_count.setMinimumWidth(85)
+                preview_actions_bottom.addWidget(self.preview_selected_count)
+
+                preview_actions_bottom.addStretch(1)
+                center_layout.addLayout(preview_actions_bottom)
 
                 self.table = QTableWidget(0, 10)
                 self.table.setHorizontalHeaderLabels(["Status", "Original", "Vorschlag", "Relation", "Confidence", "Review", "Priorität", "Quelle", "Hinweise", "Zielpfad"])
@@ -1082,7 +1208,7 @@ class NativeSmartRenamerWidget:
                 center_layout.addWidget(QLabel("Ausgewählter Eintrag"))
                 self.preview_details = QPlainTextEdit()
                 self.preview_details.setReadOnly(True)
-                self.preview_details.setMaximumHeight(180)
+                self.preview_details.setMaximumHeight(280)
                 self.preview_details.setPlaceholderText("Zeile auswählen, um vollständige Namen und Details zu sehen.")
                 center_layout.addWidget(self.preview_details)
 
@@ -1220,8 +1346,53 @@ class NativeSmartRenamerWidget:
                     + "    Review: "
                     + ("Ja" if meta.get("review_required") else "Nein")
                     + ("\n\nHinweise:\n" + str(meta.get("issues") or "") if meta.get("issues") else "")
+                    + self._format_batch_ai_detail(meta)
                     + self._format_ai_review_detail()
                 )
+
+            def _format_batch_ai_detail(self, meta):
+                result=dict((meta or {}).get("batch_ai_review") or {})
+                if not result:
+                    return ""
+                metadata=dict(result.get("metadata_review") or {})
+                lines=[
+                    "\n\nKI-Massenprüfung:",
+                    "Vorschlag: " + str(result.get("suggested_name") or "—"),
+                    "Medientyp: " + str(result.get("media_type") or "unknown"),
+                    "Confidence: " + f"{float(result.get('confidence') or 0)*100:.0f}%",
+                ]
+                if result.get("rationale"):
+                    lines.append("Begründung: " + str(result.get("rationale")))
+                if metadata.get("available"):
+                    lines.append("Metadaten-Prüfung: " + str(metadata.get("change_count") or 0) + " vorgeschlagene Änderung(en)")
+                if result.get("warnings"):
+                    lines.append("Hinweise: " + "; ".join(str(x) for x in result.get("warnings") or []))
+                diagnostics=dict(result.get("metadata_diagnostics") or {})
+                if diagnostics:
+                    lines.append("")
+                    lines.append("Metadaten-Quellen:")
+                    lines.append(
+                        "metadata.read: "
+                        + ("ja" if diagnostics.get("metadata_read_present") else "nein")
+                    )
+                    lines.append(
+                        "metadata.review: "
+                        + ("ja" if diagnostics.get("metadata_review_present") else "nein")
+                    )
+                    lines.append(
+                        "NFO: "
+                        + ("gefunden" if diagnostics.get("nfo_present") else "nicht gefunden")
+                    )
+                    values=[]
+                    values.extend(diagnostics.get("episode_title_values_review") or [])
+                    values.extend(diagnostics.get("episode_title_values_read") or [])
+                    if values:
+                        lines.append("Episodentitel-Felder: " + " | ".join(str(x) for x in values))
+                    else:
+                        lines.append("Episodentitel-Felder: keine gefunden")
+                lines.append("Nur Vorschau · keine automatische Übernahme.")
+                formatted = "\\n".join(lines)
+                return str(formatted).replace("\\n", "\n")
 
             def _format_ai_review_detail(self):
                 result = self.last_ai_review
@@ -1239,8 +1410,15 @@ class NativeSmartRenamerWidget:
                     + "\nBegründung: " + str(result.get("rationale") or "—")
                     + ("\nWarnungen: " + "; ".join(str(x) for x in warnings) if warnings else "")
                     + "\n\nNur Vorschlag · Benutzerbestätigung erforderlich."
+                    + self._format_ai_comparison_detail()
                     + self._format_fusion_detail()
                 )
+
+            def _format_ai_comparison_detail(self):
+                result = self.last_ai_comparison
+                if not result:
+                    return ""
+                return "\n" + self.plugin.ai_review_comparison.format_text(result)
 
             def _format_fusion_detail(self):
                 result = self.last_fusion_result
@@ -1267,6 +1445,10 @@ class NativeSmartRenamerWidget:
                 meta = self._row_meta(rows[0])
                 ai_result = self.last_ai_review or self.plugin.analyze_review_with_ai(meta)
                 self.last_ai_review = ai_result
+                self.last_ai_comparison = self.plugin.compare_review_recommendation(
+                    meta,
+                    ai_result,
+                )
                 self.last_fusion_result = self.plugin.fuse_review_decision(meta, ai_result)
                 self._preview_selection_changed()
 
@@ -1343,9 +1525,67 @@ class NativeSmartRenamerWidget:
                         "KI: " + str(status.get("provider") or "verfügbar")
                     )
                     self.ai_review_button.setEnabled(True)
+                    batch_status = self.plugin.batch_ai_review_status()
+                    self.ai_batch_button.setEnabled(bool(batch_status.get("available")))
                 else:
                     self.ai_review_status_label.setText("KI: nicht verfügbar")
                     self.ai_review_button.setEnabled(False)
+                    self.ai_batch_button.setEnabled(False)
+
+            def _set_ai_reference_from_selection(self):
+                rows=sorted({index.row() for index in self.table.selectedIndexes()})
+                if len(rows)!=1:
+                    self.status.setText("Für eine KI-Referenz bitte genau einen Vorschau-Eintrag auswählen.")
+                    return
+                self.ai_reference_meta=dict(self._row_meta(rows[0]) or {})
+                self.status.setText("KI-Referenz gesetzt: " + str(self.ai_reference_meta.get("proposed_name") or self.ai_reference_meta.get("original_name") or "Eintrag"))
+
+            def _active_schema_context(self):
+                for rule in self.rules:
+                    if bool(rule.get("enabled",True)) and str(rule.get("type") or "")=="schema":
+                        return {"template":str(rule.get("template") or ""),"source":str(rule.get("source") or "")}
+                return {}
+
+            def _run_ai_batch_for_selection(self):
+                rows=sorted({index.row() for index in self.table.selectedIndexes()})
+                if not rows:
+                    self.status.setText("Für KI-Massenprüfung bitte mindestens einen Vorschau-Eintrag auswählen.")
+                    return
+                items=[dict(self._row_meta(row) or {}) for row in rows]
+                self.last_batch_ai_review=self.plugin.analyze_batch_with_ai(
+                    items,
+                    reference=dict(self.ai_reference_meta or {}),
+                    schema=self._active_schema_context(),
+                )
+                by_path={str(x.get("source_path") or ""):x for x in (self.last_batch_ai_review.get("items") or [])}
+                for row in rows:
+                    meta=dict(self._row_meta(row) or {})
+                    result=by_path.get(str(meta.get("source_path") or ""))
+                    if result:
+                        meta["batch_ai_review"]=dict(result)
+
+                        # KI-Massenprüfung darf den sichtbaren Vorschlag in der
+                        # Preview aktualisieren, aber niemals die Datei selbst.
+                        ai_suggested=str(result.get("suggested_name") or "").strip()
+                        if ai_suggested:
+                            meta["proposed_name"]=ai_suggested
+                            proposal_item=self.table.item(row,2)
+                            if proposal_item is not None:
+                                proposal_item.setText(ai_suggested)
+                                proposal_item.setToolTip(
+                                    "KI-Massenprüfung · nur Vorschau, noch nicht ausgeführt"
+                                )
+
+                        item=self.table.item(row,0)
+                        if item is not None:
+                            item.setData(Qt.ItemDataRole.UserRole,meta)
+                self._preview_selection_changed()
+                metadata=self.last_batch_ai_review.get("metadata_status") or {}
+                self.status.setText(
+                    f"KI-Massenprüfung: {len(rows)} Einträge geprüft · "
+                    f"Metadata Editor: {'lesen/review' if metadata.get('read') or metadata.get('review') else 'nicht verfügbar'} · "
+                    "keine Datei und keine Metadaten wurden verändert."
+                )
 
             def _run_ai_review_for_selection(self):
                 rows = sorted({index.row() for index in self.table.selectedIndexes()})
@@ -1356,6 +1596,10 @@ class NativeSmartRenamerWidget:
                     return
                 meta = self._row_meta(rows[0])
                 self.last_ai_review = self.plugin.analyze_review_with_ai(meta)
+                self.last_ai_comparison = self.plugin.compare_review_recommendation(
+                    meta,
+                    self.last_ai_review,
+                )
                 self._preview_selection_changed()
                 if self.last_ai_review.get("available"):
                     self.status.setText(

@@ -60,4 +60,4 @@ def test_web_and_desktop_priority_controls_present():
 def test_version_0516():
     root=Path(__file__).resolve().parents[1]
     data=json.loads((root/"plugin.json").read_text(encoding="utf-8"))
-    assert data["version"]=="0.5.16"
+    assert data["version"]=="0.5.17"

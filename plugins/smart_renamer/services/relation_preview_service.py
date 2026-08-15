@@ -4,7 +4,7 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any
 
-from services.naming_profiles import NamingProfileService
+from mediahub_smart_renamer_runtime.services.naming_profiles import NamingProfileService
 
 
 @dataclass(slots=True)

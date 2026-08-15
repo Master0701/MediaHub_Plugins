@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
-from services.preview_decisions import PreviewDecisionStore
+from mediahub_smart_renamer_runtime.services.preview_decisions import PreviewDecisionStore
 
 @dataclass(slots=True)
 class PreviewSelection:

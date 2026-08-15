@@ -67,3 +67,112 @@ class TmdbProvider(BaseProvider):
                 "raw": {"id": item.get("id"), "poster_path": item.get("poster_path")},
             })
         return ProviderResult(self.id, self.name, "ok", matches, f"{len(matches)} TMDb-Treffer geladen.")
+
+    @staticmethod
+    def _normalized_title(value: Any) -> str:
+        return "".join(
+            ch for ch in str(value or "").casefold()
+            if ch.isalnum()
+        )
+
+    def resolve_episode(self, query: dict[str, Any]) -> dict[str, Any]:
+        """Resolve one concrete series episode using the existing TMDb provider."""
+        if not self.enabled:
+            return {
+                "status": "disabled",
+                "provider": self.provider_type,
+                "message": "Quelle ist deaktiviert.",
+            }
+        credential = self._credential()
+        if credential is None:
+            return {
+                "status": "not_configured",
+                "provider": self.provider_type,
+                "message": "TMDb-Zugangsdaten fehlen.",
+            }
+
+        try:
+            season = int(query.get("season"))
+            episode = int(query.get("episode"))
+        except (TypeError, ValueError):
+            return {
+                "status": "invalid_query",
+                "provider": self.provider_type,
+                "message": "Staffel oder Episode fehlt.",
+            }
+
+        search_result = self.search({
+            **dict(query or {}),
+            "media_type": "series",
+        })
+        if search_result.status not in {"ok", "success"}:
+            return {
+                "status": search_result.status,
+                "provider": self.provider_type,
+                "message": search_result.message,
+            }
+
+        matches = list(search_result.matches or [])
+        if not matches:
+            return {
+                "status": "not_found",
+                "provider": self.provider_type,
+                "message": "Serie bei TMDb nicht gefunden.",
+            }
+
+        wanted = self._normalized_title(query.get("title"))
+        exact = [
+            item for item in matches
+            if self._normalized_title(item.get("title")) == wanted
+            or self._normalized_title(item.get("original_title")) == wanted
+        ]
+        series = (exact or matches)[0]
+        series_id = str(series.get("external_id") or "").strip()
+        if not series_id:
+            return {
+                "status": "not_found",
+                "provider": self.provider_type,
+                "message": "TMDb-Serie ohne ID.",
+            }
+
+        params: dict[str, Any] = {
+            "language": self.config.get("language", "de-DE"),
+        }
+        headers: dict[str, str] = {}
+        if credential[0] == "bearer":
+            headers["Authorization"] = f"Bearer {credential[1]}"
+        else:
+            params["api_key"] = credential[1]
+
+        data = request_json(
+            f"{self.API_BASE}/tv/{series_id}/season/{season}/episode/{episode}",
+            params=params,
+            headers=headers,
+        )
+        title = str(data.get("name") or "").strip()
+        if not title:
+            return {
+                "status": "not_found",
+                "provider": self.provider_type,
+                "message": "TMDb-Episode besitzt keinen Titel.",
+            }
+
+        exact_series = bool(exact)
+        return {
+            "status": "ok",
+            "provider": self.provider_type,
+            "provider_name": self.name,
+            "episode_title": title,
+            "series_title": str(series.get("title") or ""),
+            "series_external_id": series_id,
+            "season": season,
+            "episode": episode,
+            "confidence": 0.96 if exact_series else 0.84,
+            "language": self.config.get("language", "de-DE"),
+            "evidence": {
+                "series_match": dict(series),
+                "episode_id": str(data.get("id") or ""),
+                "air_date": str(data.get("air_date") or ""),
+            },
+            "message": "TMDb-Episodentitel geladen.",
+        }

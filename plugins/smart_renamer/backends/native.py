@@ -4,8 +4,8 @@ import os
 from pathlib import Path
 from typing import Any
 
-from backends.base import RenamerBackend
-from services.rule_engine import RenameRuleEngine
+from mediahub_smart_renamer_runtime.backends.base import RenamerBackend
+from mediahub_smart_renamer_runtime.services.rule_engine import RenameRuleEngine
 
 
 class NativeRenamerBackend(RenamerBackend):

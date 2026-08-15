@@ -18,12 +18,19 @@ AUDIOBOOK_EXTENSIONS = frozenset({".m4b", ".aa", ".aax"})
 TECHNICAL_TOKENS = re.compile(
     r"""(?ix)
     \b(
-        2160p|1080p|1080i|720p|576p|480p|
-        uhd|hdr10\+?|hdr|dolby[ ._-]?vision|dv|
-        bluray|blu[ ._-]?ray|bdrip|brrip|webrip|web[ ._-]?dl|hdtv|dvdrip|
-        remux|x264|x265|h\.?264|h\.?265|hevc|av1|
-        aac|ac3|eac3|dts(?:-hd)?|truehd|atmos|
-        proper|repack
+        4320p|2160p|1440p|1080p|1080i|720p|576p|576i|480p|4k|8k|uhd|
+        hdr10\+?|hdr10|hdr|dolby[ ._-]?vision|dovi|dv|
+        bluray|blu[ ._-]?ray|bdremux|bdrip|brrip|webrip|web[ ._-]?dl|webdl|
+        hdtv|pdtv|dvdrip|dvdremux|remux|
+        x264|x265|h[ ._-]?264|h[ ._-]?265|hevc|avc|av1|mpeg[ ._-]?2|
+        10[ ._-]?bit|8[ ._-]?bit|hi10p|
+        aac(?:[ ._-]?\d(?:[ ._-]\d)?)?|ac3|eac3|e[ ._-]?ac[ ._-]?3|
+        ddp(?:[ ._-]?\d(?:[ ._-]\d)?)?|dd(?:[ ._-]?\d(?:[ ._-]\d)?)?|
+        dts(?:[ ._-]?hd(?:[ ._-]?ma)?)?|truehd|atmos|flac|
+        2[ ._-]?0|5[ ._-]?1|7[ ._-]?1|
+        nf|netflix|amzn|amazon|dsnp|disney\+?|hmax|max|atvp|
+        multi|dual[ ._-]?audio|dubbed|subbed|
+        proper|repack|rerip|internal|limited
     )\b
     """
 )
@@ -54,11 +61,11 @@ EXTRA_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 SERIES_PATTERNS = (
     re.compile(
         r"(?ix)\bS(?P<season>\d{1,3})[ ._-]*E(?P<episode>\d{1,4})(?!\d)"
-        r"(?:[ ._-]*(?:E|-E?|to)[ ._-]*(?P<episode_end>\d{1,4})(?!\d))?"
+        r"(?:[ ._-]*(?:E|-E?|to)[ ._-]*(?P<episode_end>\d{1,4})(?!\d|[pik]\b))?"
     ),
     re.compile(
         r"(?ix)\b(?P<season>\d{1,3})x(?P<episode>\d{1,4})(?!\d)"
-        r"(?:[ ._-]*(?:-|x)?(?P<episode_end>\d{1,4})(?!\d))?"
+        r"(?:[ ._-]*(?:-|x)?(?P<episode_end>\d{1,4})(?!\d|[pik]\b))?"
     ),
     re.compile(
         r"(?ix)\bStaffel[ ._-]*(?P<season>\d{1,3})"

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.8
+- Kleine **Poster-Vorschau** direkt neben den Metadaten.
+- Automatische Suche nach `poster.jpg/png` und `folder.jpg/png`.
+- Explizite Poster-/Cover-Pfade aus MediaHub-Einträgen werden berücksichtigt.
+- Nach **Poster ersetzen** wird die Vorschau sofort aktualisiert.
+- Fehlende oder unlesbare Poster werden eindeutig angezeigt.
+
+# Changelog
+
+## 0.3.7
+- Neuer Button **Ordner laden…** in der nativen Metadata-Editor-Oberfläche.
+- Beliebige lokale Medienordner können rekursiv eingelesen werden.
+- Lokale Dateien erscheinen in der Kategorie **Lokaler Ordner**.
+- Vorhandene Sidecar-NFOs werden beim Einlesen berücksichtigt.
+- MediaHub-/YouTube-Bibliothek bleibt parallel erhalten.
+- Der zuletzt gewählte lokale Ordner wird lokal gespeichert.
+
 ## v0.3.6
 
 - Bildbereich auf der allgemeinen Web-/Mobilansicht ergänzt.

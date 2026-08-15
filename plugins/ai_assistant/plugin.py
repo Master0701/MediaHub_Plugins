@@ -11,6 +11,10 @@ from services.agents_runtime import AgentManager
 from services.backends import BackendManager
 from services.tasks import TaskManager, TaskState
 from services.capability_manager import CapabilityManager
+from services.rename_review_provider import RenameReviewProvider
+from services.batch_rename_review_provider import BatchRenameReviewProvider
+from services.metadata_review_provider import MetadataAIReviewProvider
+from services.episode_title_resolver import EpisodeTitleResolver
 from services.orchestrator import LocalAIOrchestrator
 from services.knowledge_database import KnowledgeDatabase
 from services.knowledge_engine import KnowledgeEngine
@@ -188,6 +192,13 @@ class MediaHubAIAssistantPlugin:
             self.plugin_path,
             self.tool_resolver,
         )
+        self.rename_review_provider = RenameReviewProvider()
+        self.batch_rename_review_provider = BatchRenameReviewProvider(
+            self.rename_review_provider
+        )
+        self.metadata_review_provider = MetadataAIReviewProvider(
+            self.batch_rename_review_provider
+        )
         self.agent_manager = AgentManager(
             self.capability_manager,
         )
@@ -238,6 +249,13 @@ class MediaHubAIAssistantPlugin:
         self.entity_intelligence = EntityIntelligence()
         self.reasoning_intelligence = ReasoningIntelligence()
         self.multi_source_fusion = MultiSourceFusion()
+        self.episode_title_resolver = EpisodeTitleResolver(
+            self.media_analyzer.source_manager,
+            self.multi_source_fusion,
+        )
+        self.batch_rename_review_provider.set_episode_title_resolver(
+            self.episode_title_resolver.resolve
+        )
         self.pipeline_debug_monitor = PipelineDebugMonitor()
         self.semantic_reasoning_engine = SemanticReasoningEngine()
         self.temporal_causal_intelligence = TemporalCausalIntelligence()
@@ -325,6 +343,42 @@ class MediaHubAIAssistantPlugin:
                 self._resolve_ai_node_config()
             )
 
+
+    def get_runtime_capabilities(self):
+        capabilities = {}
+        if self.capability_manager.supports("ai.rename_review"):
+            capabilities["ai.rename_review"] = self
+        if self.capability_manager.supports("ai.rename_batch_review"):
+            capabilities["ai.rename_batch_review"] = self
+        if self.capability_manager.supports("ai.metadata_review"):
+            capabilities["ai.metadata_review"] = self
+        return capabilities
+
+    def analyze_rename_review(self, payload):
+        result = self.rename_review_provider.analyze(dict(payload or {}))
+        result["provider"] = "MediaHub KI-Assistent"
+        result["execution_allowed"] = False
+        result["automatic_apply_allowed"] = False
+        result["human_confirmation_required"] = True
+        return result
+
+    def analyze_rename_batch_review(self, payload):
+        result = self.batch_rename_review_provider.analyze(dict(payload or {}))
+        result["provider"] = "MediaHub KI-Assistent"
+        result["execution_allowed"] = False
+        result["automatic_apply_allowed"] = False
+        result["metadata_write_allowed"] = False
+        result["human_confirmation_required"] = True
+        return result
+
+    def analyze_metadata_review(self, payload):
+        result = self.metadata_review_provider.analyze(dict(payload or {}))
+        result["provider"] = "MediaHub KI-Assistent"
+        result["execution_allowed"] = False
+        result["metadata_write_allowed"] = False
+        result["automatic_apply_allowed"] = False
+        result["human_confirmation_required"] = True
+        return result
 
     def start(self):
         self.knowledge.initialize()
@@ -2945,38 +2999,192 @@ class AIAssistantSettingsWidget(QWidget):
     def __init__(self, plugin, parent=None):
         super().__init__(parent)
         self.plugin = plugin
-
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(10)
+        tabs = QTabWidget()
+        root.addWidget(tabs, 1)
 
+        provider_page = QWidget()
+        provider_layout = QVBoxLayout(provider_page)
+        provider_hint = QLabel(
+            "Online-Quellen hier direkt einrichten. Zugangsdaten werden lokal gespeichert; "
+            "unter Windows werden sie mit DPAPI an das Windows-Benutzerkonto gebunden."
+        )
+        provider_hint.setWordWrap(True)
+        provider_layout.addWidget(provider_hint)
+
+        self.tmdb_enabled = QCheckBox("TMDb aktivieren")
+        self.tmdb_api_key = QLineEdit()
+        self.tmdb_api_key.setEchoMode(QLineEdit.EchoMode.Password)
+        self.tmdb_api_key.setPlaceholderText("API Key (optional, wenn Bearer Token verwendet wird)")
+        self.tmdb_bearer = QLineEdit()
+        self.tmdb_bearer.setEchoMode(QLineEdit.EchoMode.Password)
+        self.tmdb_bearer.setPlaceholderText("API Read Access Token / Bearer Token")
+        self.tmdb_language = QLineEdit("de-DE")
+        tmdb_form = QFormLayout()
+        tmdb_form.addRow(self.tmdb_enabled)
+        tmdb_form.addRow("API Key:", self.tmdb_api_key)
+        tmdb_form.addRow("Bearer Token:", self.tmdb_bearer)
+        tmdb_form.addRow("Sprache:", self.tmdb_language)
+        provider_layout.addWidget(QLabel("TMDb"))
+        provider_layout.addLayout(tmdb_form)
+        tmdb_buttons = QHBoxLayout()
+        save_tmdb = QPushButton("TMDb speichern")
+        save_tmdb.clicked.connect(lambda: self.save_provider("tmdb"))
+        test_tmdb = QPushButton("TMDb Verbindung testen")
+        test_tmdb.clicked.connect(lambda: self.test_provider("tmdb"))
+        tmdb_buttons.addWidget(save_tmdb)
+        tmdb_buttons.addWidget(test_tmdb)
+        tmdb_buttons.addStretch(1)
+        provider_layout.addLayout(tmdb_buttons)
+
+        self.tvdb_enabled = QCheckBox("TheTVDB aktivieren")
+        self.tvdb_api_key = QLineEdit()
+        self.tvdb_api_key.setEchoMode(QLineEdit.EchoMode.Password)
+        self.tvdb_api_key.setPlaceholderText("TheTVDB API Key")
+        self.tvdb_pin = QLineEdit()
+        self.tvdb_pin.setEchoMode(QLineEdit.EchoMode.Password)
+        self.tvdb_pin.setPlaceholderText("Subscriber PIN (optional)")
+        self.tvdb_language = QLineEdit("de-DE")
+        tvdb_form = QFormLayout()
+        tvdb_form.addRow(self.tvdb_enabled)
+        tvdb_form.addRow("API Key:", self.tvdb_api_key)
+        tvdb_form.addRow("Subscriber PIN:", self.tvdb_pin)
+        tvdb_form.addRow("Sprache:", self.tvdb_language)
+        provider_layout.addWidget(QLabel("TheTVDB"))
+        provider_layout.addLayout(tvdb_form)
+        tvdb_buttons = QHBoxLayout()
+        save_tvdb = QPushButton("TheTVDB speichern")
+        save_tvdb.clicked.connect(lambda: self.save_provider("tvdb"))
+        test_tvdb = QPushButton("TheTVDB Verbindung testen")
+        test_tvdb.clicked.connect(lambda: self.test_provider("tvdb"))
+        tvdb_buttons.addWidget(save_tvdb)
+        tvdb_buttons.addWidget(test_tvdb)
+        tvdb_buttons.addStretch(1)
+        provider_layout.addLayout(tvdb_buttons)
+
+        self.provider_status = QLabel()
+        self.provider_status.setWordWrap(True)
+        provider_layout.addWidget(self.provider_status)
+        provider_layout.addStretch(1)
+        tabs.addTab(provider_page, "Online-Quellen")
+
+        cache_page = QWidget()
+        cache_layout = QVBoxLayout(cache_page)
         title = QLabel("Analyse-Cache")
         title.setStyleSheet("font-size: 18px; font-weight: 700;")
-        root.addWidget(title)
-
+        cache_layout.addWidget(title)
         hint = QLabel(
             "Bereits analysierte, unveränderte Dateien werden aus dem Cache geladen. "
             "Nach dem Löschen wird die nächste Analyse vollständig neu ausgeführt."
         )
         hint.setWordWrap(True)
-        root.addWidget(hint)
-
+        cache_layout.addWidget(hint)
         self.status = QLabel()
         self.status.setWordWrap(True)
-        root.addWidget(self.status)
-
+        cache_layout.addWidget(self.status)
         buttons = QHBoxLayout()
         refresh = QPushButton("Cache-Status aktualisieren")
         refresh.clicked.connect(self.refresh_status)
         buttons.addWidget(refresh)
-
         clear = QPushButton("Gesamten Analyse-Cache löschen")
         clear.clicked.connect(self.clear_cache)
         buttons.addWidget(clear)
         buttons.addStretch(1)
-        root.addLayout(buttons)
-        root.addStretch(1)
+        cache_layout.addLayout(buttons)
+        cache_layout.addStretch(1)
+        tabs.addTab(cache_page, "Analyse-Cache")
+
+        self.load_provider_settings()
         self.refresh_status()
+
+    def _source_manager(self):
+        return self.plugin.media_analyzer.source_manager
+
+    def load_provider_settings(self):
+        manager = self._source_manager()
+        tmdb = manager.provider_config("tmdb") or {}
+        tvdb = manager.provider_config("tvdb") or {}
+        self.tmdb_enabled.setChecked(bool(tmdb.get("enabled")))
+        self.tmdb_language.setText(str(tmdb.get("language") or "de-DE"))
+        self.tvdb_enabled.setChecked(bool(tvdb.get("enabled")))
+        self.tvdb_language.setText(str(tvdb.get("language") or "de-DE"))
+        tmdb_present = manager.provider_credentials_present("tmdb")
+        tvdb_present = manager.provider_credentials_present("tvdb")
+        self.tmdb_api_key.setPlaceholderText("API Key gespeichert" if tmdb_present.get("api_key") else "API Key")
+        self.tmdb_bearer.setPlaceholderText("Bearer Token gespeichert" if tmdb_present.get("bearer_token") else "API Read Access Token / Bearer Token")
+        self.tvdb_api_key.setPlaceholderText("API Key gespeichert" if tvdb_present.get("api_key") else "TheTVDB API Key")
+        self.tvdb_pin.setPlaceholderText("Subscriber PIN gespeichert" if tvdb_present.get("subscriber_pin") else "Subscriber PIN (optional)")
+        self.provider_status.setText("Quellen-Einstellungen geladen.")
+
+    def save_provider(self, provider_id):
+        try:
+            manager = self._source_manager()
+            if provider_id == "tmdb":
+                old = manager.credential_store.get("tmdb")
+                credentials = {
+                    "api_key": self.tmdb_api_key.text().strip() or old.get("api_key", ""),
+                    "bearer_token": self.tmdb_bearer.text().strip() or old.get("bearer_token", ""),
+                }
+                manager.update_provider_settings("tmdb", enabled=self.tmdb_enabled.isChecked(), language=self.tmdb_language.text(), credentials=credentials)
+                self.tmdb_api_key.clear(); self.tmdb_bearer.clear()
+            else:
+                old = manager.credential_store.get("tvdb")
+                credentials = {
+                    "api_key": self.tvdb_api_key.text().strip() or old.get("api_key", ""),
+                    "subscriber_pin": self.tvdb_pin.text().strip() or old.get("subscriber_pin", ""),
+                }
+                manager.update_provider_settings("tvdb", enabled=self.tvdb_enabled.isChecked(), language=self.tvdb_language.text(), credentials=credentials)
+                self.tvdb_api_key.clear(); self.tvdb_pin.clear()
+            self.load_provider_settings()
+            QMessageBox.information(self, "Online-Quellen", "Einstellungen wurden gespeichert.")
+        except Exception as exc:
+            QMessageBox.warning(self, "Online-Quellen", str(exc))
+
+    def _apply_provider_form(self, provider_id):
+        """Persistiert den aktuell sichtbaren Formularzustand vor Speichern/Testen."""
+        manager = self._source_manager()
+        if provider_id == "tmdb":
+            old = manager.credential_store.get("tmdb")
+            credentials = {
+                "api_key": self.tmdb_api_key.text().strip() or old.get("api_key", ""),
+                "bearer_token": self.tmdb_bearer.text().strip() or old.get("bearer_token", ""),
+            }
+            manager.update_provider_settings(
+                "tmdb",
+                enabled=self.tmdb_enabled.isChecked(),
+                language=self.tmdb_language.text(),
+                credentials=credentials,
+            )
+            return
+
+        old = manager.credential_store.get("tvdb")
+        credentials = {
+            "api_key": self.tvdb_api_key.text().strip() or old.get("api_key", ""),
+            "subscriber_pin": self.tvdb_pin.text().strip() or old.get("subscriber_pin", ""),
+        }
+        manager.update_provider_settings(
+            "tvdb",
+            enabled=self.tvdb_enabled.isChecked(),
+            language=self.tvdb_language.text(),
+            credentials=credentials,
+        )
+
+    def test_provider(self, provider_id):
+        try:
+            # "Verbindung testen" benutzt immer den gerade sichtbaren Zustand.
+            # Der Benutzer muss nicht erst separat auf "Speichern" klicken.
+            self._apply_provider_form(provider_id)
+            result = self._source_manager().test_provider(provider_id)
+            prefix = "Verbindung erfolgreich" if result.get("ok") else "Verbindung nicht bereit"
+            self.provider_status.setText(f"{prefix}: {result.get('message', '')}")
+            if result.get("ok"):
+                QMessageBox.information(self, "Verbindungstest", self.provider_status.text())
+            else:
+                QMessageBox.warning(self, "Verbindungstest", self.provider_status.text())
+        except Exception as exc:
+            QMessageBox.warning(self, "Verbindungstest", str(exc))
 
     def refresh_status(self):
         try:
@@ -2985,32 +3193,19 @@ class AIAssistantSettingsWidget(QWidget):
             if db_path.exists():
                 import sqlite3
                 with sqlite3.connect(db_path, timeout=5.0) as db:
-                    row = db.execute(
-                        "SELECT COUNT(*) FROM identification_cache"
-                    ).fetchone()
+                    row = db.execute("SELECT COUNT(*) FROM identification_cache").fetchone()
                     count = int(row[0] if row else 0)
-            self.status.setText(
-                f"Gespeicherte Analysen: {count}\n"
-                f"Cache-Datenbank: {db_path}"
-            )
+            self.status.setText(f"Gespeicherte Analysen: {count}\nCache-Datenbank: {db_path}")
         except Exception as exc:
             self.status.setText(f"Cache-Status konnte nicht gelesen werden: {exc}")
 
     def clear_cache(self):
-        answer = QMessageBox.question(
-            self,
-            "Analyse-Cache löschen",
-            "Sollen wirklich alle gespeicherten Dateianalysen gelöscht werden?",
-        )
+        answer = QMessageBox.question(self, "Analyse-Cache löschen", "Sollen wirklich alle gespeicherten Dateianalysen gelöscht werden?")
         if answer != QMessageBox.StandardButton.Yes:
             return
         try:
             deleted = int(self.plugin.clear_analysis_cache() or 0)
-            QMessageBox.information(
-                self,
-                "Analyse-Cache",
-                f"Der Analyse-Cache wurde gelöscht. Entfernte Einträge: {deleted}",
-            )
+            QMessageBox.information(self, "Analyse-Cache", f"Der Analyse-Cache wurde gelöscht. Entfernte Einträge: {deleted}")
             self.refresh_status()
         except Exception as exc:
             QMessageBox.warning(self, "Analyse-Cache", str(exc))

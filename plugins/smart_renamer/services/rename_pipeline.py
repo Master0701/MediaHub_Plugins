@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from services.conflict_service import ConflictService
-from services.media_scanner import MediaScanner
+from mediahub_smart_renamer_runtime.services.conflict_service import ConflictService
+from mediahub_smart_renamer_runtime.services.media_scanner import MediaScanner
 
 
 class RenamePipeline:

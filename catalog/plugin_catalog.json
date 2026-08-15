@@ -6,7 +6,7 @@
     {
       "id": "mediahub.ai_assistant",
       "name": "MediaHub KI-Assistent",
-      "version": "7.0.5",
+      "version": "7.0.7",
       "status": "available",
       "category": "KI und Analyse",
       "visible": true,
@@ -16,8 +16,8 @@
       "minimum_mediahub_version": "1.0.17",
       "project_page": "https://github.com/Master0701/MediaHub_Plugins/tree/main/plugins/ai_assistant",
       "manual_install_message": "",
-      "release_asset": "MediaHub_KI-Assistent_v7.0.5.mhplugin",
-      "sha256_asset": "MediaHub_KI-Assistent_v7.0.5.mhplugin.sha256"
+      "release_asset": "MediaHub_KI-Assistent_v7.0.7.mhplugin",
+      "sha256_asset": "MediaHub_KI-Assistent_v7.0.7.mhplugin.sha256"
     },
     {
       "id": "mediahub.audiobook_manager",
@@ -54,18 +54,18 @@
     {
       "id": "mediahub.metadata_editor",
       "name": "MediaHub Metadata Editor",
-      "version": "0.3.6",
+      "version": "0.4.0",
       "status": "available",
       "category": "Metadaten",
       "visible": true,
       "auto_install": true,
       "manual_only": false,
-      "description": "Zentraler lokaler Medienbrowser mit Metadaten-, NFO- und Bildeditor, Live-Vergleich und automatischen Sicherungen.",
+      "description": "Lokaler Medienbrowser mit Metadaten-, NFO- und Bildeditor, Ordnerauswahl und integrierter Poster-Vorschau.",
       "minimum_mediahub_version": "1.0.5",
       "project_page": "https://github.com/Master0701/MediaHub_Plugins/tree/main/plugins/metadata_editor",
       "manual_install_message": "",
-      "release_asset": "MediaHub_MetadataEditor_v0.3.6.mhplugin",
-      "sha256_asset": "MediaHub_MetadataEditor_v0.3.6.mhplugin.sha256"
+      "release_asset": "MediaHub_MetadataEditor_v0.4.0.mhplugin",
+      "sha256_asset": "MediaHub_MetadataEditor_v0.4.0.mhplugin.sha256"
     },
     {
       "id": "mediahub.mobile_dashboard",
@@ -86,7 +86,7 @@
     {
       "id": "mediahub.smart_renamer",
       "name": "MediaHub Smart Renamer",
-      "version": "0.5.16",
+      "version": "0.5.17",
       "status": "available",
       "category": "Dateien und Umbenennung",
       "visible": true,
@@ -96,8 +96,8 @@
       "minimum_mediahub_version": "1.0.18",
       "project_page": "https://github.com/Master0701/MediaHub_Plugins/tree/main/plugins/smart_renamer",
       "manual_install_message": "",
-      "release_asset": "MediaHub_SmartRenamer_v0.5.16.mhplugin",
-      "sha256_asset": "MediaHub_SmartRenamer_v0.5.16.mhplugin.sha256"
+      "release_asset": "MediaHub_SmartRenamer_v0.5.17.mhplugin",
+      "sha256_asset": "MediaHub_SmartRenamer_v0.5.17.mhplugin.sha256"
     },
     {
       "id": "mediahub.web_remote",

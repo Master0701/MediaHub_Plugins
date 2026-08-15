@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from backends.base import RenamerBackend
+from mediahub_smart_renamer_runtime.backends.base import RenamerBackend
 
 
 class ReNamerWindowsBackend(RenamerBackend):

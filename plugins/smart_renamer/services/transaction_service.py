@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from services.rename_plan import RenamePlan, RenamePlanService
+from mediahub_smart_renamer_runtime.services.rename_plan import RenamePlan, RenamePlanService
 
 
 def _utc_now() -> str:

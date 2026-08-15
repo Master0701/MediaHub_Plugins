@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from services.rename_pipeline import RenamePipeline
+from mediahub_smart_renamer_runtime.services.rename_pipeline import RenamePipeline
 
 
 class RenamePreviewService:

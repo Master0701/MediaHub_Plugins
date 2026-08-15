@@ -4,12 +4,12 @@ from pathlib import Path
 from typing import Any
 
 from models.media_item import MediaItem
-from services.media_detection import MediaDetector
-from services.detection_candidates import DetectionCandidateService
-from services.decision_engine import DecisionEngine
-from services.folder_structure import FolderStructureAnalyzer
-from services.media_file_grouping import MediaFileGrouper
-from services.media_relation_engine import MediaRelationEngine
+from mediahub_smart_renamer_runtime.services.media_detection import MediaDetector
+from mediahub_smart_renamer_runtime.services.detection_candidates import DetectionCandidateService
+from mediahub_smart_renamer_runtime.services.decision_engine import DecisionEngine
+from mediahub_smart_renamer_runtime.services.folder_structure import FolderStructureAnalyzer
+from mediahub_smart_renamer_runtime.services.media_file_grouping import MediaFileGrouper
+from mediahub_smart_renamer_runtime.services.media_relation_engine import MediaRelationEngine
 
 
 class MediaScanner:

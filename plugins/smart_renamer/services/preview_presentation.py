@@ -49,6 +49,25 @@ class PreviewPresentationService:
             row["season"] = str(media.get("season") or "")
             row["episode"] = str(media.get("episode") or "")
             row["episode_end"] = str(media.get("episode_end") or "")
+            row["selected_candidate_id"] = str(
+                detection.get("selected_candidate_id") or ""
+            )
+            row["detection_candidates"] = [
+                dict(item or {})
+                for item in (detection.get("candidates") or [])
+            ]
+            row["candidate_count"] = len(row["detection_candidates"])
+            row["decision_state"] = str(
+                decision.get("state")
+                or detection.get("decision_state")
+                or ""
+            )
+            row["decision_reason"] = str(decision.get("reason") or "")
+            row["decision_confidence"] = float(
+                decision.get("confidence")
+                or detection.get("decision_confidence")
+                or 0
+            )
 
             relation_counts[relation_type] = relation_counts.get(relation_type, 0) + 1
             review_count += int(review_required)

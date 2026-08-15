@@ -4,8 +4,8 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
-from services.relation_preview_service import RelationPreviewService
-from services.review_service import ReviewService
+from mediahub_smart_renamer_runtime.services.relation_preview_service import RelationPreviewService
+from mediahub_smart_renamer_runtime.services.review_service import ReviewService
 
 class InteractivePreviewService:
     def __init__(self, relation_preview_service: RelationPreviewService):

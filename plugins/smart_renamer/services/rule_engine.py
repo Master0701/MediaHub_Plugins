@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 from typing import Any
-from services.rule_pipeline import order_rules_for_final_name
+from mediahub_smart_renamer_runtime.services.rule_pipeline import order_rules_for_final_name
 
 
 INVALID_WINDOWS_CHARS = '<>:"/\\|?*'

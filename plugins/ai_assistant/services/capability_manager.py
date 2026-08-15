@@ -17,6 +17,9 @@ class CapabilityManager:
         "knowledge.search": (),
         "quality.evaluate": ("ffprobe", "mediainfo"),
         "fingerprint.register": ("ffmpeg", "ffprobe"),
+        "ai.rename_review": (),
+        "ai.rename_batch_review": (),
+        "ai.metadata_review": (),
     }
 
     TOOL_ALIASES = {

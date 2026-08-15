@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from backends.external import ReNamerWindowsBackend
-from backends.native import NativeRenamerBackend
+from mediahub_smart_renamer_runtime.backends.external import ReNamerWindowsBackend
+from mediahub_smart_renamer_runtime.backends.native import NativeRenamerBackend
 
 
 class RenamerBackendRegistry:

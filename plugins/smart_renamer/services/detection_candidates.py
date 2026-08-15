@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
-from services.media_detection import DetectionResult, MediaDetector
+from mediahub_smart_renamer_runtime.services.media_detection import DetectionResult, MediaDetector
 
 
 CONFIDENCE_HIGH = 0.85

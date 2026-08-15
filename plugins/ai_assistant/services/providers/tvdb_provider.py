@@ -55,9 +55,200 @@ class TvdbProvider(BaseProvider):
                 "language": item.get("primary_language"),
                 "aliases": item.get("aliases") or [],
                 "provider_confidence": 0.9 if item.get("name") else 0.7,
-                "raw": {"tvdb_id": item.get("tvdb_id"), "slug": item.get("slug")},
+                "raw": {
+                    "tvdb_id": item.get("tvdb_id"),
+                    "slug": item.get("slug"),
+                    "image_url": (
+                        item.get("image_url")
+                        or item.get("imageUrl")
+                        or item.get("image")
+                        or item.get("thumbnail")
+                    ),
+                    "poster_url": (
+                        item.get("poster_url")
+                        or item.get("posterUrl")
+                    ),
+                },
             })
         return ProviderResult(self.id, self.name, "ok", matches, f"{len(matches)} TheTVDB-Treffer geladen.")
+
+    @staticmethod
+    def _normalized_title(value: Any) -> str:
+        return "".join(
+            ch for ch in str(value or "").casefold()
+            if ch.isalnum()
+        )
+
+    def resolve_episode(self, query: dict[str, Any]) -> dict[str, Any]:
+        """Resolve one concrete series episode using TheTVDB v4."""
+        if not self.enabled:
+            return {
+                "status": "disabled",
+                "provider": self.provider_type,
+                "message": "Quelle ist deaktiviert.",
+            }
+        if not self.is_configured():
+            return {
+                "status": "not_configured",
+                "provider": self.provider_type,
+                "message": "TheTVDB-API-Schlüssel fehlt.",
+            }
+
+        try:
+            season = int(query.get("season"))
+            episode = int(query.get("episode"))
+        except (TypeError, ValueError):
+            return {
+                "status": "invalid_query",
+                "provider": self.provider_type,
+                "message": "Staffel oder Episode fehlt.",
+            }
+
+        search_result = self.search({
+            **dict(query or {}),
+            "media_type": "series",
+        })
+        if search_result.status not in {"ok", "success"}:
+            return {
+                "status": search_result.status,
+                "provider": self.provider_type,
+                "message": search_result.message,
+            }
+
+        matches = list(search_result.matches or [])
+        if not matches:
+            return {
+                "status": "not_found",
+                "provider": self.provider_type,
+                "message": "Serie bei TheTVDB nicht gefunden.",
+            }
+
+        wanted = self._normalized_title(query.get("title"))
+        exact = [
+            item for item in matches
+            if self._normalized_title(item.get("title")) == wanted
+            or self._normalized_title(item.get("original_title")) == wanted
+        ]
+        series = (exact or matches)[0]
+        series_id = str(series.get("external_id") or "").strip()
+        if not series_id:
+            return {
+                "status": "not_found",
+                "provider": self.provider_type,
+                "message": "TheTVDB-Serie ohne ID.",
+            }
+
+        language = str(self.config.get("language") or "deu")
+        # Existing configurations often use de-DE. TVDB expects a language code
+        # on the language-specific episode route; map common German/English forms.
+        language_map = {
+            "de-de": "deu",
+            "de": "deu",
+            "ger": "deu",
+            "en-us": "eng",
+            "en-gb": "eng",
+            "en": "eng",
+        }
+        lang = language_map.get(language.casefold(), language)
+
+        data = request_json(
+            f"{self.API_BASE}/series/{series_id}/episodes/default/{lang}",
+            params={"season": season, "page": 0},
+            headers={"Authorization": f"Bearer {self._token()}"},
+        )
+        payload = data.get("data") or {}
+        if isinstance(payload, dict):
+            episodes = payload.get("episodes") or payload.get("data") or []
+        elif isinstance(payload, list):
+            episodes = payload
+        else:
+            episodes = []
+
+        def number(item, *keys):
+            for key in keys:
+                value = item.get(key)
+                try:
+                    if value not in (None, ""):
+                        return int(value)
+                except (TypeError, ValueError):
+                    pass
+            return None
+
+        found = None
+        for item in episodes:
+            if not isinstance(item, dict):
+                continue
+            item_season = number(
+                item,
+                "seasonNumber",
+                "season_number",
+                "airedSeason",
+                "season",
+            )
+            item_episode = number(
+                item,
+                "number",
+                "episodeNumber",
+                "episode_number",
+                "airedEpisodeNumber",
+            )
+            if item_episode == episode and (
+                item_season in (None, season)
+            ):
+                found = item
+                break
+
+        if not found:
+            return {
+                "status": "not_found",
+                "provider": self.provider_type,
+                "message": "TheTVDB-Episode nicht gefunden.",
+            }
+
+        title = str(
+            found.get("name")
+            or found.get("episodeName")
+            or found.get("title")
+            or ""
+        ).strip()
+        if not title:
+            return {
+                "status": "not_found",
+                "provider": self.provider_type,
+                "message": "TheTVDB-Episode besitzt keinen Titel.",
+            }
+
+        return {
+            "status": "ok",
+            "provider": self.provider_type,
+            "provider_name": self.name,
+            "episode_title": title,
+            "series_title": str(series.get("title") or ""),
+            "series_external_id": series_id,
+            "season": season,
+            "episode": episode,
+            "confidence": 0.96 if exact else 0.84,
+            "language": lang,
+            "evidence": {
+                "series_match": dict(series),
+                "episode_id": str(found.get("id") or ""),
+                "air_date": str(
+                    found.get("aired")
+                    or found.get("airDate")
+                    or found.get("firstAired")
+                    or found.get("first_air_time")
+                    or ""
+                ),
+                "overview": str(
+                    found.get("overview")
+                    or found.get("description")
+                    or found.get("summary")
+                    or found.get("shortDescription")
+                    or ""
+                ),
+            },
+            "message": "TheTVDB-Episodentitel geladen.",
+        }
 
 
 def _year(value: Any) -> int | None:

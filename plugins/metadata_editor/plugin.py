@@ -22,7 +22,7 @@ from mediahub_web_core.settings import WebRuntimeSettingsStore, connection_info
 class MediaHubMetadataEditorPlugin:
     """Lokaler, sicherer Metadaten- und NFO-Editor für MediaHub."""
 
-    VERSION = "0.3.6"
+    VERSION = "0.3.8"
     EDITABLE_FIELDS = (
         "title", "description", "year", "season", "episode",
         "series", "channel", "playlist", "published_at",
@@ -40,6 +40,11 @@ class MediaHubMetadataEditorPlugin:
         "season_playlist": ("season.jpg", "season.png", "season-poster.jpg", "season-poster.png", "playlist.jpg", "playlist.png", "folder.jpg", "folder.png"),
     }
     IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+    LOCAL_MEDIA_EXTENSIONS = {
+        ".mkv", ".mp4", ".avi", ".mov", ".m4v", ".webm",
+        ".mpg", ".mpeg", ".wmv", ".ts", ".m2ts",
+        ".mp3", ".m4a", ".m4b", ".flac", ".ogg", ".wav",
+    }
 
     def __init__(self, plugin_path: Path, mediahub_api=None):
         self.plugin_path = Path(plugin_path)
@@ -51,6 +56,7 @@ class MediaHubMetadataEditorPlugin:
         self.data_dir = self.base_dir / "plugin_data" / "metadata_editor"
         self.drafts_file = self.data_dir / "drafts.json"
         self.backup_dir = self.data_dir / "backups"
+        self.local_folder_state_file = self.data_dir / "local_folder.json"
         self._draft_lock = threading.Lock()
         self._register_routes()
 
@@ -59,6 +65,166 @@ class MediaHubMetadataEditorPlugin:
 
     def stop(self):
         release_shared_server(str(self.base_dir), owner=self)
+
+
+    def get_runtime_capabilities(self):
+        # Read/review only. metadata.write intentionally remains unavailable
+        # until the shared confirmation/execution layer is implemented.
+        return {
+            "metadata.read": self,
+            "metadata.review": self,
+        }
+
+    def get_capability_contracts(self):
+        return {
+            "metadata.read": {"mode": "read_only", "execution_allowed": False},
+            "metadata.review": {"mode": "advisory", "execution_allowed": False},
+            "metadata.write": {"mode": "planned", "available": False, "execution_allowed": False},
+        }
+
+    def _resolve_capability(self, capability):
+        api = self.mediahub_api
+        if api is None:
+            return None
+        for name in (
+            "resolve_capability",
+            "get_capability_provider",
+            "find_capability_provider",
+            "get_plugin_capability",
+        ):
+            fn = getattr(api, name, None)
+            if callable(fn):
+                try:
+                    provider = fn(capability)
+                except Exception:
+                    provider = None
+                if provider is not None:
+                    return provider
+        return None
+
+    def ai_metadata_status(self):
+        provider = self._resolve_capability("ai.metadata_review")
+        return {
+            "available": provider is not None,
+            "provider": "MediaHub KI-Assistent" if provider is not None else "",
+        }
+
+    def ai_metadata_review(self, item):
+        provider = self._resolve_capability("ai.metadata_review")
+        if provider is None:
+            return {
+                "available": False,
+                "fields": {},
+                "changes": {},
+                "warnings": ["MediaHub KI-Assistent ist nicht verfügbar."],
+                "execution_allowed": False,
+                "metadata_write_allowed": False,
+            }
+
+        payload = {
+            "item": dict(item or {}),
+            "path": str(
+                (item or {}).get("path")
+                or (item or {}).get("file_path")
+                or ""
+            ),
+        }
+
+        method = getattr(provider, "analyze_metadata_review", None)
+        if not callable(method):
+            method = getattr(provider, "analyze", None)
+        if not callable(method):
+            return {
+                "available": False,
+                "fields": {},
+                "changes": {},
+                "warnings": ["KI-Provider unterstützt keine Metadatenprüfung."],
+                "execution_allowed": False,
+                "metadata_write_allowed": False,
+            }
+
+        result = dict(method(payload) or {})
+        result["execution_allowed"] = False
+        result["metadata_write_allowed"] = False
+        result["automatic_apply_allowed"] = False
+        result["human_confirmation_required"] = True
+        return result
+
+    @staticmethod
+    def _metadata_payload_item(payload):
+        source = dict(payload or {})
+        item = dict(source.get("item") or source.get("metadata") or {})
+        path_value = str(source.get("path") or item.get("path") or item.get("file_path") or "").strip()
+        if path_value and not item.get("path"):
+            item["path"] = path_value
+        return item
+
+    def _read_nfo_metadata(self, item):
+        media_path = self._media_path(item)
+        nfo_path = self._nfo_path(item, media_path)
+        values = {}
+        if not nfo_path or not nfo_path.exists():
+            return values, str(nfo_path or ""), False, ""
+        try:
+            raw = nfo_path.read_text(encoding="utf-8-sig")
+            root = ET.fromstring(raw) if raw.strip() else None
+            if root is None:
+                return {}, str(nfo_path), True, ""
+            reverse = {tag: field for field, tag in self.NFO_TAGS.items()}
+            for node in list(root):
+                field = reverse.get(str(node.tag).lower())
+                if field and node.text not in (None, ""):
+                    values[field] = str(node.text).strip()
+            return values, str(nfo_path), True, ""
+        except Exception as error:
+            return {}, str(nfo_path), True, str(error)
+
+    def read_metadata(self, payload=None):
+        item = self._metadata_payload_item(payload)
+        normalized = self._normalize_items([item])[0] if item else {}
+        nfo_values, nfo_path, nfo_exists, nfo_error = self._read_nfo_metadata(item)
+        merged = dict(normalized)
+        for key, value in nfo_values.items():
+            if value not in (None, ""):
+                merged[key] = value
+        return {
+            "provider": "MediaHub Metadata Editor",
+            "available": True,
+            "read_only": True,
+            "metadata": merged,
+            "sources": {
+                "payload": bool(item),
+                "nfo": nfo_exists,
+                "nfo_path": nfo_path,
+                "nfo_error": nfo_error,
+            },
+            "execution_allowed": False,
+        }
+
+    def review_metadata(self, payload=None):
+        source = dict(payload or {})
+        detected = dict(source.get("detected") or source.get("proposed") or {})
+        read_result = self.read_metadata(source)
+        current = dict(read_result.get("metadata") or {})
+        fields = ("title", "year", "season", "episode", "series")
+        changes = []
+        for field in fields:
+            before = str(current.get(field) or "").strip()
+            after = str(detected.get(field) or "").strip()
+            if after and before.casefold() != after.casefold():
+                changes.append({"field": field, "before": before, "after": after})
+        return {
+            "provider": "MediaHub Metadata Editor",
+            "available": True,
+            "review_only": True,
+            "current_metadata": current,
+            "proposed_metadata": detected,
+            "changes": changes,
+            "change_count": len(changes),
+            "execution_allowed": False,
+            "automatic_apply_allowed": False,
+            "human_confirmation_required": True,
+        }
 
     def get_plugin_settings(self):
         info = connection_info(self.settings)
@@ -158,6 +324,89 @@ class MediaHubMetadataEditorPlugin:
             result.append(normalized)
         return result
 
+    def _load_last_local_folder(self) -> str:
+        if not self.local_folder_state_file.exists():
+            return ""
+        try:
+            data = json.loads(
+                self.local_folder_state_file.read_text(encoding="utf-8-sig")
+            )
+            value = str((data or {}).get("folder") or "").strip()
+            return value if value and Path(value).is_dir() else ""
+        except Exception:
+            return ""
+
+    def _save_last_local_folder(self, folder: Path) -> None:
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        temporary = self.local_folder_state_file.with_suffix(".tmp")
+        temporary.write_text(
+            json.dumps(
+                {"folder": str(folder.resolve())},
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        temporary.replace(self.local_folder_state_file)
+
+    def scan_local_folder(
+        self,
+        folder,
+        *,
+        recursive: bool = True,
+    ) -> list[dict[str, Any]]:
+        """Liest lokale Medien ein, ohne Dateien oder Metadaten zu verändern."""
+        root = Path(str(folder or "")).expanduser()
+        if not root.is_dir():
+            raise ValueError("Der ausgewählte Ordner wurde nicht gefunden.")
+
+        iterator = root.rglob("*") if recursive else root.glob("*")
+        files = sorted(
+            (
+                path
+                for path in iterator
+                if path.is_file()
+                and path.suffix.lower() in self.LOCAL_MEDIA_EXTENSIONS
+            ),
+            key=lambda path: str(path).casefold(),
+        )
+
+        result = []
+        for position, path in enumerate(files):
+            item = {
+                "id": f"local:{path.resolve()}",
+                "title": path.stem,
+                "filename": path.name,
+                "path": str(path.resolve()),
+                "file_path": str(path.resolve()),
+                "folder": str(path.parent.resolve()),
+                "source_type": "local_folder",
+                "local_exists": True,
+                "file_exists": True,
+                "is_downloaded": True,
+                "description": "",
+                "year": "",
+                "season": "",
+                "episode": "",
+                "series": "",
+                "channel": "",
+                "playlist": "",
+                "published_at": "",
+            }
+
+            nfo_values, nfo_path, nfo_exists, nfo_error = self._read_nfo_metadata(item)
+            for key, value in nfo_values.items():
+                if value not in (None, ""):
+                    item[key] = value
+
+            item["nfo_path"] = nfo_path
+            item["nfo_exists"] = nfo_exists
+            item["nfo_error"] = nfo_error
+            result.append(item)
+
+        self._save_last_local_folder(root)
+        return self._normalize_items(result)
+
     def _clean_changes(self, payload):
         source = dict(payload or {})
         original, edited = dict(source.get("original") or {}), dict(source.get("edited") or {})
@@ -228,6 +477,67 @@ class MediaHubMetadataEditorPlugin:
         if media_path is None:
             return None
         return (media_path / "tvshow.nfo") if media_path.is_dir() else media_path.with_suffix(".nfo")
+
+    def cache_ai_poster(self, url):
+        """Lädt nur eine KI-Poster-Vorschau in den lokalen Plugin-Cache."""
+        import hashlib
+        import urllib.request
+
+        value = str(url or "").strip()
+        if not value.startswith(("https://", "http://")):
+            return None
+
+        cache_dir = self.data_dir / "ai_poster_cache"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:24]
+        target = cache_dir / f"{digest}.jpg"
+
+        if target.is_file() and target.stat().st_size > 0:
+            return target
+
+        request = urllib.request.Request(
+            value,
+            headers={"User-Agent": "MediaHub/MetadataEditor"},
+        )
+        with urllib.request.urlopen(request, timeout=12) as response:
+            data = response.read(10 * 1024 * 1024 + 1)
+
+        if not data or len(data) > 10 * 1024 * 1024:
+            return None
+
+        temporary = target.with_suffix(".tmp")
+        temporary.write_bytes(data)
+        temporary.replace(target)
+        return target
+
+    def _poster_path(self, item) -> Path | None:
+        media_path = self._media_path(dict(item or {}))
+        folder = (
+            media_path
+            if media_path and media_path.is_dir()
+            else (media_path.parent if media_path else None)
+        )
+
+        # Explicit image paths from MediaHub/library data are preferred when valid.
+        for key in (
+            "poster_path",
+            "poster",
+            "image_path",
+            "cover_path",
+            "thumbnail_path",
+        ):
+            value = str((item or {}).get(key) or "").strip()
+            if value:
+                candidate = Path(value)
+                if candidate.is_file() and candidate.suffix.lower() in self.IMAGE_EXTENSIONS:
+                    return candidate
+
+        for name in self.IMAGE_NAMES.get("poster", ()):
+            candidate = folder / name if folder else None
+            if candidate and candidate.is_file():
+                return candidate
+
+        return None
 
     def _inspect_files(self, payload, request=None):
         item = dict((payload or {}).get("item") or {})
@@ -395,13 +705,18 @@ class NativeMetadataEditorWidget(QWidget):
     def __init__(self, plugin, parent=None):
         super().__init__(parent)
         from PySide6.QtCore import Qt
+        from PySide6.QtGui import QPixmap
         from PySide6.QtWidgets import (
-            QAbstractItemView, QComboBox, QFileDialog, QFormLayout, QHBoxLayout,
+            QAbstractItemView, QComboBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QFrame,
             QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox,
             QPushButton, QSpinBox, QSplitter, QTextEdit, QVBoxLayout, QWidget,
         )
         self.plugin = plugin
+        self._QPixmap = QPixmap
         self._items = []
+        self._library_items = []
+        self._local_items = []
+        self._local_folder = self.plugin._load_last_local_folder()
         self._current = None
         self._loading = False
 
@@ -409,15 +724,32 @@ class NativeMetadataEditorWidget(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(8)
 
-        toolbar = QHBoxLayout()
+        source_bar = QHBoxLayout()
+        source_label = QLabel("Quelle:")
+        source_label.setStyleSheet("font-weight: bold;")
+        source_bar.addWidget(source_label)
+
+        self.btn_mediahub_source = QPushButton("MediaHub / YouTube")
+        self.btn_mediahub_source.clicked.connect(
+            lambda: self._select_source_category("MediaHub / YouTube")
+        )
+        self.btn_folder = QPushButton("Lokalen Ordner wählen…")
+        self.btn_folder.clicked.connect(self._choose_local_folder)
+        self.btn_refresh = QPushButton("Aktualisieren")
+        self.btn_refresh.clicked.connect(self.refresh)
+
+        source_bar.addWidget(self.btn_mediahub_source)
+        source_bar.addWidget(self.btn_folder)
+        source_bar.addStretch(1)
+        source_bar.addWidget(self.btn_refresh)
+        root.addLayout(source_bar)
+
+        search_bar = QHBoxLayout()
         self.search = QLineEdit()
         self.search.setPlaceholderText("Medien durchsuchen …")
         self.search.textChanged.connect(self._apply_filter)
-        self.btn_refresh = QPushButton("Aktualisieren")
-        self.btn_refresh.clicked.connect(self.refresh)
-        toolbar.addWidget(self.search, 1)
-        toolbar.addWidget(self.btn_refresh)
-        root.addLayout(toolbar)
+        search_bar.addWidget(self.search, 1)
+        root.addLayout(search_bar)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setHandleWidth(8)
@@ -427,7 +759,15 @@ class NativeMetadataEditorWidget(QWidget):
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.addWidget(QLabel("Kategorien"))
         self.categories = QListWidget()
-        for text in ("Alle Medien", "Kanäle", "Serien", "Playlists", "Entwürfe"):
+        for text in (
+            "Alle Medien",
+            "MediaHub / YouTube",
+            "Lokaler Ordner",
+            "Kanäle",
+            "Serien",
+            "Playlists",
+            "Entwürfe",
+        ):
             self.categories.addItem(text)
         self.categories.setCurrentRow(0)
         self.categories.currentRowChanged.connect(self._apply_filter)
@@ -445,35 +785,188 @@ class NativeMetadataEditorWidget(QWidget):
         right = QWidget()
         right_layout = QVBoxLayout(right)
         right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.addWidget(QLabel("Metadaten"))
-        form = QFormLayout()
+        # ------------------------------------------------------------------
+        # Concept layout: editor left, old metadata/poster/actions right,
+        # AI comparison across the bottom.
+        # ------------------------------------------------------------------
+        content_split = QSplitter(Qt.Orientation.Horizontal)
+
+        left_column = QWidget()
+        left_layout = QVBoxLayout(left_column)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(8)
+
+        editor_group = QGroupBox("Metadaten bearbeiten  (Entwurf – noch nicht gespeichert)")
+        editor_layout = QVBoxLayout(editor_group)
+
         self.title_edit = QLineEdit()
         self.description_edit = QTextEdit()
-        self.description_edit.setMinimumHeight(100)
-        self.year_edit = QSpinBox(); self.year_edit.setRange(0, 9999); self.year_edit.setSpecialValueText("")
-        self.season_edit = QSpinBox(); self.season_edit.setRange(0, 9999)
-        self.episode_edit = QSpinBox(); self.episode_edit.setRange(0, 99999)
+        self.description_edit.setVisible(False)
+
+        self.description_preview = QLineEdit()
+        self.description_preview.setReadOnly(True)
+        self.description_preview.setPlaceholderText("Keine Beschreibung")
+        self.description_preview.setToolTip(
+            "Vollständige Beschreibung über „Beschreibung bearbeiten…“ öffnen."
+        )
+
+        self.btn_description_edit = QPushButton("Beschreibung bearbeiten…")
+        self.btn_description_edit.clicked.connect(self._edit_description_dialog)
+        self.year_edit = QSpinBox()
+        self.year_edit.setRange(0, 9999)
+        self.year_edit.setSpecialValueText("")
+        self.season_edit = QSpinBox()
+        self.season_edit.setRange(0, 9999)
+        self.episode_edit = QSpinBox()
+        self.episode_edit.setRange(0, 99999)
         self.series_edit = QLineEdit()
         self.channel_edit = QLineEdit()
         self.playlist_edit = QLineEdit()
         self.date_edit = QLineEdit()
         self.path_label = QLabel("-")
         self.path_label.setWordWrap(True)
-        form.addRow("Titel", self.title_edit)
-        form.addRow("Beschreibung", self.description_edit)
-        form.addRow("Jahr", self.year_edit)
-        form.addRow("Staffel", self.season_edit)
-        form.addRow("Episode", self.episode_edit)
-        form.addRow("Serie", self.series_edit)
-        form.addRow("Kanal", self.channel_edit)
-        form.addRow("Playlist", self.playlist_edit)
-        form.addRow("Veröffentlicht", self.date_edit)
-        form.addRow("Pfad", self.path_label)
-        right_layout.addLayout(form)
+        self.path_label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+
+        basic_group = QGroupBox("Grunddaten")
+        basic_layout = QVBoxLayout(basic_group)
+        basic_layout.setSpacing(8)
+
+        title_row = QHBoxLayout()
+        title_label = QLabel("Titel")
+        title_label.setMinimumWidth(125)
+        title_row.addWidget(title_label)
+        title_row.addWidget(self.title_edit, 1)
+        basic_layout.addLayout(title_row)
+
+        description_row = QHBoxLayout()
+        description_label = QLabel("Beschreibung")
+        description_label.setMinimumWidth(125)
+        description_row.addWidget(description_label)
+        description_row.addWidget(self.description_preview, 1)
+        description_row.addWidget(self.btn_description_edit)
+        basic_layout.addLayout(description_row)
+
+        date_year_row = QHBoxLayout()
+        date_year_row.setSpacing(10)
+
+        release_label = QLabel("Veröffentlichung / Ausstrahlung")
+        release_label.setMinimumWidth(125)
+        date_year_row.addWidget(release_label)
+        date_year_row.addWidget(self.date_edit, 3)
+
+        date_year_row.addSpacing(14)
+        year_label = QLabel("Jahr")
+        year_label.setMinimumWidth(45)
+        date_year_row.addWidget(year_label)
+        date_year_row.addWidget(self.year_edit, 1)
+
+        basic_layout.addLayout(date_year_row)
+        editor_layout.addWidget(basic_group)
+
+        series_group = QGroupBox("Seriendaten")
+        series_form = QFormLayout(series_group)
+        series_form.setVerticalSpacing(8)
+        series_form.addRow("Serie", self.series_edit)
+
+        season_episode_row = QHBoxLayout()
+        season_episode_row.setSpacing(10)
+        season_episode_row.addWidget(QLabel("Staffel"))
+        season_episode_row.addWidget(self.season_edit, 1)
+        season_episode_row.addSpacing(18)
+        season_episode_row.addWidget(QLabel("Episode"))
+        season_episode_row.addWidget(self.episode_edit, 1)
+        series_form.addRow(season_episode_row)
+
+        self.episode_title_display = QLineEdit()
+        self.episode_title_display.setReadOnly(True)
+        self.episode_title_display.setPlaceholderText(
+            "wird nach KI-Prüfung / Metadaten-Erkennung angezeigt"
+        )
+        series_form.addRow("Episodentitel", self.episode_title_display)
+        editor_layout.addWidget(series_group)
+
+        source_group = QGroupBox("Quelle / Zuordnung")
+        source_form = QFormLayout(source_group)
+        source_form.setVerticalSpacing(8)
+        source_form.addRow("Kanal / Sender", self.channel_edit)
+        source_form.addRow("Playlist", self.playlist_edit)
+        source_form.addRow("Pfad", self.path_label)
+        editor_layout.addWidget(source_group)
+
+        left_layout.addWidget(editor_group)
 
         self.diff_label = QLabel("Keine Änderungen")
         self.diff_label.setWordWrap(True)
-        right_layout.addWidget(self.diff_label)
+        left_layout.addWidget(self.diff_label)
+
+        # AI comparison panel at the bottom-left, concept-style.
+        ai_compare_group = QGroupBox("KI-Metadaten-Vorschau  (nur Entwurf)")
+        ai_compare_layout = QVBoxLayout(ai_compare_group)
+
+        self.ai_metadata_preview = QTextEdit()
+        self.ai_metadata_preview.setReadOnly(True)
+        self.ai_metadata_preview.setMinimumHeight(220)
+        self.ai_metadata_preview.setPlaceholderText(
+            "Alt → Neu, Quelle, Confidence und Begründung erscheinen hier."
+        )
+        ai_compare_layout.addWidget(self.ai_metadata_preview)
+        left_layout.addWidget(ai_compare_group, 1)
+
+        # Right sidebar: old metadata + poster + KI actions.
+        right_sidebar = QWidget()
+        sidebar = QVBoxLayout(right_sidebar)
+        sidebar.setContentsMargins(0, 0, 0, 0)
+        sidebar.setSpacing(8)
+
+        old_group = QGroupBox("Vorhandene / alte Metadaten  (NFO / Datei)")
+        old_layout = QVBoxLayout(old_group)
+        self.original_metadata_preview = QTextEdit()
+        self.original_metadata_preview.setReadOnly(True)
+        self.original_metadata_preview.setMinimumHeight(210)
+        old_layout.addWidget(self.original_metadata_preview)
+        sidebar.addWidget(old_group)
+
+        poster_group = QGroupBox("Poster  (Vorschau)")
+        poster_layout = QVBoxLayout(poster_group)
+        self.poster_preview = QLabel("Kein Poster")
+        self.poster_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.poster_preview.setMinimumSize(220, 315)
+        self.poster_preview.setMaximumSize(260, 370)
+        self.poster_preview.setStyleSheet(
+            "QLabel { border: 1px solid #777; background: rgba(0,0,0,0.08); }"
+        )
+        self.poster_preview.setToolTip(
+            "Aktuelles Poster oder KI-/Online-Poster des ausgewählten Mediums"
+        )
+        poster_layout.addWidget(
+            self.poster_preview,
+            0,
+            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
+        )
+        poster_layout.addStretch(1)
+        sidebar.addWidget(poster_group)
+
+        ai_action_group = QGroupBox("KI")
+        ai_action_layout = QVBoxLayout(ai_action_group)
+        self.btn_ai_metadata = QPushButton("KI-Metadaten prüfen")
+        self.ai_metadata_status_label = QLabel("KI: wird geprüft")
+        self.ai_metadata_status_label.setWordWrap(True)
+        self.btn_ai_metadata.clicked.connect(self._review_metadata_with_ai)
+        ai_action_layout.addWidget(self.btn_ai_metadata)
+        ai_action_layout.addWidget(self.ai_metadata_status_label)
+        sidebar.addWidget(ai_action_group)
+
+        sidebar.addStretch(1)
+
+        content_split.addWidget(left_column)
+        content_split.addWidget(right_sidebar)
+        content_split.setStretchFactor(0, 4)
+        content_split.setStretchFactor(1, 2)
+        content_split.setSizes([980, 430])
+
+        right_layout.addWidget(content_split, 1)
 
         buttons = QHBoxLayout()
         self.btn_draft = QPushButton("Entwurf speichern")
@@ -505,16 +998,99 @@ class NativeMetadataEditorWidget(QWidget):
         splitter.setStretchFactor(2, 4)
         splitter.setSizes([170, 320, 650])
         root.addWidget(splitter, 1)
+        self._refresh_ai_metadata_status()
         self.refresh()
 
     def refresh(self):
+        from PySide6.QtWidgets import QMessageBox
         try:
             raw = self.plugin.mediahub_api.get_library_videos() if self.plugin.mediahub_api else []
-            self._items = self.plugin._normalize_items(raw)
-            self._apply_filter()
+            if isinstance(raw, dict):
+                raw = raw.get("videos", raw.get("items", []))
+            self._library_items = self.plugin._normalize_items(raw)
         except Exception as error:
-            from PySide6.QtWidgets import QMessageBox
-            QMessageBox.warning(self, "Metadata Editor", f"Bibliothek konnte nicht geladen werden:\n{error}")
+            self._library_items = []
+            QMessageBox.warning(
+                self,
+                "Metadata Editor",
+                f"MediaHub-Bibliothek konnte nicht geladen werden:\n{error}",
+            )
+
+        if self._local_folder:
+            try:
+                self._local_items = self.plugin.scan_local_folder(self._local_folder)
+            except Exception as error:
+                self._local_items = []
+                QMessageBox.warning(
+                    self,
+                    "Metadata Editor",
+                    f"Lokaler Ordner konnte nicht aktualisiert werden:\n{error}",
+                )
+
+        self._rebuild_items()
+
+    def _rebuild_items(self):
+        merged = {}
+        for item in [*self._library_items, *self._local_items]:
+            key = str(
+                item.get("path")
+                or item.get("file_path")
+                or item.get("id")
+                or ""
+            ).casefold()
+            if key and key in merged:
+                # Lokale Dateidaten ergänzen bestehende MediaHub-Einträge.
+                merged[key].update(
+                    {
+                        k: v
+                        for k, v in item.items()
+                        if v not in (None, "", [], {})
+                    }
+                )
+            else:
+                merged[key or f"id:{len(merged)}"] = dict(item)
+        self._items = list(merged.values())
+        self._apply_filter()
+
+    def _choose_local_folder(self):
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+        start = self._local_folder or str(self.plugin.base_dir)
+        folder = QFileDialog.getExistingDirectory(
+            self,
+            "Medienordner auswählen",
+            start,
+        )
+        if not folder:
+            return
+
+        try:
+            self._local_folder = folder
+            self._local_items = self.plugin.scan_local_folder(folder)
+            self._rebuild_items()
+            for row in range(self.categories.count()):
+                item = self.categories.item(row)
+                if item and item.text() == "Lokaler Ordner":
+                    self.categories.setCurrentRow(row)
+                    break
+            QMessageBox.information(
+                self,
+                "Metadata Editor",
+                f"{len(self._local_items)} lokale Mediendatei(en) eingelesen.",
+            )
+        except Exception as error:
+            QMessageBox.warning(
+                self,
+                "Metadata Editor",
+                f"Ordner konnte nicht eingelesen werden:\n{error}",
+            )
+
+    def _select_source_category(self, label):
+        for row in range(self.categories.count()):
+            item = self.categories.item(row)
+            if item and item.text() == label:
+                self.categories.setCurrentRow(row)
+                return
 
     def _apply_filter(self, *args):
         query = self.search.text().strip().lower()
@@ -525,6 +1101,10 @@ class NativeMetadataEditorWidget(QWidget):
         visible = []
         for item in self._items:
             if category == "Entwürfe" and str(item.get("id")) not in drafts:
+                continue
+            if category == "MediaHub / YouTube" and str(item.get("source_type") or "") == "local_folder":
+                continue
+            if category == "Lokaler Ordner" and str(item.get("source_type") or "") != "local_folder":
                 continue
             if category == "Kanäle" and not str(item.get("channel") or "").strip():
                 continue
@@ -564,6 +1144,7 @@ class NativeMetadataEditorWidget(QWidget):
         self._loading = True
         self.title_edit.setText(str(item.get("title") or ""))
         self.description_edit.setPlainText(str(item.get("description") or ""))
+        self._sync_description_preview()
         self.year_edit.setValue(self._number(item.get("year")))
         self.season_edit.setValue(self._number(item.get("season")))
         self.episode_edit.setValue(self._number(item.get("episode")))
@@ -573,8 +1154,39 @@ class NativeMetadataEditorWidget(QWidget):
         self.date_edit.setText(str(item.get("published_at") or ""))
         path = item.get("path") or item.get("file_path") or item.get("filepath") or item.get("local_path") or item.get("filename") or "-"
         self.path_label.setText(str(path))
+        self._update_poster_preview(item)
+        self._update_original_metadata_preview(item)
+        self.ai_metadata_preview.clear()
         self._loading = False
         self._update_diff()
+
+    def _update_poster_preview(self, item=None):
+        from PySide6.QtCore import Qt
+
+        current = dict(item or self._current or {})
+        path = self.plugin._poster_path(current)
+
+        if not path:
+            self.poster_preview.clear()
+            self.poster_preview.setText("Kein Poster")
+            self.poster_preview.setToolTip("Für dieses Medium wurde kein Poster gefunden.")
+            return
+
+        pixmap = self._QPixmap(str(path))
+        if pixmap.isNull():
+            self.poster_preview.clear()
+            self.poster_preview.setText("Poster\nnicht lesbar")
+            self.poster_preview.setToolTip(str(path))
+            return
+
+        scaled = pixmap.scaled(
+            self.poster_preview.size(),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        self.poster_preview.setText("")
+        self.poster_preview.setPixmap(scaled)
+        self.poster_preview.setToolTip(str(path))
 
     def _clear_fields(self):
         self._set_fields({})
@@ -610,6 +1222,274 @@ class NativeMetadataEditorWidget(QWidget):
         else:
             self.diff_label.setText("Geändert: " + ", ".join(changes.keys()))
 
+    def _update_original_metadata_preview(self, item):
+        labels = (
+            ("title", "Titel"),
+            ("series", "Serie"),
+            ("season", "Staffel"),
+            ("episode", "Episode"),
+            ("year", "Jahr"),
+            ("description", "Beschreibung"),
+            ("published_at", "Datum"),
+            ("nfo_path", "NFO"),
+        )
+        lines = []
+        for key, label in labels:
+            value = (item or {}).get(key)
+            if value not in (None, "", 0):
+                lines.append(f"{label}: {value}")
+
+        if not lines:
+            lines.append("Keine vorhandenen Metadaten erkannt.")
+
+        self.original_metadata_preview.setPlainText("\n".join(lines))
+
+    def _populate_editor_from_ai(self, result):
+        fields = dict(result.get("fields") or {})
+
+        if "title" in fields:
+            self.title_edit.setText(str(fields.get("title") or ""))
+            self.episode_title_display.setText(
+                str(fields.get("episode_title") or fields.get("title") or "")
+            )
+        if "description" in fields:
+            self.description_edit.setPlainText(
+                str(fields.get("description") or "")
+            )
+            self._sync_description_preview()
+        if "year" in fields:
+            try:
+                self.year_edit.setValue(int(fields.get("year") or 0))
+            except (TypeError, ValueError):
+                pass
+        if "season" in fields:
+            try:
+                self.season_edit.setValue(int(fields.get("season") or 0))
+            except (TypeError, ValueError):
+                pass
+        if "episode" in fields:
+            try:
+                self.episode_edit.setValue(int(fields.get("episode") or 0))
+            except (TypeError, ValueError):
+                pass
+        if "series" in fields:
+            self.series_edit.setText(str(fields.get("series") or ""))
+        if "published_at" in fields:
+            self.date_edit.setText(str(fields.get("published_at") or ""))
+
+        self._update_diff()
+
+    def _show_ai_poster_preview(self, result):
+        url = str(result.get("poster_url") or "").strip()
+        if not url:
+            return
+
+        try:
+            path = self.plugin.cache_ai_poster(url)
+        except Exception:
+            path = None
+
+        if not path:
+            return
+
+        from PySide6.QtCore import Qt
+
+        pixmap = self._QPixmap(str(path))
+        if pixmap.isNull():
+            return
+
+        scaled = pixmap.scaled(
+            self.poster_preview.size(),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        self.poster_preview.setText("")
+        self.poster_preview.setPixmap(scaled)
+        self.poster_preview.setToolTip(
+            "KI-/Online-Poster-Vorschlag\n" + url
+        )
+
+    def _sync_description_preview(self):
+        value = self.description_edit.toPlainText().strip()
+        compact = " ".join(value.split())
+        if len(compact) > 140:
+            compact = compact[:137].rstrip() + "…"
+        self.description_preview.setText(compact)
+        self.description_preview.setToolTip(value or "Keine Beschreibung")
+
+    def _edit_description_dialog(self):
+        from PySide6.QtCore import Qt
+        from PySide6.QtWidgets import (
+            QDialog,
+            QDialogButtonBox,
+            QLabel,
+            QTextEdit,
+            QVBoxLayout,
+        )
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Beschreibung bearbeiten")
+        dialog.resize(760, 460)
+
+        layout = QVBoxLayout(dialog)
+
+        info = QLabel(
+            "Beschreibung vollständig lesen oder bearbeiten. "
+            "Mit „Übernehmen“ wird nur der aktuelle Entwurf geändert."
+        )
+        info.setWordWrap(True)
+        layout.addWidget(info)
+
+        editor = QTextEdit(dialog)
+        editor.setPlainText(self.description_edit.toPlainText())
+        editor.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
+        editor.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        editor.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        layout.addWidget(editor, 1)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save
+            | QDialogButtonBox.StandardButton.Cancel
+        )
+        save_button = buttons.button(
+            QDialogButtonBox.StandardButton.Save
+        )
+        if save_button is not None:
+            save_button.setText("Übernehmen")
+
+        cancel_button = buttons.button(
+            QDialogButtonBox.StandardButton.Cancel
+        )
+        if cancel_button is not None:
+            cancel_button.setText("Abbrechen")
+
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.description_edit.setPlainText(editor.toPlainText())
+            self._sync_description_preview()
+            self._update_diff()
+
+    def _refresh_ai_metadata_status(self):
+        status = self.plugin.ai_metadata_status()
+        available = bool(status.get("available"))
+        self.btn_ai_metadata.setEnabled(available)
+        self.ai_metadata_status_label.setText(
+            "KI: MediaHub KI-Assistent"
+            if available
+            else "KI: nicht verfügbar"
+        )
+
+    @staticmethod
+    def _display_metadata_value(value):
+        return "—" if value in (None, "", 0) else str(value)
+
+    def _review_metadata_with_ai(self):
+        from PySide6.QtWidgets import QMessageBox
+
+        self._refresh_ai_metadata_status()
+        if not self._current:
+            QMessageBox.information(
+                self,
+                "KI-Metadaten",
+                "Bitte zuerst ein Medium auswählen.",
+            )
+            return
+
+        result = self.plugin.ai_metadata_review(self._current)
+        if not result.get("available"):
+            self.ai_metadata_preview.setPlainText(
+                "\n".join(
+                    map(
+                        str,
+                        result.get("warnings")
+                        or ["KI nicht verfügbar."],
+                    )
+                )
+            )
+            return
+
+        labels = {
+            "media_type": "Medientyp",
+            "series": "Serie",
+            "title": "Titel / Episodentitel",
+            "season": "Staffel",
+            "episode": "Episode",
+            "year": "Jahr",
+            "description": "Beschreibung",
+            "published_at": "Datum",
+        }
+        fields = dict(result.get("fields") or {})
+        changes = dict(result.get("changes") or {})
+        lines = ["KI-Metadaten-Vorschau", ""]
+        ordered = (
+            "media_type",
+            "series",
+            "season",
+            "episode",
+            "title",
+            "year",
+            "description",
+            "published_at",
+        )
+        shown = set()
+
+        for key in ordered:
+            if key not in fields and key not in changes:
+                continue
+            shown.add(key)
+            change = dict(changes.get(key) or {})
+            old = change.get("old", self._current.get(key))
+            new = change.get("new", fields.get(key))
+            lines.append(
+                f"{labels.get(key, key)}: "
+                f"{self._display_metadata_value(old)}  →  "
+                f"{self._display_metadata_value(new)}"
+            )
+
+        for key, value in fields.items():
+            if key in shown:
+                continue
+            lines.append(
+                f"{labels.get(key, key)}: "
+                f"{self._display_metadata_value(self._current.get(key))}  →  "
+                f"{self._display_metadata_value(value)}"
+            )
+
+        sources = list(result.get("sources") or [])
+        if sources:
+            lines.extend(("", "Quelle: " + ", ".join(map(str, sources))))
+
+        lines.append(
+            f"Confidence: {float(result.get('confidence') or 0.0) * 100:.0f}%"
+        )
+
+        rationale = str(result.get("rationale") or "").strip()
+        if rationale:
+            lines.append("Begründung: " + rationale)
+
+        warnings = list(result.get("warnings") or [])
+        if warnings:
+            lines.append("Hinweise: " + "; ".join(map(str, warnings)))
+
+        lines.extend((
+            "",
+            "Nur Vorschau · keine automatische Übernahme.",
+            "metadata.write bleibt gesperrt.",
+        ))
+        self.ai_metadata_preview.setPlainText("\n".join(lines))
+
+        # Nur die sichtbaren Eingabefelder übernehmen. Es wird weder gespeichert
+        # noch in NFO/Container geschrieben, bis der Benutzer später bestätigt.
+        self._populate_editor_from_ai(result)
+        self._show_ai_poster_preview(result)
+
     def _save_draft(self):
         if not self._current:
             return
@@ -631,6 +1511,8 @@ class NativeMetadataEditorWidget(QWidget):
             return
         status, _, body = self.plugin._replace_image({"item": self._current, "kind": "poster", "source_path": filename})
         self._show_result(status, body)
+        if int(status) < 400:
+            self._update_poster_preview(self._current)
 
     def _reset_fields(self):
         if self._current:

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
-from services.detection_candidates import CandidateSet, DetectionCandidate
+from mediahub_smart_renamer_runtime.services.detection_candidates import CandidateSet, DetectionCandidate
 
 
 @dataclass(frozen=True, slots=True)
