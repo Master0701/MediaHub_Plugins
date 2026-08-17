@@ -3,6 +3,9 @@ minversion = "8.0"
 testpaths = [
     "tests",
 ]
+pythonpath = [
+    "shared",
+]
 python_files = [
     "test_*.py",
 ]
