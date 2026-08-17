@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "purpose": "Vorbereitung für spätere MediaHub-Core-Integration, noch nicht automatisch anwenden.",
+  "tool_ids": {
+    "chromaprint_fpcalc": {
+      "display_name": "Chromaprint fpcalc",
+      "folder": "chromaprint",
+      "exe": "fpcalc.exe",
+      "category": "plugin",
+      "homepage": "https://github.com/acoustid/chromaprint",
+      "license_note": "Chromaprint upstream MIT; konkretes fpcalc-Paket kann FFmpeg-Lizenzfolgen enthalten.",
+      "recommended_install": "GitHub release ZIP, x86_64 Windows",
+      "search_names": [
+        "fpcalc.exe"
+      ]
+    },
+    "mp3tag": {
+      "display_name": "Mp3tag Portable",
+      "folder": "mp3tag",
+      "exe": "Mp3tag.exe",
+      "category": "plugin",
+      "homepage": "https://www.mp3tag.de/",
+      "license_note": "Herstellerbedingungen prüfen und im Tool Manager anzeigen.",
+      "recommended_install": "Offizieller Download, Portable-Modus",
+      "search_names": [
+        "Mp3tag.exe"
+      ]
+    }
+  },
+  "mediahub_files_to_extend_later": [
+    "src/mediahub/services/tool_catalog.py",
+    "src/mediahub/services/tool_service.py",
+    "THIRD_PARTY_LICENSES.md",
+    "THIRD_PARTY_NOTICES.md",
+    "tests/test_tool_service.py"
+  ],
+  "plugin_repo_files_to_extend_later": [
+    "plugins/audio_metadata_editor/plugin.json",
+    "THIRD_PARTY_LICENSES.md"
+  ],
+  "metadata_contract_reserved": "mediahub.audio_metadata.v1",
+  "metadata_editor_bridge": "metadata.audio.bridge.v1"
+}

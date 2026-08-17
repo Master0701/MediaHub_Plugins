@@ -1,0 +1,134 @@
+{
+  "id": "mediahub.audio_metadata_editor",
+  "name": "MediaHub Audio Metadata Editor",
+  "version": "0.0.1",
+  "author": "Master0701",
+  "description": "Audio-Metadaten-Editor f?r allgemeine Audiodateien und H?rb?cher. Der allgemeine Audio-Bereich und der spezialisierte H?rbuch-Bereich verwenden dieselbe Audio-Metadaten-Engine, Tool-Infrastruktur und Sicherheitslogik.",
+  "type": "tool",
+  "enabled": true,
+  "entry": "plugin.py",
+  "class_name": "MediaHubAudioMetadataEditorPlugin",
+  "icon": "🎧",
+  "safe_mode": true,
+  "minimum_mediahub_version": "1.0.17",
+  "minimum_mediahub": "1.0.17",
+  "network_scope": "internet_optional",
+  "has_settings": false,
+  "development_status": "development",
+  "catalog": {
+    "visible": true,
+    "auto_install": false,
+    "channel": "development"
+  },
+  "permissions": [
+    "read_library",
+    "read_metadata",
+    "write_metadata",
+    "network_metadata"
+  ],
+  "dependencies": [],
+  "required_tools": [
+    {
+      "id": "ffmpeg",
+      "required": true,
+      "provided_by": "mediahub",
+      "feature": "audio_decode"
+    },
+    {
+      "id": "ffprobe",
+      "required": true,
+      "provided_by": "mediahub",
+      "feature": "audio_probe"
+    }
+  ],
+  "optional_tools": [
+    {
+      "id": "mediainfo",
+      "required": false,
+      "provided_by": "mediahub_tool_manager",
+      "feature": "extended_audio_probe"
+    },
+    {
+      "id": "chromaprint_fpcalc",
+      "required": false,
+      "provided_by": "mediahub_tool_manager",
+      "feature": "audio_fingerprint",
+      "prepared": true
+    },
+    {
+      "id": "mp3tag",
+      "required": false,
+      "provided_by": "mediahub_tool_manager",
+      "feature": "manual_expert_tag_editor",
+      "prepared": true
+    }
+  ],
+  "install_declared_tools_on_plugin_install": false,
+  "capabilities": [
+    "audiobook_detection",
+    "general_audio_management",
+    "chapters",
+    "authors",
+    "narrators",
+    "series",
+    "covers",
+    "metadata_sources",
+    "mediahub.audio_metadata.v1",
+    "audio_metadata_inspect",
+    "audio_metadata_identify",
+    "audio_metadata_compare",
+    "audio_metadata_write_plan",
+    "audio_metadata_confirmed_write",
+    "audio_fingerprint_pipeline",
+    "ai_audio_control"
+  ],
+  "ui": {
+    "enabled": false,
+    "type": "native",
+    "title": "MediaHub Audio Metadata Editor",
+    "icon": "🎧",
+    "order": 100
+  },
+  "license": {
+    "project_license": "Proprietary",
+    "third_party_licenses": [
+      {
+        "name": "FFmpeg / ffprobe",
+        "usage": "Technische Audioanalyse und Dekodierung über MediaHub Core",
+        "bundled": false,
+        "provided_by": "mediahub",
+        "license": "GPL/LGPL abhängig vom verwendeten Build",
+        "vendor": "FFmpeg Project",
+        "homepage": "https://ffmpeg.org/"
+      },
+      {
+        "name": "MediaInfo",
+        "usage": "Optionale erweiterte technische Medienanalyse",
+        "bundled": false,
+        "provided_by": "mediahub_tool_manager",
+        "license": "BSD-2-Clause",
+        "vendor": "MediaArea.net",
+        "homepage": "https://mediaarea.net/en/MediaInfo"
+      },
+      {
+        "name": "Chromaprint / fpcalc",
+        "usage": "Optionaler Audio-Fingerprint für spätere Identifikation via AcoustID/MusicBrainz",
+        "bundled": false,
+        "provided_by": "mediahub_tool_manager",
+        "homepage": "https://github.com/acoustid/chromaprint",
+        "license": "Chromaprint-Projekt MIT; konkrete fpcalc-Binärpakete können FFmpeg-/Build-Abhängigkeiten mit eigenen Lizenzbedingungen enthalten",
+        "vendor": "AcoustID / Chromaprint Project"
+      },
+      {
+        "name": "Mp3tag",
+        "vendor": "Florian Heidenreich",
+        "usage": "Optionales manuelles Expertentool; nicht als Hintergrund-Automationsbackend vorgesehen",
+        "bundled": false,
+        "provided_by": "mediahub_tool_manager",
+        "homepage": "https://www.mp3tag.de/",
+        "license": "Herstellerbedingungen; portable Installation vorgesehen"
+      }
+    ]
+  },
+  "package_name": "Audio_Metadata_Editor"
+}

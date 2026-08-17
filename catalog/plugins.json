@@ -13,14 +13,14 @@
       "minimum_mediahub": "1.0.17"
     },
     {
-      "id": "mediahub.audiobook_manager",
-      "name": "MediaHub Hörbuchverwaltung",
-      "version": "0.0.0",
-      "category": "Erweiterung",
-      "description": "Vorbereitetes Hörbuch-Plugin für Erkennung, Verwaltung, Metadaten, Cover und spätere Quellenanbindung.",
-      "package": "MediaHub_Hörbuchverwaltung_v0.0.0.mhplugin",
+      "id": "mediahub.audio_metadata_editor",
+      "name": "MediaHub Audio Metadata Editor",
+      "version": "0.0.1",
+      "category": "Audio und H?rb?cher",
+      "description": "Audio-Metadaten-Editor f?r allgemeine Audiodateien und H?rb?cher mit gemeinsamem Metadaten-Kern und spezialisiertem H?rbuch-Bereich.",
+      "package": "MediaHub_AudioMetadataEditor_v0.0.1.mhplugin",
       "minimum_mediahub_version": "1.0.17",
-      "network_scope": "local_only",
+      "network_scope": "internet_optional",
       "minimum_mediahub": "1.0.17"
     },
     {

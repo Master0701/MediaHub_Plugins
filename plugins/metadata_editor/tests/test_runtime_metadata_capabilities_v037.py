@@ -1,7 +1,7 @@
-from pathlib import Path
 import importlib.util
 import sys
 import types
+from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -71,7 +71,7 @@ def test_nfo_can_be_used_as_read_only_metadata_source(tmp_path):
     obj=build(tmp_path)
     result=obj.read_metadata({"path":str(movie)})
     assert result["metadata"]["title"]=="Movie"
-    assert result["metadata"]["year"]=="2024"
+    assert result["metadata"]["year"] == 2024
     assert result["execution_allowed"] is False
 
 def test_review_only_proposes_metadata_changes(tmp_path):

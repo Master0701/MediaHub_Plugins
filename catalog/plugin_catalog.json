@@ -20,20 +20,20 @@
       "sha256_asset": "MediaHub_KI-Assistent_v7.0.7.mhplugin.sha256"
     },
     {
-      "id": "mediahub.audiobook_manager",
-      "name": "MediaHub Hörbuchverwaltung",
-      "version": "0.0.0",
-      "status": "planned",
+      "id": "mediahub.audio_metadata_editor",
+      "name": "MediaHub Audio Metadata Editor",
+      "version": "0.0.1",
+      "status": "available",
       "category": "Hörbücher",
       "visible": true,
       "auto_install": false,
       "manual_only": false,
-      "description": "Vorbereitetes Hörbuch-Plugin für Erkennung, Verwaltung, Metadaten, Cover und spätere Quellenanbindung.",
+      "description": "Audio-Metadaten-Editor f?r allgemeine Audiodateien und H?rb?cher. Der allgemeine Audio-Bereich und der spezialisierte H?rbuch-Bereich verwenden dieselbe Audio-Metadaten-Engine, Tool-Infrastruktur und Sicherheitslogik.",
       "minimum_mediahub_version": "1.0.17",
-      "project_page": "https://github.com/Master0701/MediaHub_Plugins/tree/main/plugins/audiobook_manager",
-      "manual_install_message": "Für diese Version ist derzeit noch kein installierbares Release-Paket verfügbar.",
-      "release_asset": "MediaHub_Hörbuchverwaltung_v0.0.0.mhplugin",
-      "sha256_asset": "MediaHub_Hörbuchverwaltung_v0.0.0.mhplugin.sha256"
+      "project_page": "https://github.com/Master0701/MediaHub_Plugins/tree/main/plugins/audio_metadata_editor",
+      "manual_install_message": "",
+      "release_asset": "MediaHub_AudioMetadataEditor_v0.0.1.mhplugin",
+      "sha256_asset": "MediaHub_AudioMetadataEditor_v0.0.1.mhplugin.sha256"
     },
     {
       "id": "mediahub.list_exporter",
@@ -54,7 +54,7 @@
     {
       "id": "mediahub.metadata_editor",
       "name": "MediaHub Metadata Editor",
-      "version": "0.4.1",
+      "version": "0.4.2",
       "status": "available",
       "category": "Metadaten",
       "visible": true,
@@ -64,8 +64,8 @@
       "minimum_mediahub_version": "1.0.5",
       "project_page": "https://github.com/Master0701/MediaHub_Plugins/tree/main/plugins/metadata_editor",
       "manual_install_message": "",
-      "release_asset": "MediaHub_MetadataEditor_v0.4.1.mhplugin",
-      "sha256_asset": "MediaHub_MetadataEditor_v0.4.1.mhplugin.sha256"
+      "release_asset": "MediaHub_MetadataEditor_v0.4.2.mhplugin",
+      "sha256_asset": "MediaHub_MetadataEditor_v0.4.2.mhplugin.sha256"
     },
     {
       "id": "mediahub.mobile_dashboard",

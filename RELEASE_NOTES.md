@@ -16,24 +16,43 @@
 - Provider-Verbindungstest verwendet den aktuellen gespeicherten Formular- und Aktivierungszustand.
 - Umfangreiche neue Regressionstests für Provider, Episodenerkennung, Metadata Review und Rename Review ergänzt.
 
-## MediaHub Metadata Editor v0.4.0
+## MediaHub Audio Metadata Editor v0.0.1
+
+- Neues eigenst?ndiges MediaHub-Plugin f?r Audio-Metadaten und H?rb?cher.
+- Ersetzt die bisherige geplante MediaHub H?rbuchverwaltung als gemeinsame Audio-Metadaten-L?sung.
+- Audio und H?rb?cher werden innerhalb desselben Plugins verwaltet.
+- Gemeinsamer Audio-Metadata-Contract f?r Lesen, Erkennen, Vergleichen, Schreibplanung und sp?tere Schreibvorg?nge vorbereitet.
+- Gemeinsame MediaHub-Metadata-Core-Infrastruktur f?r Audio- und Video-Metadaten angebunden.
+- Unterst?tzte Audioformate und sichere Schreibregeln zentral vorbereitet.
+- H?rbuchdateien wie M4B werden bereits als eigener Medientyp erkannt.
+- Tool-Anbindung f?r FFmpeg, FFprobe, MediaInfo, Chromaprint/fpcalc und Mp3tag vorbereitet.
+- Drittanbieter-, Lizenz-, Installations- und Tool-Dokumentation ist Bestandteil des Plugins.
+- Tats?chliches Schreiben von Audio-Tags bleibt in v0.0.1 noch deaktiviert.
+- ?nderungen bleiben best?tigungspflichtig; Backup und Pr?fung nach sp?teren Schreibvorg?ngen sind verbindlich vorgesehen.
+
+## MediaHub Metadata Editor v0.4.2
 
 - Lokale Ordner können direkt ausgewählt und als Medienquelle eingelesen werden.
+- Mehrere lokale Quellordner können dauerhaft als Quellen gespeichert und gemeinsam erneut eingelesen werden.
+- Beim erneuten Einlesen werden Dateien als `new`, `changed` oder `unchanged` erkannt.
+- Die Änderungsverfolgung speichert nur leichte Dateisignaturen aus Pfad, Größe und Änderungszeit; es wird keine dauerhafte vollständige Medienliste geführt.
+- Die bisherige Einzelordner-Konfiguration wird in die neue Quellenverwaltung übernommen.
 - MediaHub-/YouTube-Bibliothek und lokale Ordner stehen als getrennte Quellen zur Verfügung.
 - Vorhandene Metadaten aus Datei und NFO werden separat angezeigt.
 - KI-Metadaten-Vorschau mit Alt-/Neu-Vergleich integriert.
 - KI-Vorschläge können die Bearbeitungsfelder im Entwurf vorausfüllen.
 - Serienname, Staffel, Episode und Episodentitel werden aus dem KI-Assistenten übernommen.
-- Beschreibung sowie Veröffentlichungs-/Ausstrahlungsdatum in den Metadaten-Entwurf integriert.
+- Beschreibung sowie Veröffentlichungs-/Ausstrahlungsdatum können in den Metadaten-Entwurf übernommen werden.
 - Poster-Vorschau für lokale bzw. online ermittelte Bilder ergänzt.
 - Grunddaten-, Serien- und Quellenbereiche neu strukturiert.
 - Staffel und Episode werden gemeinsam und übersichtlich dargestellt.
-- Beschreibung im Hauptfenster auf eine kompakte Vorschau reduziert.
-- Vollständige Beschreibung kann über einen separaten Dialog gelesen und bearbeitet werden.
-- Beschreibungsdialog bietet Zeilenumbruch, Scrollbalken, „Übernehmen“ und „Abbrechen“.
-- Veröffentlichungs-/Ausstrahlungsdatum bleibt unabhängig von der Beschreibung sichtbar.
-- Metadata Write bleibt weiterhin gesperrt; KI-Ergebnisse sind aktuell ausschließlich Vorschläge/Entwürfe.
-- Umfangreiche Layout-, Dialog-, Ordner-, Poster- und KI-Metadaten-Tests ergänzt.
+- Beschreibung im Hauptfenster auf eine kompakte Vorschau reduziert und kann über einen separaten Dialog vollständig bearbeitet werden.
+- Metadaten-Entwürfe sind jetzt sitzungsbezogen und werden nicht mehr dauerhaft in `drafts.json` gespeichert.
+- Sitzungsentwürfe können vollständig verworfen werden.
+- Für tatsächliche Änderungen ist eine dauerhafte Recovery-Grundlage mit Vorher-/Nachher-Zustand vorbereitet.
+- Recovery-Daten und temporäre Bearbeitungsentwürfe sind klar voneinander getrennt.
+- Metadata Write bleibt weiterhin gesperrt; KI-Ergebnisse und Bearbeitungen bleiben aktuell Vorschläge/Entwürfe.
+- Regressionstests für Quellenverwaltung, Neu-Scan, Sitzungsentwürfe, Recovery, Layout, Dialoge, Poster und KI-Metadaten ergänzt.
 
 ## MediaHub Mobile Dashboard v0.1.7
 

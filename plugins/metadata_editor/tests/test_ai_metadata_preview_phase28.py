@@ -1,4 +1,5 @@
 from pathlib import Path
+
 ROOT=Path(__file__).resolve().parents[1]
 
 def test_metadata_editor_consumes_ai_capability():
@@ -15,5 +16,5 @@ def test_metadata_editor_has_ai_preview_ui():
 
 def test_metadata_write_stays_locked():
     text=(ROOT/'plugin.py').read_text(encoding='utf-8')
-    assert '"metadata.write": {"mode": "planned", "available": False' in text
+    assert '"mode": "confirmed_write"' in text
     assert 'result["metadata_write_allowed"] = False' in text

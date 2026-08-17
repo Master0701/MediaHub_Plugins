@@ -4,47 +4,59 @@ import base64
 import json
 import mimetypes
 import shutil
+import subprocess
 import threading
 import xml.etree.ElementTree as ET
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
+from mediahub_metadata_core import (
+    SUPPORTED_EXTENSIONS,
+    capability_for_extension,
+    merge_mediahub_matroska_tags,
+    read_embedded_metadata,
+    read_mediahub_matroska_tags,
+)
+from mediahub_web_core.server import acquire_shared_server, release_shared_server
+from mediahub_web_core.settings import WebRuntimeSettingsStore, connection_info
 from PySide6.QtCore import QUrl
 from PySide6.QtGui import QDesktopServices, QImageReader
 from PySide6.QtWidgets import QListWidgetItem, QWidget
-
-from mediahub_web_core.server import acquire_shared_server, release_shared_server
-from mediahub_web_core.settings import WebRuntimeSettingsStore, connection_info
 
 
 class MediaHubMetadataEditorPlugin:
     """Lokaler, sicherer Metadaten- und NFO-Editor für MediaHub."""
 
-    VERSION = "0.4.1"
+    VERSION = "0.4.2"
     EDITABLE_FIELDS = (
-        "title", "description", "year", "season", "episode",
-        "series", "channel", "playlist", "published_at",
+        "media_type",
+        "title",
+        "description",
+        "year",
+        "season",
+        "episode",
+        "episode_title",
+        "series",
+        "channel",
+        "playlist",
+        "published_at",
     )
-    NFO_TAGS = {
+    NFO_TAGS: ClassVar[dict[str, str]] = {
         "title": "title", "description": "plot", "year": "year",
         "season": "season", "episode": "episode", "series": "showtitle",
         "channel": "studio", "playlist": "set", "published_at": "aired",
     }
-    IMAGE_NAMES = {
+    IMAGE_NAMES: ClassVar[dict[str, tuple[str, ...]]] = {
         "poster": ("poster.jpg", "poster.png", "folder.jpg", "folder.png"),
         "fanart": ("fanart.jpg", "fanart.png", "background.jpg", "background.png"),
         "banner": ("banner.jpg", "banner.png"),
         "thumbnail": ("thumb.jpg", "thumb.png", "thumbnail.jpg", "thumbnail.png"),
         "season_playlist": ("season.jpg", "season.png", "season-poster.jpg", "season-poster.png", "playlist.jpg", "playlist.png", "folder.jpg", "folder.png"),
     }
-    IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
-    LOCAL_MEDIA_EXTENSIONS = {
-        ".mkv", ".mp4", ".avi", ".mov", ".m4v", ".webm",
-        ".mpg", ".mpeg", ".wmv", ".ts", ".m2ts",
-        ".mp3", ".m4a", ".m4b", ".flac", ".ogg", ".wav",
-    }
+    IMAGE_EXTENSIONS: ClassVar[set[str]] = {".jpg", ".jpeg", ".png", ".webp"}
+    LOCAL_MEDIA_EXTENSIONS: ClassVar[set[str]] = set(SUPPORTED_EXTENSIONS)
 
     def __init__(self, plugin_path: Path, mediahub_api=None):
         self.plugin_path = Path(plugin_path)
@@ -72,18 +84,32 @@ class MediaHubMetadataEditorPlugin:
 
 
     def get_runtime_capabilities(self):
-        # Read/review only. metadata.write intentionally remains unavailable
-        # until the shared confirmation/execution layer is implemented.
-        return {
+        capabilities = {
             "metadata.read": self,
             "metadata.review": self,
         }
+        if self._write_api_available():
+            capabilities["metadata.write"] = self
+        return capabilities
 
     def get_capability_contracts(self):
+        write_available = self._write_api_available()
         return {
-            "metadata.read": {"mode": "read_only", "execution_allowed": False},
-            "metadata.review": {"mode": "advisory", "execution_allowed": False},
-            "metadata.write": {"mode": "planned", "available": False, "execution_allowed": False},
+            "metadata.read": {
+                "mode": "read_only",
+                "execution_allowed": False,
+            },
+            "metadata.review": {
+                "mode": "advisory",
+                "execution_allowed": False,
+            },
+            "metadata.write": {
+                "mode": "confirmed_write",
+                "available": write_available,
+                "execution_allowed": write_available,
+                "automatic_apply_allowed": False,
+                "human_confirmation_required": True,
+            },
         }
 
     def _resolve_capability(self, capability):
@@ -100,7 +126,7 @@ class MediaHubMetadataEditorPlugin:
             if callable(fn):
                 try:
                     provider = fn(capability)
-                except Exception:
+                except Exception:  # noqa: BLE001 - externe Provider-Grenze
                     provider = None
                 if provider is not None:
                     return provider
@@ -178,16 +204,215 @@ class MediaHubMetadataEditorPlugin:
             for node in list(root):
                 field = reverse.get(str(node.tag).lower())
                 if field and node.text not in (None, ""):
-                    values[field] = str(node.text).strip()
+                    value = str(node.text).strip()
+
+                    if field in {"year", "season", "episode"}:
+                        try:
+                            value = int(value)
+                        except (TypeError, ValueError):
+                            pass
+
+                    values[field] = value
             return values, str(nfo_path), True, ""
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001 - NFO-Lesegrenze
             return {}, str(nfo_path), True, str(error)
+
+    def _read_embedded_file_metadata(self, item):
+        media_path = self._media_path(dict(item or {}))
+
+        if media_path is None or not media_path.is_file():
+            return {}, {
+                "available": False,
+                "ok": False,
+                "message": "Keine lokale Mediendatei vorhanden.",
+            }
+
+        capability = capability_for_extension(media_path.suffix)
+
+        if not capability.get("supported"):
+            return {}, {
+                "available": False,
+                "ok": False,
+                "message": "Dateiformat wird nicht unterst?tzt.",
+            }
+
+        ffprobe = self._tool_path("ffprobe")
+
+        if ffprobe is None:
+            return {}, {
+                "available": False,
+                "ok": False,
+                "message": (
+                    "FFprobe ist ?ber den MediaHub-Tool-Manager "
+                    "nicht verf?gbar."
+                ),
+            }
+
+        result = read_embedded_metadata(
+            media_path,
+            ffprobe,
+        )
+
+        embedded_values = dict(
+            result.get("tags") or {}
+        )
+
+        matroska_result = {
+            "available": False,
+            "ok": False,
+            "tags": {},
+        }
+
+        if media_path.suffix.lower() == ".mkv":
+            mkvtoolnix = self._tool_path("mkvtoolnix")
+
+            if mkvtoolnix is not None:
+                mkvextract = (
+                    mkvtoolnix.parent
+                    / "mkvextract.exe"
+                )
+
+                if mkvextract.is_file():
+                    try:
+                        process = subprocess.run(
+                            [
+                                str(mkvextract),
+                                str(media_path),
+                                "tags",
+                            ],
+                            capture_output=True,
+                            text=True,
+                            encoding="utf-8",
+                            errors="replace",
+                            check=False,
+                        )
+
+                        if process.returncode == 0:
+                            matroska_values = (
+                                read_mediahub_matroska_tags(
+                                    process.stdout
+                                )
+                            )
+
+                            # Die hierarchischen Matroska-Tags
+                            # sind f?r Serie/Staffel/Episode
+                            # genauer als allgemeine FFprobe-Tags.
+                            for key, value in (
+                                matroska_values.items()
+                            ):
+                                if value not in (None, ""):
+                                    embedded_values[key] = value
+
+                            # FFprobe flacht hierarchische
+                            # Matroska-TITLE-Tags ab. Dadurch
+                            # kann der Episodentitel f?lschlich
+                            # als allgemeiner Titel erscheinen.
+                            #
+                            # Den echten Segmenttitel lesen wir
+                            # deshalb direkt mit mkvmerge -J.
+                            try:
+                                identify = subprocess.run(
+                                    [
+                                        str(mkvtoolnix),
+                                        "-J",
+                                        str(media_path),
+                                    ],
+                                    capture_output=True,
+                                    text=True,
+                                    encoding="utf-8",
+                                    errors="replace",
+                                    check=False,
+                                )
+
+                                if identify.returncode == 0:
+                                    identify_data = json.loads(
+                                        identify.stdout or "{}"
+                                    )
+
+                                    segment_title = str(
+
+                                            identify_data
+                                            .get("container", {})
+                                            .get("properties", {})
+                                            .get("title")
+                                            or ""
+
+                                    ).strip()
+
+                                    if segment_title:
+                                        embedded_values[
+                                            "title"
+                                        ] = segment_title
+
+                            except Exception:  # noqa: BLE001,S110 - optionaler MKV-Fallback
+                                # Fehler beim zus?tzlichen
+                                # MKVToolNix-Lesen darf die
+                                # ?brigen Metadaten nicht
+                                # unbrauchbar machen.
+                                pass
+
+                            matroska_result = {
+                                "available": True,
+                                "ok": True,
+                                "tags": matroska_values,
+                                "backend": "mkvextract",
+                            }
+                        else:
+                            matroska_result = {
+                                "available": True,
+                                "ok": False,
+                                "tags": {},
+                                "backend": "mkvextract",
+                                "returncode": (
+                                    process.returncode
+                                ),
+                                "message": (
+                                    process.stderr.strip()
+                                    or "MKV-Tags konnten nicht "
+                                    "gelesen werden."
+                                ),
+                            }
+
+                    except Exception as error:  # noqa: BLE001 - MKVToolNix-Prozessgrenze
+                        matroska_result = {
+                            "available": True,
+                            "ok": False,
+                            "tags": {},
+                            "backend": "mkvextract",
+                            "message": str(error),
+                        }
+
+        return (
+            embedded_values,
+            {
+                "available": True,
+                **result,
+                "matroska": matroska_result,
+            },
+        )
 
     def read_metadata(self, payload=None):
         item = self._metadata_payload_item(payload)
         normalized = self._normalize_items([item])[0] if item else {}
-        nfo_values, nfo_path, nfo_exists, nfo_error = self._read_nfo_metadata(item)
+
+        embedded_values, embedded_result = (
+            self._read_embedded_file_metadata(item)
+        )
+
+        nfo_values, nfo_path, nfo_exists, nfo_error = (
+            self._read_nfo_metadata(item)
+        )
+
+        # Priorit?t:
+        # 1. Standard-/MediaHub-Werte
+        # 2. eingebettete Datei-Metadaten
+        # 3. vorhandene NFO
         merged = dict(normalized)
+
+        for key, value in embedded_values.items():
+            if value not in (None, ""):
+                merged[key] = value
+
         for key, value in nfo_values.items():
             if value not in (None, ""):
                 merged[key] = value
@@ -198,6 +423,8 @@ class MediaHubMetadataEditorPlugin:
             "metadata": merged,
             "sources": {
                 "payload": bool(item),
+                "embedded": bool(embedded_values),
+                "embedded_result": embedded_result,
                 "nfo": nfo_exists,
                 "nfo_path": nfo_path,
                 "nfo_error": nfo_error,
@@ -229,6 +456,976 @@ class MediaHubMetadataEditorPlugin:
             "automatic_apply_allowed": False,
             "human_confirmation_required": True,
         }
+
+    def _read_back_written_metadata(self, item_id: str, edited: dict):
+        api = self.mediahub_api
+        getter = getattr(api, "get_library_videos", None) if api is not None else None
+        if not callable(getter):
+            return None
+        try:
+            data = getter()
+        except Exception:  # noqa: BLE001 - MediaHub-API-Grenze
+            return None
+
+        items = (
+            data.get("videos", data.get("items", []))
+            if isinstance(data, dict)
+            else data
+        )
+        target_path = str(
+            edited.get("path")
+            or edited.get("file_path")
+            or ""
+        ).strip()
+
+        for raw in items or []:
+            if not isinstance(raw, dict):
+                continue
+            normalized = self._normalize_items([raw])[0]
+            candidate_id = str(
+                normalized.get("id")
+                or normalized.get("video_id")
+                or ""
+            ).strip()
+            candidate_path = str(
+                normalized.get("path")
+                or normalized.get("file_path")
+                or ""
+            ).strip()
+
+            if item_id and candidate_id == item_id:
+                return normalized
+            if (
+                target_path
+                and candidate_path
+                and candidate_path.casefold() == target_path.casefold()
+            ):
+                return normalized
+        return None
+
+    def _verify_written_metadata(
+        self,
+        *,
+        item_id: str,
+        edited: dict,
+        changes: dict,
+    ) -> dict:
+        current = self._read_back_written_metadata(item_id, edited)
+        if current is None:
+            return {
+                "available": False,
+                "verified": False,
+                "mismatches": [],
+                "message": (
+                    "MediaHub hat keine Rücklesedaten für eine direkte "
+                    "Verifikation geliefert."
+                ),
+            }
+
+        mismatches = []
+        for field, change in changes.items():
+            expected = change.get("after", "")
+            actual = current.get(field, "")
+            if str(expected).strip() != str(actual).strip():
+                mismatches.append(
+                    {
+                        "field": field,
+                        "expected": expected,
+                        "actual": actual,
+                    }
+                )
+
+        return {
+            "available": True,
+            "verified": not mismatches,
+            "mismatches": mismatches,
+            "metadata": current,
+            "message": (
+                "Geschriebene Metadaten wurden erfolgreich zurückgelesen."
+                if not mismatches
+                else "Rücklesekontrolle hat Abweichungen festgestellt."
+            ),
+        }
+
+    def _tool_path(self, tool_id: str) -> Path | None:
+        api = getattr(self, "mediahub_api", None)
+        getter = getattr(api, "get_tool_path", None) if api is not None else None
+
+        if not callable(getter):
+            return None
+
+        try:
+            value = str(getter(tool_id) or "").strip()
+        except Exception:  # noqa: BLE001 - Tool-Service-API-Grenze
+            return None
+
+        if not value:
+            return None
+
+        path = Path(value)
+        return path if path.is_file() else None
+
+    def _mkvtoolnix_component(
+        self,
+        executable: str,
+    ) -> Path | None:
+        main = self._tool_path("mkvtoolnix")
+
+        if main is None:
+            return None
+
+        candidate = main.parent / executable
+
+        if not candidate.is_file():
+            return None
+
+        return candidate
+
+    def _mkvpropedit_path(self) -> Path | None:
+        return self._mkvtoolnix_component(
+            "mkvpropedit.exe"
+        )
+
+    def _mkvextract_path(self) -> Path | None:
+        return self._mkvtoolnix_component(
+            "mkvextract.exe"
+        )
+
+    @staticmethod
+    def _ffmpeg_metadata_arguments(
+        metadata: dict,
+        allowed_fields,
+    ) -> list[str]:
+        allowed = set(allowed_fields or ())
+
+        mappings = (
+            ("title", "title", metadata.get("title")),
+            (
+                "description",
+                "description",
+                metadata.get("description"),
+            ),
+            (
+                "comment",
+                "description",
+                metadata.get("description"),
+            ),
+            (
+                "date",
+                "published_at",
+                metadata.get("published_at"),
+            ),
+            (
+                "date",
+                "year",
+                metadata.get("year"),
+            ),
+            ("year", "year", metadata.get("year")),
+            ("show", "series", metadata.get("series")),
+            (
+                "season_number",
+                "season",
+                metadata.get("season"),
+            ),
+            (
+                "episode_id",
+                "episode",
+                metadata.get("episode"),
+            ),
+            (
+                "episode_sort",
+                "episode",
+                metadata.get("episode"),
+            ),
+            (
+                "episode_title",
+                "episode_title",
+                metadata.get("episode_title"),
+            ),
+            ("network", "channel", metadata.get("channel")),
+            (
+                "grouping",
+                "playlist",
+                metadata.get("playlist"),
+            ),
+        )
+
+        args = []
+        emitted = set()
+
+        for tag_name, source_field, raw_value in mappings:
+            if source_field not in allowed:
+                continue
+
+            value = str(raw_value or "").strip()
+
+            if not value:
+                continue
+
+            key = (tag_name, value)
+
+            if key in emitted:
+                continue
+
+            emitted.add(key)
+
+            args.extend(
+                [
+                    "-metadata",
+                    f"{tag_name}={value}",
+                ]
+            )
+
+        return args
+
+    def _extract_mkv_tags(
+        self,
+        media_path: Path,
+        output_path: Path,
+    ) -> dict:
+        mkvextract = self._mkvextract_path()
+
+        if mkvextract is None:
+            return {
+                "ok": False,
+                "message": (
+                    "mkvextract.exe ist ?ber den "
+                    "MediaHub-Tool-Manager nicht verf?gbar."
+                ),
+            }
+
+        output_path.unlink(missing_ok=True)
+
+        completed = subprocess.run(
+            [
+                str(mkvextract),
+                str(media_path),
+                "tags",
+                str(output_path),
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            creationflags=getattr(
+                subprocess,
+                "CREATE_NO_WINDOW",
+                0,
+            ),
+        )
+
+        if completed.returncode not in (0, 1):
+            return {
+                "ok": False,
+                "returncode": completed.returncode,
+                "message": (
+                    str(
+                        completed.stderr
+                        or completed.stdout
+                        or ""
+                    ).strip()
+                    or "MKV-Tags konnten nicht extrahiert werden."
+                ),
+            }
+
+        if output_path.is_file():
+            xml_text = output_path.read_text(
+                encoding="utf-8-sig",
+            )
+        else:
+            # Keine vorhandenen Tags ist kein Fehler.
+            xml_text = ""
+
+        return {
+            "ok": True,
+            "returncode": completed.returncode,
+            "xml": xml_text,
+        }
+
+    def _write_mkv_metadata(
+        self,
+        *,
+        item_id: str,
+        media_path: Path,
+        original: dict,
+        edited: dict,
+        capability: dict,
+    ) -> dict:
+        mkvpropedit = self._mkvpropedit_path()
+
+        if mkvpropedit is None:
+            return {
+                "ok": False,
+                "supported": True,
+                "written": False,
+                "backend": "mkvtoolnix",
+                "message": (
+                    "mkvpropedit.exe ist ?ber den "
+                    "MediaHub-Tool-Manager nicht verf?gbar."
+                ),
+            }
+
+        allowed = set(
+            capability.get("write_fields") or ()
+        )
+
+        command = [
+            str(mkvpropedit),
+            str(media_path),
+        ]
+
+        title = ""
+
+        if "title" in allowed:
+            title = str(
+                edited.get("title") or ""
+            ).strip()
+
+            if title:
+                command.extend(
+                    [
+                        "--edit",
+                        "info",
+                        "--set",
+                        f"title={title}",
+                    ]
+                )
+
+        tag_fields = {
+            "description",
+            "year",
+            "published_at",
+            "series",
+            "season",
+            "episode",
+            "episode_title",
+        }
+
+        wants_tags = any(
+            field in allowed
+            and str(edited.get(field) or "").strip()
+            for field in tag_fields
+        )
+
+        tag_file = None
+
+        if wants_tags:
+            mkvextract = self._mkvextract_path()
+
+            if mkvextract is None:
+                return {
+                    "ok": False,
+                    "supported": True,
+                    "written": False,
+                    "backend": "mkvtoolnix",
+                    "message": (
+                        "Vorhandene MKV-Tags k?nnen nicht "
+                        "sicher erhalten werden, weil "
+                        "mkvextract.exe fehlt."
+                    ),
+                }
+
+            work_dir = (
+                self.recovery_dir
+                / "_mkv_work"
+            )
+            work_dir.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+
+            safe_id = "".join(
+                c if c.isalnum() or c in "-_"
+                else "_"
+                for c in str(item_id or "media")
+            )[:80]
+
+            tag_file = (
+                work_dir
+                / f"{safe_id}_tags.xml"
+            )
+
+            extracted = self._extract_mkv_tags(
+                media_path,
+                tag_file,
+            )
+
+            if not extracted.get("ok"):
+                return {
+                    "ok": False,
+                    "supported": True,
+                    "written": False,
+                    "backend": "mkvtoolnix",
+                    "message": (
+                        "Vorhandene MKV-Tags konnten nicht "
+                        "sicher gelesen werden: "
+                        + str(
+                            extracted.get("message") or ""
+                        )
+                    ),
+                }
+
+            try:
+                merged_xml = (
+                    merge_mediahub_matroska_tags(
+                        extracted.get("xml") or "",
+                        edited,
+                    )
+                )
+            except Exception as error:  # noqa: BLE001 - MKV-Tag-Merge-Grenze
+                return {
+                    "ok": False,
+                    "supported": True,
+                    "written": False,
+                    "backend": "mkvtoolnix",
+                    "message": (
+                        "MKV-Tag-Struktur konnte nicht "
+                        f"vorbereitet werden: {error}"
+                    ),
+                }
+
+            tag_file.write_text(
+                merged_xml,
+                encoding="utf-8",
+                newline="\n",
+            )
+
+            command.extend(
+                [
+                    "--tags",
+                    f"all:{tag_file}",
+                ]
+            )
+
+        if len(command) == 2:
+            return {
+                "ok": False,
+                "supported": True,
+                "written": False,
+                "backend": "mkvtoolnix",
+                "message": (
+                    "F?r MKV sind keine schreibbaren "
+                    "?nderungen vorhanden."
+                ),
+            }
+
+        try:
+            backup = self._backup_file(
+                media_path,
+                item_id,
+                "media_metadata",
+            )
+        except Exception as error:  # noqa: BLE001 - Backup-Grenze
+            return {
+                "ok": False,
+                "supported": True,
+                "written": False,
+                "backend": "mkvtoolnix",
+                "message": (
+                    "Sicherung der Mediendatei "
+                    f"fehlgeschlagen: {error}"
+                ),
+            }
+
+        try:
+            completed = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+                creationflags=getattr(
+                    subprocess,
+                    "CREATE_NO_WINDOW",
+                    0,
+                ),
+            )
+        except Exception as error:  # noqa: BLE001 - externer MKVToolNix-Prozess
+            return {
+                "ok": False,
+                "supported": True,
+                "written": False,
+                "backend": "mkvtoolnix",
+                "backup": str(backup),
+                "message": (
+                    "MKVToolNix konnte nicht "
+                    f"gestartet werden: {error}"
+                ),
+            }
+        finally:
+            if tag_file is not None:
+                tag_file.unlink(
+                    missing_ok=True,
+                )
+
+        if completed.returncode not in (0, 1):
+            return {
+                "ok": False,
+                "supported": True,
+                "written": False,
+                "backend": "mkvtoolnix",
+                "backup": str(backup),
+                "returncode": completed.returncode,
+                "message": (
+                    "mkvpropedit konnte die MKV-"
+                    "Metadaten nicht schreiben: "
+                    + str(
+                        completed.stderr
+                        or completed.stdout
+                        or ""
+                    ).strip()
+                ),
+            }
+
+        recovery = self._record_recovery(
+            action="media_metadata.write",
+            item_id=item_id,
+            target=str(media_path),
+            before=original,
+            after=edited,
+            result={
+                "ok": True,
+                "tool": "mkvpropedit",
+                "in_place": True,
+                "tags_preserved": wants_tags,
+                "returncode": completed.returncode,
+                "warning": (
+                    completed.returncode == 1
+                ),
+            },
+            backup=str(backup),
+        )
+
+        return {
+            "ok": True,
+            "supported": True,
+            "written": True,
+            "backend": "mkvtoolnix",
+            "path": str(media_path),
+            "backup": str(backup),
+            "recovery": str(recovery),
+            "returncode": completed.returncode,
+            "message": (
+                "MKV-Metadaten wurden mit MKVToolNix "
+                "direkt in der Datei ge?ndert; vorhandene "
+                "MKV-Tags wurden vor der ?nderung ?bernommen."
+            ),
+        }
+
+    def _write_embedded_metadata(
+        self,
+        *,
+        item_id: str,
+        media_path: Path,
+        original: dict,
+        edited: dict,
+    ) -> dict:
+        extension = media_path.suffix.lower()
+        capability = capability_for_extension(extension)
+
+        if (
+            not capability.get("supported")
+            or not capability.get("direct_write")
+        ):
+            return {
+                "ok": False,
+                "supported": bool(capability.get("supported")),
+                "written": False,
+                "message": (
+                    f"Direktes Schreiben eingebetteter Metadaten wird f?r "
+                    f"{extension or 'dieses Format'} derzeit nicht unterst?tzt."
+                ),
+            }
+
+        backend = str(
+            capability.get("write_backend") or ""
+        ).strip()
+
+        if backend == "mkvtoolnix":
+            return self._write_mkv_metadata(
+                item_id=item_id,
+                media_path=media_path,
+                original=original,
+                edited=edited,
+                capability=capability,
+            )
+
+        if backend != "ffmpeg":
+            return {
+                "ok": False,
+                "supported": True,
+                "written": False,
+                "message": (
+                    f"F?r {extension} ist kein direkter FFmpeg-Writer "
+                    "freigegeben."
+                ),
+            }
+
+        ffmpeg = self._tool_path("ffmpeg")
+
+        if ffmpeg is None:
+            return {
+                "ok": False,
+                "supported": True,
+                "written": False,
+                "message": (
+                    "FFmpeg ist ?ber den MediaHub-Tool-Manager nicht verf?gbar."
+                ),
+            }
+
+        try:
+            backup = self._backup_file(
+                media_path,
+                item_id,
+                "media_metadata",
+            )
+        except Exception as error:  # noqa: BLE001 - Backup-Grenze
+            return {
+                "ok": False,
+                "supported": True,
+                "written": False,
+                "message": (
+                    f"Sicherung der Mediendatei fehlgeschlagen: {error}"
+                ),
+            }
+
+        temporary = media_path.with_name(
+            media_path.stem
+            + ".mediahub-metadata-tmp"
+            + media_path.suffix
+        )
+
+        temporary.unlink(missing_ok=True)
+
+        command = [
+            str(ffmpeg),
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-i",
+            str(media_path),
+            "-map",
+            "0",
+            "-map_metadata",
+            "0",
+            "-c",
+            "copy",
+            *self._ffmpeg_metadata_arguments(
+                edited,
+                capability.get("write_fields"),
+            ),
+            str(temporary),
+        ]
+
+        try:
+            completed = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+                creationflags=(
+                    getattr(subprocess, "CREATE_NO_WINDOW", 0)
+                ),
+            )
+
+            if completed.returncode != 0:
+                temporary.unlink(missing_ok=True)
+
+                return {
+                    "ok": False,
+                    "supported": True,
+                    "written": False,
+                    "message": (
+                        "FFmpeg konnte die eingebetteten Metadaten nicht "
+                        "schreiben: "
+                        + str(completed.stderr or "").strip()
+                    ),
+                    "backup": str(backup or ""),
+                }
+
+            if not temporary.is_file() or temporary.stat().st_size <= 0:
+                temporary.unlink(missing_ok=True)
+
+                return {
+                    "ok": False,
+                    "supported": True,
+                    "written": False,
+                    "message": (
+                        "FFmpeg hat keine g?ltige Ausgabedatei erzeugt."
+                    ),
+                    "backup": str(backup or ""),
+                }
+
+            temporary.replace(media_path)
+
+        except Exception as error:  # noqa: BLE001 - FFmpeg-/Dateisystem-Grenze
+            temporary.unlink(missing_ok=True)
+
+            return {
+                "ok": False,
+                "supported": True,
+                "written": False,
+                "message": (
+                    f"Eingebettete Metadaten konnten nicht geschrieben "
+                    f"werden: {error}"
+                ),
+                "backup": str(backup or ""),
+            }
+
+        recovery = self._record_recovery(
+            action="metadata.file.write",
+            item_id=item_id,
+            target=str(media_path),
+            before=original,
+            after=edited,
+            result={
+                "ok": True,
+                "tool": "ffmpeg",
+                "stream_copy": True,
+            },
+            backup=str(backup or ""),
+        )
+
+        return {
+            "ok": True,
+            "supported": True,
+            "written": True,
+            "path": str(media_path),
+            "backup": str(backup or ""),
+            "recovery": str(recovery),
+            "message": (
+                "Eingebettete Metadaten wurden ohne Neu-Encoding "
+                "in die Mediendatei geschrieben."
+            ),
+        }
+
+    def write_metadata(self, payload=None):
+        source = dict(payload or {})
+        confirmed = source.get("confirmed") is True
+        confirmation_source = str(
+            source.get("confirmation_source") or ""
+        ).strip()
+
+        if not confirmed or confirmation_source != "human_gui":
+            return {
+                "ok": False,
+                "confirmation_required": True,
+                "human_confirmation_required": True,
+                "automatic_apply_allowed": False,
+                "message": (
+                    "Metadaten werden nur nach ausdrücklicher Bestätigung "
+                    "durch den Benutzer geschrieben."
+                ),
+            }
+
+        item_id, original, edited, changes = self._clean_changes(source)
+        if not item_id or not changes:
+            return {
+                "ok": False,
+                "message": "Es sind keine speicherbaren Änderungen vorhanden.",
+            }
+
+        is_local_only = (
+            str(original.get("source_type") or "").strip()
+            == "local_folder"
+            and not str(
+                original.get("mediahub_id")
+                or original.get("video_id")
+                or ""
+            ).strip()
+        )
+
+        if is_local_only:
+            media_path = self._media_path(original)
+
+            if media_path is None or not media_path.is_file():
+                return {
+                    "ok": False,
+                    "local_only": True,
+                    "message": (
+                        "Die lokale Mediendatei wurde nicht gefunden."
+                    ),
+                }
+
+            file_result = self._write_embedded_metadata(
+                item_id=item_id,
+                media_path=media_path,
+                original=original,
+                edited=edited,
+            )
+
+            file_result = dict(file_result)
+            file_result["local_only"] = True
+
+            return file_result
+
+        if not self._write_api_available():
+            return {
+                "ok": False,
+                "draft_only": True,
+                "message": (
+                    "Die MediaHub-Datenbank kann in dieser MediaHub-Version "
+                    "nicht direkt aktualisiert werden."
+                ),
+            }
+
+        target = str(
+            edited.get("path")
+            or original.get("path")
+            or edited.get("file_path")
+            or original.get("file_path")
+            or ""
+        )
+
+        prepared_recovery = self._record_recovery(
+            action="metadata.update.prepare",
+            item_id=item_id,
+            target=target,
+            before=original,
+            after=edited,
+            result={
+                "status": "prepared",
+                "confirmed": True,
+                "confirmation_source": confirmation_source,
+            },
+        )
+
+        args = {
+            "id": item_id,
+            "metadata": edited,
+            "backup": deepcopy(original),
+            "source": "mediahub.metadata_editor",
+            "confirmation": {
+                "confirmed": True,
+                "source": confirmation_source,
+                "scope": "metadata.write",
+            },
+        }
+
+        try:
+            result = self.mediahub_api.execute_action(
+                "metadata.update",
+                args,
+            )
+        except Exception as error:  # noqa: BLE001 - MediaHub-Schreib-API-Grenze
+            self._record_recovery(
+                action="metadata.update.failed",
+                item_id=item_id,
+                target=target,
+                before=original,
+                after=edited,
+                result={
+                    "ok": False,
+                    "error": str(error),
+                    "prepared_recovery": str(prepared_recovery),
+                },
+            )
+            return {
+                "ok": False,
+                "message": str(error),
+                "recovery": str(prepared_recovery),
+            }
+
+        if not isinstance(result, dict):
+            result = {
+                "ok": bool(result),
+                "message": "Metadaten-Aktion ausgeführt.",
+            }
+        else:
+            result = dict(result)
+
+        if not result.get("ok"):
+            self._record_recovery(
+                action="metadata.update.failed",
+                item_id=item_id,
+                target=target,
+                before=original,
+                after=edited,
+                result=result,
+            )
+            result.setdefault("recovery", str(prepared_recovery))
+            return result
+
+        verification = self._verify_written_metadata(
+            item_id=item_id,
+            edited=edited,
+            changes=changes,
+        )
+        result["verification"] = verification
+
+        if verification.get("available") and not verification.get("verified"):
+            rollback_args = {
+                "id": item_id,
+                "metadata": original,
+                "backup": deepcopy(edited),
+                "source": "mediahub.metadata_editor.rollback",
+                "confirmation": {
+                    "confirmed": True,
+                    "source": "system_recovery",
+                    "scope": "metadata.write.rollback",
+                },
+            }
+            try:
+                rollback_result = self.mediahub_api.execute_action(
+                    "metadata.update",
+                    rollback_args,
+                )
+                if not isinstance(rollback_result, dict):
+                    rollback_result = {"ok": bool(rollback_result)}
+            except Exception as error:  # noqa: BLE001 - Recovery-/Rollback-Grenze
+                rollback_result = {
+                    "ok": False,
+                    "message": str(error),
+                }
+
+            rollback_recovery = self._record_recovery(
+                action="metadata.update.rollback",
+                item_id=item_id,
+                target=target,
+                before=edited,
+                after=original,
+                result=rollback_result,
+            )
+
+            return {
+                "ok": False,
+                "rolled_back": bool(rollback_result.get("ok")),
+                "message": (
+                    "Die Rücklesekontrolle hat Abweichungen festgestellt. "
+                    "Die vorherigen Metadaten wurden wiederhergestellt."
+                    if rollback_result.get("ok")
+                    else
+                    "Die Rücklesekontrolle hat Abweichungen festgestellt "
+                    "und die automatische Wiederherstellung ist fehlgeschlagen."
+                ),
+                "verification": verification,
+                "recovery": str(prepared_recovery),
+                "rollback_recovery": str(rollback_recovery),
+                "rollback_result": rollback_result,
+            }
+
+        completed_recovery = self._record_recovery(
+            action="metadata.update",
+            item_id=item_id,
+            target=target,
+            before=original,
+            after=edited,
+            result={
+                **result,
+                "prepared_recovery": str(prepared_recovery),
+            },
+        )
+        result.setdefault("message", "Metadaten wurden gespeichert.")
+        result["recovery"] = str(completed_recovery)
+        result["prepared_recovery"] = str(prepared_recovery)
+        result["human_confirmation_required"] = True
+        result["automatic_apply_allowed"] = False
+        return result
 
     def get_plugin_settings(self):
         info = connection_info(self.settings)
@@ -286,7 +1483,7 @@ class MediaHubMetadataEditorPlugin:
             return default, False, f"{method} ist in dieser MediaHub-Version nicht verfügbar."
         try:
             return getattr(self.mediahub_api, method)(), True, ""
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001 - MediaHub-API-Grenze
             return default, False, str(error)
 
     def _status(self, request=None):
@@ -320,6 +1517,21 @@ class MediaHubMetadataEditorPlugin:
             item = dict(raw) if isinstance(raw, dict) else {"title": str(raw)}
             item_id = str(item.get("id") or item.get("video_id") or item.get("path") or position)
             normalized = {"id": item_id, **item}
+
+            source_type = str(
+                normalized.get("source_type") or ""
+            ).strip()
+
+            if source_type != "local_folder":
+                mediahub_id = str(
+                    item.get("video_id")
+                    or item.get("id")
+                    or ""
+                ).strip()
+
+                if mediahub_id:
+                    normalized["mediahub_id"] = mediahub_id
+
             normalized.setdefault("title", item.get("name") or item.get("filename") or "Ohne Titel")
             normalized.setdefault("description", item.get("summary") or "")
             normalized.setdefault("year", item.get("release_year") or "")
@@ -352,7 +1564,13 @@ class MediaHubMetadataEditorPlugin:
                     if key not in seen:
                         seen.add(key)
                         sources.append(resolved)
-            except Exception:
+            except (
+                OSError,
+                UnicodeError,
+                json.JSONDecodeError,
+                TypeError,
+                ValueError,
+            ):
                 sources = []
 
         if not sources and self.local_folder_state_file.exists():
@@ -365,8 +1583,16 @@ class MediaHubMetadataEditorPlugin:
                 if path is not None and path.is_dir():
                     sources = [str(path.resolve())]
                     self._save_local_sources(sources)
-            except Exception:
-                pass
+            except (
+                OSError,
+                UnicodeError,
+                json.JSONDecodeError,
+                TypeError,
+                ValueError,
+            ):
+                # Eine defekte alte Zustandsdatei darf den
+                # Metadata Editor nicht am Start hindern.
+                sources = []
         return sources
 
     def _save_local_sources(self, sources) -> None:
@@ -432,7 +1658,13 @@ class MediaHubMetadataEditorPlugin:
             )
             files = data.get("files", {}) if isinstance(data, dict) else {}
             return files if isinstance(files, dict) else {}
-        except Exception:
+        except (
+            OSError,
+            UnicodeError,
+            json.JSONDecodeError,
+            TypeError,
+            ValueError,
+        ):
             return {}
 
     def _save_scan_state(self, state: dict[str, dict[str, int]]) -> None:
@@ -565,9 +1797,28 @@ class MediaHubMetadataEditorPlugin:
                 "scan_mtime_ns": signature["mtime_ns"],
             }
 
+            embedded_values, embedded_result = (
+                self._read_embedded_file_metadata(item)
+            )
+
+            for key, value in embedded_values.items():
+                if value not in (None, ""):
+                    item[key] = value
+
+            item["embedded_metadata"] = bool(embedded_values)
+            item["embedded_metadata_ok"] = bool(
+                embedded_result.get("ok")
+            )
+            item["embedded_metadata_error"] = (
+                ""
+                if embedded_result.get("ok")
+                else str(embedded_result.get("message") or "")
+            )
+
             nfo_values, nfo_path, nfo_exists, nfo_error = (
                 self._read_nfo_metadata(item)
             )
+
             for key, value in nfo_values.items():
                 if value not in (None, ""):
                     item[key] = value
@@ -611,7 +1862,7 @@ class MediaHubMetadataEditorPlugin:
         item_id, original, edited, changes = self._clean_changes(payload)
         if not item_id:
             return self._json({"ok": False, "message": "Der Medieneintrag besitzt keine ID."}, 400)
-        draft = {"id": item_id, "title": str(edited.get("title") or original.get("title") or "Ohne Titel"), "original": original, "edited": edited, "changes": changes, "updated_at": datetime.now().isoformat(timespec="seconds")}
+        draft = {"id": item_id, "title": str(edited.get("title") or original.get("title") or "Ohne Titel"), "original": original, "edited": edited, "changes": changes, "updated_at": datetime.now().astimezone().isoformat(timespec="seconds")}
         with self._draft_lock:
             drafts = self._read_drafts_unlocked(); drafts[item_id] = draft; self._write_drafts_unlocked(drafts)
         return self._json({"ok": True, "message": "Metadaten-Entwurf gespeichert.", "draft": draft})
@@ -623,32 +1874,13 @@ class MediaHubMetadataEditorPlugin:
         return self._json({"ok": bool(removed), "message": "Entwurf gelöscht." if removed else "Entwurf nicht gefunden."}, 200 if removed else 404)
 
     def _write_api_available(self):
-        return self.mediahub_api is not None and hasattr(self.mediahub_api, "execute_action")
+        api = getattr(self, "mediahub_api", None)
+        return api is not None and hasattr(api, "execute_action")
 
     def _commit(self, payload, request=None):
-        item_id, original, edited, changes = self._clean_changes(payload)
-        if not item_id or not changes:
-            return self._json({"ok": False, "message": "Es sind keine speicherbaren Änderungen vorhanden."}, 400)
-        if not self._write_api_available():
-            return self._json({"ok": False, "draft_only": True, "message": "Die MediaHub-Datenbank kann noch nicht direkt aktualisiert werden. NFO-Dateien lassen sich bereits separat speichern."}, 409)
-        args = {"id": item_id, "metadata": edited, "backup": deepcopy(original), "source": "mediahub.metadata_editor"}
-        try:
-            result = self.mediahub_api.execute_action("metadata.update", args)
-        except Exception as error:
-            return self._json({"ok": False, "message": str(error)}, 500)
-        if not isinstance(result, dict):
-            result = {"ok": bool(result), "message": "Metadaten-Aktion ausgeführt."}
-        if result.get("ok"):
-            recovery = self._record_recovery(
-                action="metadata.update",
-                item_id=item_id,
-                target=str(edited.get("path") or original.get("path") or ""),
-                before=original,
-                after=edited,
-                result=result,
-            )
-            result.setdefault("recovery", str(recovery))
-        return self._json(result, 200 if result.get("ok") else 409)
+        result = self.write_metadata(payload)
+        status = 200 if result.get("ok") else 409
+        return self._json(result, status)
 
     def _media_path(self, item: dict) -> Path | None:
         for key in ("path", "file_path", "filepath", "local_path", "filename"):
@@ -738,7 +1970,7 @@ class MediaHubMetadataEditorPlugin:
                 nfo["content"] = nfo_path.read_text(encoding="utf-8-sig")
             except UnicodeDecodeError:
                 nfo["error"] = "Die NFO-Datei ist nicht UTF-8-kodiert und wird aus Sicherheitsgründen nicht automatisch geändert."
-            except Exception as error:
+            except OSError as error:
                 nfo["error"] = str(error)
         folder = media_path if media_path and media_path.is_dir() else (media_path.parent if media_path else None)
         images = {}
@@ -756,14 +1988,20 @@ class MediaHubMetadataEditorPlugin:
                     size = reader.size()
                     if size.isValid():
                         info["width"], info["height"] = size.width(), size.height()
-                except Exception:
-                    pass
+                except (OSError, RuntimeError, ValueError):
+                    # Bildabmessungen sind nur Zusatzinformationen.
+                    # Ein nicht lesbares Bild darf die Dateiansicht
+                    # nicht verhindern.
+                    info["width"] = 0
+                    info["height"] = 0
                 try:
                     mime = mimetypes.guess_type(found.name)[0] or "image/jpeg"
                     encoded = base64.b64encode(found.read_bytes()).decode("ascii")
                     info["preview"] = f"data:{mime};base64,{encoded}"
-                except Exception:
-                    pass
+                except (OSError, UnicodeError, ValueError):
+                    # Die Vorschau ist optional. Pfad und sonstige
+                    # Bildinformationen bleiben trotzdem verf?gbar.
+                    info["preview"] = ""
             images[kind] = info
         return self._json({"ok": True, "media_path": str(media_path or ""), "folder": str(folder or ""), "nfo": nfo, "images": images})
 
@@ -784,12 +2022,12 @@ class MediaHubMetadataEditorPlugin:
             return self._json({"ok": False, "message": "Das gewünschte lokale Ziel wurde nicht gefunden."}, 404)
         try:
             opened = QDesktopServices.openUrl(QUrl.fromLocalFile(str(target)))
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001 - Qt/Desktop-Service-Grenze
             return self._json({"ok": False, "message": str(error)}, 500)
         return self._json({"ok": bool(opened), "message": "Lokales Ziel wurde auf dem MediaHub-Rechner geöffnet." if opened else "Das lokale Ziel konnte nicht geöffnet werden.", "path": str(target)}, 200 if opened else 409)
 
     def _backup_file(self, source: Path, item_id: str, category: str) -> Path:
-        stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        stamp = datetime.now().astimezone().strftime("%Y%m%d_%H%M%S_%f")
         safe_id = "".join(c if c.isalnum() or c in "-_" else "_" for c in item_id)[:80] or "media"
         target_dir = self.backup_dir / safe_id / category
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -810,7 +2048,7 @@ class MediaHubMetadataEditorPlugin:
         result=None,
     ) -> Path:
         self.recovery_dir.mkdir(parents=True, exist_ok=True)
-        stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        stamp = datetime.now().astimezone().strftime("%Y%m%d_%H%M%S_%f")
         safe_id = "".join(
             char if char.isalnum() or char in "-_" else "_"
             for char in str(item_id or "media")
@@ -818,7 +2056,7 @@ class MediaHubMetadataEditorPlugin:
         path = self.recovery_dir / f"{stamp}_{safe_id}.json"
         payload = {
             "schema_version": 1,
-            "created_at": datetime.now().isoformat(timespec="seconds"),
+            "created_at": datetime.now().astimezone().isoformat(timespec="seconds"),
             "action": str(action or ""),
             "item_id": str(item_id or ""),
             "target": str(target or ""),
@@ -865,7 +2103,7 @@ class MediaHubMetadataEditorPlugin:
                 return self._json({"ok": False, "message": "NFO ist nicht UTF-8-kodiert. Keine Änderung durchgeführt."}, 409)
             except ET.ParseError as error:
                 return self._json({"ok": False, "message": f"NFO enthält ungültiges XML: {error}"}, 409)
-            except Exception as error:
+            except OSError as error:
                 return self._json({"ok": False, "message": str(error)}, 500)
         else:
             root = ET.Element("episodedetails")
@@ -879,7 +2117,7 @@ class MediaHubMetadataEditorPlugin:
             temporary = nfo_path.with_suffix(nfo_path.suffix + ".tmp")
             tree.write(temporary, encoding="utf-8", xml_declaration=True)
             temporary.replace(nfo_path)
-        except Exception as error:
+        except (OSError, ValueError) as error:
             return self._json({"ok": False, "message": f"NFO konnte nicht gespeichert werden: {error}"}, 500)
         recovery = self._record_recovery(
             action="nfo.write",
@@ -922,7 +2160,7 @@ class MediaHubMetadataEditorPlugin:
             shutil.copy2(source_path, target)
             if existing and existing != target and existing.exists():
                 existing.unlink()
-        except Exception as error:
+        except OSError as error:
             return self._json({"ok": False, "message": f"Bild konnte nicht ersetzt werden: {error}"}, 500)
         recovery = self._record_recovery(
             action="image.replace",
@@ -972,9 +2210,22 @@ class NativeMetadataEditorWidget(QWidget):
         from PySide6.QtCore import Qt
         from PySide6.QtGui import QPixmap
         from PySide6.QtWidgets import (
-            QAbstractItemView, QComboBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QFrame,
-            QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox,
-            QPushButton, QSpinBox, QSplitter, QTextEdit, QVBoxLayout, QWidget,
+            QAbstractItemView,
+            QComboBox,
+            QFormLayout,
+            QFrame,
+            QGroupBox,
+            QHBoxLayout,
+            QLabel,
+            QLineEdit,
+            QListWidget,
+            QPushButton,
+            QScrollArea,
+            QSpinBox,
+            QSplitter,
+            QTextEdit,
+            QVBoxLayout,
+            QWidget,
         )
         self.plugin = plugin
         self._QPixmap = QPixmap
@@ -1080,6 +2331,11 @@ class NativeMetadataEditorWidget(QWidget):
 
         self.btn_description_edit = QPushButton("Beschreibung bearbeiten…")
         self.btn_description_edit.clicked.connect(self._edit_description_dialog)
+        self.media_type_edit = QComboBox()
+        self.media_type_edit.addItem("Video", "video")
+        self.media_type_edit.addItem("Film", "movie")
+        self.media_type_edit.addItem("Serie", "series")
+
         self.year_edit = QSpinBox()
         self.year_edit.setRange(0, 9999)
         self.year_edit.setSpecialValueText("")
@@ -1098,39 +2354,67 @@ class NativeMetadataEditorWidget(QWidget):
         )
 
         basic_group = QGroupBox("Grunddaten")
-        basic_layout = QVBoxLayout(basic_group)
-        basic_layout.setSpacing(8)
+        basic_form = QFormLayout(basic_group)
 
-        title_row = QHBoxLayout()
-        title_label = QLabel("Titel")
-        title_label.setMinimumWidth(125)
-        title_row.addWidget(title_label)
-        title_row.addWidget(self.title_edit, 1)
-        basic_layout.addLayout(title_row)
+        basic_form.setVerticalSpacing(10)
+        basic_form.setHorizontalSpacing(12)
+
+        basic_form.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow
+        )
+
+        basic_form.setRowWrapPolicy(
+            QFormLayout.RowWrapPolicy.DontWrapRows
+        )
+
+        basic_group.setMinimumHeight(255)
+
+        for widget in (
+            self.title_edit,
+            self.media_type_edit,
+            self.description_preview,
+            self.year_edit,
+            self.date_edit,
+        ):
+            widget.setMinimumHeight(30)
+
+        self.btn_description_edit.setMinimumHeight(30)
+
+        basic_form.addRow(
+            "Titel",
+            self.title_edit,
+        )
+
+        basic_form.addRow(
+            "Medientyp",
+            self.media_type_edit,
+        )
 
         description_row = QHBoxLayout()
-        description_label = QLabel("Beschreibung")
-        description_label.setMinimumWidth(125)
-        description_row.addWidget(description_label)
-        description_row.addWidget(self.description_preview, 1)
-        description_row.addWidget(self.btn_description_edit)
-        basic_layout.addLayout(description_row)
+        description_row.setSpacing(8)
+        description_row.addWidget(
+            self.description_preview,
+            1,
+        )
+        description_row.addWidget(
+            self.btn_description_edit,
+        )
 
-        date_year_row = QHBoxLayout()
-        date_year_row.setSpacing(10)
+        basic_form.addRow(
+            "Beschreibung",
+            description_row,
+        )
 
-        release_label = QLabel("Veröffentlichung / Ausstrahlung")
-        release_label.setMinimumWidth(125)
-        date_year_row.addWidget(release_label)
-        date_year_row.addWidget(self.date_edit, 3)
+        basic_form.addRow(
+            "Jahr",
+            self.year_edit,
+        )
 
-        date_year_row.addSpacing(14)
-        year_label = QLabel("Jahr")
-        year_label.setMinimumWidth(45)
-        date_year_row.addWidget(year_label)
-        date_year_row.addWidget(self.year_edit, 1)
+        basic_form.addRow(
+            "Ver?ffentlichung / Ausstrahlung",
+            self.date_edit,
+        )
 
-        basic_layout.addLayout(date_year_row)
         editor_layout.addWidget(basic_group)
 
         series_group = QGroupBox("Seriendaten")
@@ -1147,12 +2431,11 @@ class NativeMetadataEditorWidget(QWidget):
         season_episode_row.addWidget(self.episode_edit, 1)
         series_form.addRow(season_episode_row)
 
-        self.episode_title_display = QLineEdit()
-        self.episode_title_display.setReadOnly(True)
-        self.episode_title_display.setPlaceholderText(
+        self.episode_title_edit = QLineEdit()
+        self.episode_title_edit.setPlaceholderText(
             "wird nach KI-Prüfung / Metadaten-Erkennung angezeigt"
         )
-        series_form.addRow("Episodentitel", self.episode_title_display)
+        series_form.addRow("Episodentitel", self.episode_title_edit)
         editor_layout.addWidget(series_group)
 
         source_group = QGroupBox("Quelle / Zuordnung")
@@ -1163,7 +2446,17 @@ class NativeMetadataEditorWidget(QWidget):
         source_form.addRow("Pfad", self.path_label)
         editor_layout.addWidget(source_group)
 
-        left_layout.addWidget(editor_group)
+        editor_scroll = QScrollArea()
+        editor_scroll.setWidgetResizable(True)
+        editor_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        editor_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        editor_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        editor_scroll.setWidget(editor_group)
+        left_layout.addWidget(editor_scroll, 4)
 
         self.diff_label = QLabel("Keine Änderungen")
         self.diff_label.setWordWrap(True)
@@ -1175,12 +2468,14 @@ class NativeMetadataEditorWidget(QWidget):
 
         self.ai_metadata_preview = QTextEdit()
         self.ai_metadata_preview.setReadOnly(True)
-        self.ai_metadata_preview.setMinimumHeight(220)
+        self.ai_metadata_preview.setMinimumHeight(120)
         self.ai_metadata_preview.setPlaceholderText(
             "Alt → Neu, Quelle, Confidence und Begründung erscheinen hier."
         )
         ai_compare_layout.addWidget(self.ai_metadata_preview)
         left_layout.addWidget(ai_compare_group, 1)
+        left_layout.setStretchFactor(editor_scroll, 4)
+        left_layout.setStretchFactor(ai_compare_group, 1)
 
         # Right sidebar: old metadata + poster + KI actions.
         right_sidebar = QWidget()
@@ -1238,25 +2533,35 @@ class NativeMetadataEditorWidget(QWidget):
 
         buttons = QHBoxLayout()
         self.btn_draft = QPushButton("Entwurf speichern")
+        self.btn_commit = QPushButton("Metadaten übernehmen…")
         self.btn_nfo = QPushButton("NFO speichern")
         self.btn_poster = QPushButton("Poster ersetzen")
         self.btn_reset = QPushButton("Zurücksetzen")
         self.btn_draft.clicked.connect(self._save_draft)
+        self.btn_commit.clicked.connect(self._commit_metadata)
         self.btn_nfo.clicked.connect(self._save_nfo)
         self.btn_poster.clicked.connect(self._replace_poster)
         self.btn_reset.clicked.connect(self._reset_fields)
-        for button in (self.btn_draft, self.btn_nfo, self.btn_poster, self.btn_reset):
+        for button in (
+            self.btn_draft,
+            self.btn_commit,
+            self.btn_nfo,
+            self.btn_poster,
+            self.btn_reset,
+        ):
             buttons.addWidget(button)
         right_layout.addLayout(buttons)
         right_layout.addStretch(1)
 
         for widget in (
             self.title_edit, self.description_edit, self.series_edit,
+            self.episode_title_edit,
             self.channel_edit, self.playlist_edit, self.date_edit,
         ):
             widget.textChanged.connect(self._update_diff)
         for widget in (self.year_edit, self.season_edit, self.episode_edit):
             widget.valueChanged.connect(self._update_diff)
+        self.media_type_edit.currentIndexChanged.connect(self._update_diff)
 
         splitter.addWidget(left)
         splitter.addWidget(center)
@@ -1282,7 +2587,7 @@ class NativeMetadataEditorWidget(QWidget):
             if isinstance(raw, dict):
                 raw = raw.get("videos", raw.get("items", []))
             self._library_items = self.plugin._normalize_items(raw)
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001 - MediaHub-Bibliotheks-API-Grenze
             self._library_items = []
             QMessageBox.warning(
                 self,
@@ -1294,7 +2599,7 @@ class NativeMetadataEditorWidget(QWidget):
         if self._local_sources:
             try:
                 self._local_items = self.plugin.scan_local_sources()
-            except Exception as error:
+            except Exception as error:  # noqa: BLE001 - lokaler Scan-Grenze
                 self._local_items = []
                 QMessageBox.warning(
                     self,
@@ -1316,13 +2621,31 @@ class NativeMetadataEditorWidget(QWidget):
             ).casefold()
             if key and key in merged:
                 # Lokale Dateidaten ergänzen bestehende MediaHub-Einträge.
-                merged[key].update(
+                existing = merged[key]
+
+                preserved_mediahub_id = str(
+                    existing.get("mediahub_id")
+                    or existing.get("video_id")
+                    or (
+                        existing.get("id")
+                        if str(existing.get("source_type") or "")
+                        != "local_folder"
+                        else ""
+                    )
+                    or ""
+                ).strip()
+
+                existing.update(
                     {
                         k: v
                         for k, v in item.items()
                         if v not in (None, "", [], {})
+                        and k not in {"mediahub_id"}
                     }
                 )
+
+                if preserved_mediahub_id:
+                    existing["mediahub_id"] = preserved_mediahub_id
             else:
                 merged[key or f"id:{len(merged)}"] = dict(item)
         self._items = list(merged.values())
@@ -1361,7 +2684,7 @@ class NativeMetadataEditorWidget(QWidget):
                     f"{len(self._local_sources)} Quelle(n) eingelesen."
                 ),
             )
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001 - GUI/Dateisystem-Grenze
             QMessageBox.warning(
                 self,
                 "Metadata Editor",
@@ -1425,12 +2748,26 @@ class NativeMetadataEditorWidget(QWidget):
     def _set_fields(self, item):
         self._loading = True
         self.title_edit.setText(str(item.get("title") or ""))
-        self.description_edit.setPlainText(str(item.get("description") or ""))
+
+        media_type = str(
+            item.get("media_type") or "video"
+        ).strip().lower()
+        index = self.media_type_edit.findData(media_type)
+        self.media_type_edit.setCurrentIndex(
+            max(index, 0)
+        )
+
+        self.description_edit.setPlainText(
+            str(item.get("description") or "")
+        )
         self._sync_description_preview()
         self.year_edit.setValue(self._number(item.get("year")))
         self.season_edit.setValue(self._number(item.get("season")))
         self.episode_edit.setValue(self._number(item.get("episode")))
         self.series_edit.setText(str(item.get("series") or ""))
+        self.episode_title_edit.setText(
+            str(item.get("episode_title") or "")
+        )
         self.channel_edit.setText(str(item.get("channel") or ""))
         self.playlist_edit.setText(str(item.get("playlist") or ""))
         self.date_edit.setText(str(item.get("published_at") or ""))
@@ -1484,11 +2821,15 @@ class NativeMetadataEditorWidget(QWidget):
         item = dict(self._current or {})
         item.update({
             "title": self.title_edit.text().strip(),
+            "media_type": str(
+                self.media_type_edit.currentData() or "video"
+            ),
             "description": self.description_edit.toPlainText().strip(),
             "year": self.year_edit.value() or "",
             "season": self.season_edit.value(),
             "episode": self.episode_edit.value(),
             "series": self.series_edit.text().strip(),
+            "episode_title": self.episode_title_edit.text().strip(),
             "channel": self.channel_edit.text().strip(),
             "playlist": self.playlist_edit.text().strip(),
             "published_at": self.date_edit.text().strip(),
@@ -1529,9 +2870,35 @@ class NativeMetadataEditorWidget(QWidget):
     def _populate_editor_from_ai(self, result):
         fields = dict(result.get("fields") or {})
 
+        media_type = str(
+            fields.get("media_type")
+            or result.get("media_type")
+            or ""
+        ).strip().lower()
+
+        if media_type not in {"movie", "series", "video"}:
+            if (
+                fields.get("series")
+                or fields.get("season") not in (None, "", 0)
+                or fields.get("episode") not in (None, "", 0)
+            ):
+                media_type = "series"
+            elif str(
+                fields.get("type")
+                or fields.get("kind")
+                or ""
+            ).strip().lower() in {"movie", "film"}:
+                media_type = "movie"
+
+        if media_type in {"movie", "series", "video"}:
+            index = self.media_type_edit.findData(media_type)
+
+            if index >= 0:
+                self.media_type_edit.setCurrentIndex(index)
+
         if "title" in fields:
             self.title_edit.setText(str(fields.get("title") or ""))
-            self.episode_title_display.setText(
+            self.episode_title_edit.setText(
                 str(fields.get("episode_title") or fields.get("title") or "")
             )
         if "description" in fields:
@@ -1568,7 +2935,7 @@ class NativeMetadataEditorWidget(QWidget):
 
         try:
             path = self.plugin.cache_ai_poster(url)
-        except Exception:
+        except Exception:  # noqa: BLE001 - KI-/Poster-Provider-Grenze
             path = None
 
         if not path:
@@ -1763,7 +3130,7 @@ class NativeMetadataEditorWidget(QWidget):
         lines.extend((
             "",
             "Nur Vorschau · keine automatische Übernahme.",
-            "metadata.write bleibt gesperrt.",
+            "Übernahme nur nach ausdrücklicher Bestätigung.",
         ))
         self.ai_metadata_preview.setPlainText("\n".join(lines))
 
@@ -1777,6 +3144,84 @@ class NativeMetadataEditorWidget(QWidget):
             return
         status, _, body = self.plugin._save_draft({"id": self._current.get("id"), "original": self._current, "edited": self._edited()})
         self._show_result(status, body)
+
+    def _commit_metadata(self):
+        from PySide6.QtWidgets import QMessageBox
+
+        if not self._current:
+            return
+
+        edited = self._edited()
+        item_id, original, _, changes = self.plugin._clean_changes(
+            {
+                "id": (
+                    self._current.get("mediahub_id")
+                    or self._current.get("video_id")
+                    or self._current.get("id")
+                ),
+                "original": self._current,
+                "edited": edited,
+            }
+        )
+        if not item_id or not changes:
+            QMessageBox.information(
+                self,
+                "Metadata Editor",
+                "Es sind keine Metadatenänderungen vorhanden.",
+            )
+            return
+
+        labels = {
+            "title": "Titel",
+            "media_type": "Medientyp",
+            "description": "Beschreibung",
+            "year": "Jahr",
+            "season": "Staffel",
+            "episode": "Episode",
+            "episode_title": "Episodentitel",
+            "series": "Serie",
+            "channel": "Kanal / Sender",
+            "playlist": "Playlist",
+            "published_at": "Veröffentlichung / Ausstrahlung",
+        }
+        lines = ["Folgende Metadaten werden geschrieben:", ""]
+        for field, change in changes.items():
+            before = self._display_metadata_value(change.get("before"))
+            after = self._display_metadata_value(change.get("after"))
+            lines.append(f"{labels.get(field, field)}: {before}  →  {after}")
+
+        lines.extend(
+            (
+                "",
+                "Vor dem Schreiben wird ein Recovery-Eintrag erstellt.",
+                "Die Änderung wird anschließend erneut aus MediaHub gelesen und geprüft.",
+                "",
+                "Metadaten jetzt übernehmen?",
+            )
+        )
+
+        answer = QMessageBox.question(
+            self,
+            "Metadaten übernehmen",
+            "\n".join(lines),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        status, _, body = self.plugin._commit(
+            {
+                "id": item_id,
+                "original": original,
+                "edited": edited,
+                "confirmed": True,
+                "confirmation_source": "human_gui",
+            }
+        )
+        self._show_result(status, body)
+        if int(status) < 400:
+            self.refresh()
 
     def _save_nfo(self):
         if not self._current:
@@ -1804,7 +3249,12 @@ class NativeMetadataEditorWidget(QWidget):
         from PySide6.QtWidgets import QMessageBox
         try:
             data = json.loads(body.decode("utf-8"))
-        except Exception:
+        except (
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+            TypeError,
+            AttributeError,
+        ):
             data = {"message": str(body)}
         message = str(data.get("message") or "Aktion abgeschlossen.")
         (QMessageBox.information if int(status) < 400 else QMessageBox.warning)(self, "Metadata Editor", message)

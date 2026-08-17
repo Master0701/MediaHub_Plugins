@@ -25,7 +25,7 @@ CATEGORY_BY_ID = {
     "mediahub.metadata_editor": "Metadaten",
     "mediahub.ai_assistant": "KI und Analyse",
     "mediahub.smart_renamer": "Dateien und Umbenennung",
-    "mediahub.audiobook_manager": "Hörbücher",
+    "mediahub.audio_metadata_editor": "Hörbücher",
     "mediahub.list_exporter": "Listen und Export",
 }
 

@@ -1,0 +1,9 @@
+MediaHub Audio Metadata Editor - Proprietary License Notice
+
+Copyright (c) 2026. All rights reserved.
+
+First-party MediaHub plugin code in this package is proprietary unless a
+specific component explicitly states a different license.
+
+Third-party software remains subject to its own license terms. No third-party
+binaries are bundled in this v0.0.1 foundation package.

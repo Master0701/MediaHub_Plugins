@@ -1,5 +1,5 @@
-from pathlib import Path
 import json
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -22,10 +22,24 @@ def test_manifest_version_supports_local_folder_browser():
     assert version >= (0, 3, 7)
 
 
-def test_scanner_supports_common_video_and_audio_extensions():
-    text=(ROOT/"plugin.py").read_text(encoding="utf-8")
-    for ext in (".mkv",".mp4",".avi",".m4b",".mp3"):
-        assert f'"{ext}"' in text
+def test_scanner_uses_shared_supported_extensions():
+    text = (ROOT / "plugin.py").read_text(encoding="utf-8")
+
+    assert "SUPPORTED_EXTENSIONS" in text
+    assert "LOCAL_MEDIA_EXTENSIONS" in text
+    assert "set(SUPPORTED_EXTENSIONS)" in text
+
+
+def test_shared_core_contains_common_video_and_audio_extensions():
+    shared_root = ROOT.parents[1] / "shared"
+    formats = (
+        shared_root
+        / "mediahub_metadata_core"
+        / "formats.py"
+    ).read_text(encoding="utf-8")
+
+    for ext in (".mkv", ".mp4", ".avi", ".m4b", ".mp3"):
+        assert f'"{ext}"' in formats
 
 
 def test_library_and_local_items_are_kept_separately_before_merge():

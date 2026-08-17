@@ -1,5 +1,5 @@
-from pathlib import Path
 import json
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = (ROOT / "plugin.py").read_text(encoding="utf-8")
@@ -41,11 +41,10 @@ def test_real_writes_get_recovery_records():
     assert 'action="image.replace"' in PLUGIN
 
 
-def test_metadata_write_capability_stays_locked():
-    assert (
-        '"metadata.write": {"mode": "planned", "available": False, '
-        '"execution_allowed": False}'
-    ) in PLUGIN
+def test_metadata_write_capability_requires_confirmation():
+    assert '"mode": "confirmed_write"' in PLUGIN
+    assert '"automatic_apply_allowed": False' in PLUGIN
+    assert '"human_confirmation_required": True' in PLUGIN
 
 
 def test_native_ui_adds_and_rescans_sources():

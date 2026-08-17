@@ -75,3 +75,6 @@ MediaHub_SmartRenamer_Praxistest_*/
 smart_renamer_praxistest*.txt
 smart_renamer_praxistest*.json
 _smart_renamer_*_backup_*/
+
+# Lokale Smart-Renamer-Webruntime-Konfiguration
+/plugins/smart_renamer/config/plugins/mediahub_web_runtime.json

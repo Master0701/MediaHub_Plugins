@@ -1,4 +1,5 @@
 from pathlib import Path
+
 ROOT=Path(__file__).resolve().parents[1]
 
 def test_existing_metadata_panel_exists():
@@ -16,7 +17,7 @@ def test_ai_populates_editor_fields_without_writing():
     assert "self._populate_editor_from_ai(result)" in text
     assert "self.series_edit.setText" in text
     assert "self.season_edit.setValue" in text
-    assert '"metadata.write": {"mode": "planned", "available": False' in text
+    assert '"mode": "confirmed_write"' in text
 
 def test_ai_poster_preview_does_not_replace_local_poster():
     text=(ROOT/"plugin.py").read_text(encoding="utf-8")
