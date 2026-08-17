@@ -1,0 +1,24 @@
+# MediaHub Plugins - einheitliche Zeilenenden
+
+# Standard: Textdateien mit LF im Repository und Arbeitsbaum
+* text=auto eol=lf
+
+# Windows-Skripte dürfen CRLF verwenden
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# PowerShell bewusst ebenfalls LF, damit GitHub Actions
+# und lokale Entwicklung identische Inhalte sehen.
+*.ps1 text eol=lf
+
+# Binärdateien niemals verändern
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.exe binary
+*.dll binary
+*.mhplugin binary
+*.mhaiplugin binary
