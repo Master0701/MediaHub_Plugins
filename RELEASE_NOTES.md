@@ -18,17 +18,17 @@
 
 ## MediaHub Audio Metadata Editor v0.0.1
 
-- Neues eigenst?ndiges MediaHub-Plugin f?r Audio-Metadaten und H?rb?cher.
-- Ersetzt die bisherige geplante MediaHub H?rbuchverwaltung als gemeinsame Audio-Metadaten-L?sung.
-- Audio und H?rb?cher werden innerhalb desselben Plugins verwaltet.
-- Gemeinsamer Audio-Metadata-Contract f?r Lesen, Erkennen, Vergleichen, Schreibplanung und sp?tere Schreibvorg?nge vorbereitet.
-- Gemeinsame MediaHub-Metadata-Core-Infrastruktur f?r Audio- und Video-Metadaten angebunden.
-- Unterst?tzte Audioformate und sichere Schreibregeln zentral vorbereitet.
-- H?rbuchdateien wie M4B werden bereits als eigener Medientyp erkannt.
-- Tool-Anbindung f?r FFmpeg, FFprobe, MediaInfo, Chromaprint/fpcalc und Mp3tag vorbereitet.
+- Neues eigenständiges MediaHub-Plugin für Audio-Metadaten und Hörbücher.
+- Ersetzt die bisherige geplante MediaHub Hörbuchverwaltung als gemeinsame Audio-Metadaten-Lösung.
+- Audio und Hörbücher werden innerhalb desselben Plugins verwaltet.
+- Gemeinsamer Audio-Metadata-Contract für Lesen, Erkennen, Vergleichen, Schreibplanung und spätere Schreibvorgänge vorbereitet.
+- Gemeinsame MediaHub-Metadata-Core-Infrastruktur für Audio- und Video-Metadaten angebunden.
+- Unterstützte Audioformate und sichere Schreibregeln zentral vorbereitet.
+- Hörbuchdateien wie M4B werden bereits als eigener Medientyp erkannt.
+- Tool-Anbindung für FFmpeg, FFprobe, MediaInfo, Chromaprint/fpcalc und Mp3tag vorbereitet.
 - Drittanbieter-, Lizenz-, Installations- und Tool-Dokumentation ist Bestandteil des Plugins.
-- Tats?chliches Schreiben von Audio-Tags bleibt in v0.0.1 noch deaktiviert.
-- ?nderungen bleiben best?tigungspflichtig; Backup und Pr?fung nach sp?teren Schreibvorg?ngen sind verbindlich vorgesehen.
+- Tatsächliches Schreiben von Audio-Tags bleibt in v0.0.1 noch deaktiviert.
+- Änderungen bleiben bestätigungspflichtig; Backup und Prüfung nach späteren Schreibvorgängen sind verbindlich vorgesehen.
 
 ## MediaHub Metadata Editor v0.4.2
 

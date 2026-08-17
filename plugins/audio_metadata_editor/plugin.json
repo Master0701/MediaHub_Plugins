@@ -3,7 +3,7 @@
   "name": "MediaHub Audio Metadata Editor",
   "version": "0.0.1",
   "author": "Master0701",
-  "description": "Audio-Metadaten-Editor f?r allgemeine Audiodateien und H?rb?cher. Der allgemeine Audio-Bereich und der spezialisierte H?rbuch-Bereich verwenden dieselbe Audio-Metadaten-Engine, Tool-Infrastruktur und Sicherheitslogik.",
+  "description": "Audio-Metadaten-Editor für allgemeine Audiodateien und Hörbücher. Der allgemeine Audio-Bereich und der spezialisierte Hörbuch-Bereich verwenden dieselbe Audio-Metadaten-Engine, Tool-Infrastruktur und Sicherheitslogik.",
   "type": "tool",
   "enabled": true,
   "entry": "plugin.py",

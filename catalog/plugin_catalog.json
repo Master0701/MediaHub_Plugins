@@ -28,7 +28,7 @@
       "visible": true,
       "auto_install": false,
       "manual_only": false,
-      "description": "Audio-Metadaten-Editor f?r allgemeine Audiodateien und H?rb?cher. Der allgemeine Audio-Bereich und der spezialisierte H?rbuch-Bereich verwenden dieselbe Audio-Metadaten-Engine, Tool-Infrastruktur und Sicherheitslogik.",
+      "description": "Audio-Metadaten-Editor für allgemeine Audiodateien und Hörbücher. Der allgemeine Audio-Bereich und der spezialisierte Hörbuch-Bereich verwenden dieselbe Audio-Metadaten-Engine, Tool-Infrastruktur und Sicherheitslogik.",
       "minimum_mediahub_version": "1.0.17",
       "project_page": "https://github.com/Master0701/MediaHub_Plugins/tree/main/plugins/audio_metadata_editor",
       "manual_install_message": "",

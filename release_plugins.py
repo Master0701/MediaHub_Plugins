@@ -47,6 +47,57 @@ class Plugin:
             f"{self.extension}"
         )
 
+def validate_release_text_encoding(
+    text: str,
+    label: str,
+) -> None:
+    """Bricht bei typischen Encoding-Schäden in Release-Texten ab."""
+
+    import re
+
+    problems = []
+
+    if "\ufffd" in text:
+        problems.append(
+            "Unicode-Ersatzzeichen U+FFFD gefunden"
+        )
+
+    # Typischer Schaden aus ASCII-/OEM-Pipelines:
+    #
+    #   H?rb?cher
+    #   f?r
+    #   Schreibvorg?nge
+    #
+    # Ein Fragezeichen mitten in einem Wort ist in unseren
+    # deutschen Release-Notizen kein erwarteter Normalfall.
+    damaged_word = re.compile(
+        r"(?<=[A-Za-zÄÖÜäöüß])\?(?=[A-Za-zÄÖÜäöüß])"
+    )
+
+    if damaged_word.search(text):
+        problems.append(
+            "Fragezeichen innerhalb eines Wortes gefunden"
+        )
+
+    # Beschädigtes großes Ä am Wortanfang, z. B. ?nderungen.
+    if re.search(
+        r"(?m)(?:^|[\s(])\?(?:nder|nderung|nderungen)",
+        text,
+    ):
+        problems.append(
+            "möglicherweise beschädigtes 'Ä' gefunden"
+        )
+
+    if problems:
+        details = "; ".join(problems)
+
+        raise RuntimeError(
+            f"{label} enthält wahrscheinlich beschädigte "
+            f"Umlaute/UTF-8-Zeichen: {details}. "
+            "Release wurde aus Sicherheitsgründen abgebrochen."
+        )
+
+
 def run(*args: str, capture: bool = False) -> str:
     print("+", " ".join(args))
     result = subprocess.run(
@@ -900,11 +951,21 @@ def main() -> int:
     plugins = load_plugins()
 
     pending_text = PENDING.read_text(encoding="utf-8")
+    validate_release_text_encoding(
+        pending_text,
+        "RELEASE_NOTES_PENDING.md",
+    )
+
     tag = args.tag or infer_tag(pending_text)
     if not tag.startswith("v"):
         tag = "v" + tag
 
     notes = build_release_notes(pending_text, plugins, tag)
+    validate_release_text_encoding(
+        notes,
+        "generierte Release Notes",
+    )
+
     PENDING.write_text(notes, encoding="utf-8")
     RELEASE_NOTES.write_text(notes, encoding="utf-8")
     README.write_text(build_readme(notes, plugins), encoding="utf-8")
