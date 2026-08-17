@@ -32,7 +32,7 @@ jobs:
           python-version: "3.13"
 
       - name: Abhängigkeiten installieren
-        run: python -m pip install --upgrade pip pytest
+        run: python -m pip install --upgrade pip pytest PySide6
 
       - name: Beide Plugin-Gruppen prüfen
         run: python validate_plugins.py
