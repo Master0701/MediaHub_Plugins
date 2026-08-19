@@ -98,6 +98,135 @@ def validate_release_text_encoding(
         )
 
 
+
+def validate_repository_text_encoding() -> None:
+    """Prüft relevante Repository-Dateien auf bekannte Encoding-Schäden."""
+
+    extensions = {
+        ".py", ".json", ".md", ".txt",
+        ".yml", ".yaml", ".html", ".js",
+        ".css", ".ps1", ".cmd", ".bat",
+    }
+
+    skip_dirs = {
+        ".git", ".venv", "venv", "__pycache__",
+        ".pytest_cache", ".mypy_cache", ".ruff_cache",
+        "release", "dist", "build", "node_modules",
+    }
+
+    q = "?"
+
+    damaged_words = (
+        q + "ber",
+        "f" + q + "r",
+        "F" + q + "r",
+        "H" + q + "rbuch",
+        "H" + q + "rb" + q + "cher",
+        "unterst" + q + "tzt",
+        "verf" + q + "gbar",
+        "f" + q + "lschlich",
+        "zus" + q + "tz",
+        q + "brigen",
+        "Priorit" + q + "t",
+        "k" + q + "nnen",
+        q + "nderung",
+        q + "nderungen",
+        "ge" + q + "ndert",
+        q + "bernommen",
+        "g" + q + "ltig",
+        "Ung" + q + "ltig",
+        "ung" + q + "ltig",
+        "k" + q + "nstlich",
+        "enth" + q + "lt",
+        "zuverl" + q + "ssig",
+        "ben" + q + "tigt",
+        "Schreibvorg" + q + "nge",
+        "l" + q + "schen",
+    )
+
+    # Als Unicode-Escapes im Quelltext, damit der Guard
+    # seine eigenen Suchmuster nicht selbst findet.
+    mojibake = (
+        "\u00c3\u00a4",
+        "\u00c3\u00b6",
+        "\u00c3\u00bc",
+        "\u00c3\u0084",
+        "\u00c3\u0096",
+        "\u00c3\u009c",
+        "\u00c3\u009f",
+        "\u00e2\u20ac\u201c",
+        "\u00e2\u20ac\u201d",
+        "\u00e2\u20ac\u2122",
+        "\u00e2\u20ac\u0153",
+        "\u00e2\u20ac\u017e",
+        "\ufffd",
+    )
+
+    allowed = {
+        (
+            "plugins/metadata_editor/tests/"
+            "test_ai_metadata_edition_preview_v043.py",
+            "Ver" + q + "ffentlichung",
+        ),
+    }
+
+    problems = []
+    checked = 0
+
+    for candidate in sorted(ROOT.rglob("*")):
+        if not candidate.is_file():
+            continue
+
+        if any(part in skip_dirs for part in candidate.parts):
+            continue
+
+        if candidate.suffix.lower() not in extensions:
+            continue
+
+        checked += 1
+        rel = candidate.relative_to(ROOT).as_posix()
+
+        try:
+            content = candidate.read_text(encoding="utf-8")
+        except UnicodeDecodeError as exc:
+            problems.append(
+                f"{rel}: kein gültiges UTF-8 ({exc})"
+            )
+            continue
+
+        for number, line in enumerate(content.splitlines(), 1):
+            for token in damaged_words + mojibake:
+                if token not in line:
+                    continue
+
+                if (rel, token) in allowed:
+                    continue
+
+                problems.append(
+                    f"{rel}:{number}: "
+                    f"verdächtiges Encoding-Muster {token!r}"
+                )
+
+    if problems:
+        preview = "\n".join(problems[:30])
+
+        if len(problems) > 30:
+            preview += (
+                f"\n... und {len(problems) - 30} weitere Treffer"
+            )
+
+        raise RuntimeError(
+            "Repository enthält wahrscheinlich beschädigte "
+            "UTF-8-/Umlaut-Texte:\n"
+            + preview
+            + "\nRelease wurde aus Sicherheitsgründen abgebrochen."
+        )
+
+    print(
+        f"[OK] Repository-Encoding geprüft: "
+        f"{checked} Textdateien ohne bekannte Schäden."
+    )
+
 def run(*args: str, capture: bool = False) -> str:
     print("+", " ".join(args))
     result = subprocess.run(
@@ -948,6 +1077,7 @@ def main() -> int:
 
     cleanup_preflight(assume_yes=args.yes)
     validate_release_worktree()
+    validate_repository_text_encoding()
     plugins = load_plugins()
 
     pending_text = PENDING.read_text(encoding="utf-8")
