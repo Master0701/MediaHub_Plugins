@@ -130,5 +130,8 @@
       }
     ]
   },
-  "package_name": "Audio_Metadata_Editor"
+  "package_name": "Audio_Metadata_Editor",
+  "shared_runtimes": [
+    "mediahub_metadata_core"
+  ]
 }

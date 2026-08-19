@@ -29,7 +29,7 @@ from PySide6.QtWidgets import QListWidgetItem, QWidget
 class MediaHubMetadataEditorPlugin:
     """Lokaler, sicherer Metadaten- und NFO-Editor für MediaHub."""
 
-    VERSION = "0.4.2"
+    VERSION = "0.4.3"
     EDITABLE_FIELDS = (
         "media_type",
         "title",
@@ -2339,6 +2339,11 @@ class NativeMetadataEditorWidget(QWidget):
         self.year_edit = QSpinBox()
         self.year_edit.setRange(0, 9999)
         self.year_edit.setSpecialValueText("")
+
+        self.edition_edit = QLineEdit()
+        self.edition_edit.setPlaceholderText(
+            "z. B. Remastered, Extended, Uncut, Director's Cut"
+        )
         self.season_edit = QSpinBox()
         self.season_edit.setRange(0, 9999)
         self.episode_edit = QSpinBox()
@@ -2411,7 +2416,12 @@ class NativeMetadataEditorWidget(QWidget):
         )
 
         basic_form.addRow(
-            "Ver?ffentlichung / Ausstrahlung",
+            "Fassung / Edition",
+            self.edition_edit,
+        )
+
+        basic_form.addRow(
+            "Veröffentlichung / Ausstrahlung",
             self.date_edit,
         )
 
@@ -2762,6 +2772,7 @@ class NativeMetadataEditorWidget(QWidget):
         )
         self._sync_description_preview()
         self.year_edit.setValue(self._number(item.get("year")))
+        self.edition_edit.setText(str(item.get("edition") or ""))
         self.season_edit.setValue(self._number(item.get("season")))
         self.episode_edit.setValue(self._number(item.get("episode")))
         self.series_edit.setText(str(item.get("series") or ""))
@@ -2770,7 +2781,9 @@ class NativeMetadataEditorWidget(QWidget):
         )
         self.channel_edit.setText(str(item.get("channel") or ""))
         self.playlist_edit.setText(str(item.get("playlist") or ""))
-        self.date_edit.setText(str(item.get("published_at") or ""))
+        self.date_edit.setText(
+            self._display_date(item.get("published_at"))
+        )
         path = item.get("path") or item.get("file_path") or item.get("filepath") or item.get("local_path") or item.get("filename") or "-"
         self.path_label.setText(str(path))
         self._update_poster_preview(item)
@@ -2817,6 +2830,64 @@ class NativeMetadataEditorWidget(QWidget):
         except (TypeError, ValueError):
             return 0
 
+    @staticmethod
+    def _display_date(value):
+        import re
+
+        text = str(value or "").strip()
+
+        if not text:
+            return ""
+
+        match = re.match(
+            r"^(\d{4})-(\d{2})-(\d{2})",
+            text,
+        )
+
+        if match:
+            return (
+                f"{match.group(3)}."
+                f"{match.group(2)}."
+                f"{match.group(1)}"
+            )
+
+        return text
+
+    @staticmethod
+    def _normalize_date_input(value):
+        import re
+
+        text = str(value or "").strip()
+
+        if not text:
+            return ""
+
+        german = re.fullmatch(
+            r"(\d{1,2})\.(\d{1,2})\.(\d{4})",
+            text,
+        )
+
+        if german:
+            return (
+                f"{int(german.group(3)):04d}-"
+                f"{int(german.group(2)):02d}-"
+                f"{int(german.group(1)):02d}"
+            )
+
+        iso = re.match(
+            r"^(\d{4})-(\d{2})-(\d{2})",
+            text,
+        )
+
+        if iso:
+            return (
+                f"{iso.group(1)}-"
+                f"{iso.group(2)}-"
+                f"{iso.group(3)}"
+            )
+
+        return text
+
     def _edited(self):
         item = dict(self._current or {})
         item.update({
@@ -2826,13 +2897,16 @@ class NativeMetadataEditorWidget(QWidget):
             ),
             "description": self.description_edit.toPlainText().strip(),
             "year": self.year_edit.value() or "",
+            "edition": self.edition_edit.text().strip(),
             "season": self.season_edit.value(),
             "episode": self.episode_edit.value(),
             "series": self.series_edit.text().strip(),
             "episode_title": self.episode_title_edit.text().strip(),
             "channel": self.channel_edit.text().strip(),
             "playlist": self.playlist_edit.text().strip(),
-            "published_at": self.date_edit.text().strip(),
+            "published_at": self._normalize_date_input(
+                self.date_edit.text()
+            ),
         })
         return item
 
@@ -2911,6 +2985,11 @@ class NativeMetadataEditorWidget(QWidget):
                 self.year_edit.setValue(int(fields.get("year") or 0))
             except (TypeError, ValueError):
                 pass
+        if "edition" in fields:
+            self.edition_edit.setText(
+                str(fields.get("edition") or "")
+            )
+
         if "season" in fields:
             try:
                 self.season_edit.setValue(int(fields.get("season") or 0))
@@ -2924,7 +3003,11 @@ class NativeMetadataEditorWidget(QWidget):
         if "series" in fields:
             self.series_edit.setText(str(fields.get("series") or ""))
         if "published_at" in fields:
-            self.date_edit.setText(str(fields.get("published_at") or ""))
+            self.date_edit.setText(
+                self._display_date(
+                    fields.get("published_at")
+                )
+            )
 
         self._update_diff()
 
@@ -3071,6 +3154,7 @@ class NativeMetadataEditorWidget(QWidget):
             "season": "Staffel",
             "episode": "Episode",
             "year": "Jahr",
+            "edition": "Fassung / Edition",
             "description": "Beschreibung",
             "published_at": "Datum",
         }
@@ -3084,6 +3168,7 @@ class NativeMetadataEditorWidget(QWidget):
             "episode",
             "title",
             "year",
+            "edition",
             "description",
             "published_at",
         )
@@ -3132,6 +3217,9 @@ class NativeMetadataEditorWidget(QWidget):
             "Nur Vorschau · keine automatische Übernahme.",
             "Übernahme nur nach ausdrücklicher Bestätigung.",
         ))
+        # TEMPORÄRE Laufzeitdiagnose:
+        # zeigt, was der KI-Assistent wirklich an den Metadata Editor liefert.
+
         self.ai_metadata_preview.setPlainText("\n".join(lines))
 
         # Nur die sichtbaren Eingabefelder übernehmen. Es wird weder gespeichert

@@ -1,7 +1,7 @@
 {
   "id": "mediahub.metadata_editor",
   "name": "MediaHub Metadata Editor",
-  "version": "0.4.2",
+  "version": "0.4.4",
   "author": "Master0701",
   "description": "Lokaler Medienbrowser mit Metadaten-, NFO- und Bildeditor, Ordnerauswahl und integrierter Poster-Vorschau.",
   "type": "tool",
@@ -11,7 +11,6 @@
   "safe_mode": true,
   "minimum_mediahub_version": "1.0.5",
   "minimum_mediahub": "1.0.5",
-  "shared_runtime": "mediahub_web_core",
   "network_scope": "local_only",
   "class_name": "MediaHubMetadataEditorPlugin",
   "permissions": [
@@ -46,5 +45,9 @@
   "license": {
     "project_license": "Proprietary",
     "third_party_licenses": []
-  }
+  },
+  "shared_runtimes": [
+    "mediahub_web_core",
+    "mediahub_metadata_core"
+  ]
 }

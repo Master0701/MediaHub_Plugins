@@ -253,26 +253,47 @@ def clean_release_directory() -> None:
 
 
 def copy_shared_runtime(package_root: Path, manifest: dict) -> None:
-    shared_runtime = manifest.get("shared_runtime")
-    if not shared_runtime:
-        return
+    shared_runtimes = manifest.get("shared_runtimes")
 
-    source = SHARED_DIR / str(shared_runtime)
-    if not source.exists():
-        raise FileNotFoundError(f"Gemeinsame Laufzeit fehlt: {source}")
+    if shared_runtimes is None:
+        legacy_runtime = manifest.get("shared_runtime")
+        shared_runtimes = [legacy_runtime] if legacy_runtime else []
 
-    target = package_root / "shared" / str(shared_runtime)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(
-        source,
-        target,
-        ignore=shutil.ignore_patterns(
-            "__pycache__",
-            "*.pyc",
-            "*.pyo",
-            ".pytest_cache",
-        ),
-    )
+    if isinstance(shared_runtimes, str):
+        shared_runtimes = [shared_runtimes]
+
+    if not isinstance(shared_runtimes, list):
+        raise TypeError(
+            "shared_runtimes muss eine Liste von Runtime-Namen sein."
+        )
+
+    for shared_runtime in shared_runtimes:
+        if not isinstance(shared_runtime, str) or not shared_runtime.strip():
+            raise ValueError(
+                "Ungültiger Eintrag in shared_runtimes."
+            )
+
+        shared_runtime = shared_runtime.strip()
+
+        source = SHARED_DIR / shared_runtime
+        if not source.is_dir():
+            raise FileNotFoundError(
+                f"Gemeinsame Laufzeit fehlt: {source}"
+            )
+
+        target = package_root / "shared" / shared_runtime
+        target.parent.mkdir(parents=True, exist_ok=True)
+
+        shutil.copytree(
+            source,
+            target,
+            ignore=shutil.ignore_patterns(
+                "__pycache__",
+                "*.pyc",
+                "*.pyo",
+                ".pytest_cache",
+            ),
+        )
 
 
 def build_plugin(key: str, source: Path) -> Path:

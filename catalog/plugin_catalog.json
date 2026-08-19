@@ -6,7 +6,7 @@
     {
       "id": "mediahub.ai_assistant",
       "name": "MediaHub KI-Assistent",
-      "version": "7.0.7",
+      "version": "7.0.8",
       "status": "available",
       "category": "KI und Analyse",
       "visible": true,
@@ -16,8 +16,8 @@
       "minimum_mediahub_version": "1.0.17",
       "project_page": "https://github.com/Master0701/MediaHub_Plugins/tree/main/plugins/ai_assistant",
       "manual_install_message": "",
-      "release_asset": "MediaHub_KI-Assistent_v7.0.7.mhplugin",
-      "sha256_asset": "MediaHub_KI-Assistent_v7.0.7.mhplugin.sha256"
+      "release_asset": "MediaHub_KI-Assistent_v7.0.8.mhplugin",
+      "sha256_asset": "MediaHub_KI-Assistent_v7.0.8.mhplugin.sha256"
     },
     {
       "id": "mediahub.audio_metadata_editor",
@@ -54,7 +54,7 @@
     {
       "id": "mediahub.metadata_editor",
       "name": "MediaHub Metadata Editor",
-      "version": "0.4.2",
+      "version": "0.4.4",
       "status": "available",
       "category": "Metadaten",
       "visible": true,
@@ -64,8 +64,8 @@
       "minimum_mediahub_version": "1.0.5",
       "project_page": "https://github.com/Master0701/MediaHub_Plugins/tree/main/plugins/metadata_editor",
       "manual_install_message": "",
-      "release_asset": "MediaHub_MetadataEditor_v0.4.2.mhplugin",
-      "sha256_asset": "MediaHub_MetadataEditor_v0.4.2.mhplugin.sha256"
+      "release_asset": "MediaHub_MetadataEditor_v0.4.4.mhplugin",
+      "sha256_asset": "MediaHub_MetadataEditor_v0.4.4.mhplugin.sha256"
     },
     {
       "id": "mediahub.mobile_dashboard",

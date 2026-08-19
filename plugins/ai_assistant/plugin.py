@@ -196,13 +196,18 @@ class MediaHubAIAssistantPlugin:
         self.batch_rename_review_provider = BatchRenameReviewProvider(
             self.rename_review_provider
         )
-        self.metadata_review_provider = MetadataAIReviewProvider(
-            self.batch_rename_review_provider
-        )
         self.agent_manager = AgentManager(
             self.capability_manager,
         )
-        self.media_analyzer = MediaAnalyzer(self.base_dir, self.knowledge_db_path, self.plugin_path)
+        self.media_analyzer = MediaAnalyzer(
+            self.base_dir,
+            self.knowledge_db_path,
+            self.plugin_path,
+        )
+        self.metadata_review_provider = MetadataAIReviewProvider(
+            self.batch_rename_review_provider,
+            self.media_analyzer,
+        )
         self.backend_manager = BackendManager(
             self.media_analyzer,
             ai_node_config=self._resolve_ai_node_config(),

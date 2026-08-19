@@ -62,7 +62,13 @@ class MediaAnalyzer:
         )
 
 
-    def analyze(self, file_path: str | Path, force: bool = False) -> dict[str, Any]:
+    def analyze(
+        self,
+        file_path: str | Path,
+        force: bool = False,
+        require_in_video: bool = False,
+        identity_hint: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         path = Path(file_path)
         if not path.is_file():
             raise FileNotFoundError(path)
@@ -75,6 +81,7 @@ class MediaAnalyzer:
                 return self._refresh_cached_reasoning(
                     path,
                     cached,
+                    identity_hint=identity_hint,
                 )
 
         result: dict[str, Any] = {
@@ -90,7 +97,10 @@ class MediaAnalyzer:
             "warnings": [],
             "methods_used": ["filename"],
             "cache": {"hit": False, "message": "Neue Analyse durchgeführt.", "forced": force},
-            "identification": self.filename_identifier.identify(path),
+            "identification": self._apply_identity_hint(
+                self.filename_identifier.identify(path),
+                identity_hint,
+            ),
         }
 
         mediainfo = self.tools.find("mediainfo")
@@ -155,8 +165,21 @@ class MediaAnalyzer:
                 },
             }
         result["supervisor"] = self.supervisor.evaluate(result)
-        in_video_required = any(step.get("agent") == "in_video" and step.get("required") for step in (result["supervisor"].get("next_steps") or []))
-        result["in_video"] = self.in_video_agent.run(result, in_video_required)
+        in_video_required = (
+            require_in_video
+            or any(
+                step.get("agent") == "in_video"
+                and step.get("required")
+                for step in (
+                    result["supervisor"].get("next_steps")
+                    or []
+                )
+            )
+        )
+        result["in_video"] = self.in_video_agent.run(
+            result,
+            in_video_required,
+        )
         self._append_in_video_evidence(result)
         result["quality"] = self.quality_engine.evaluate(result)
         semantic_candidates = self.identity_candidate_builder.build(result)
@@ -193,6 +216,7 @@ class MediaAnalyzer:
         self,
         path: Path,
         cached: dict[str, Any],
+        identity_hint: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         result = dict(cached)
         result["cache"] = {
@@ -205,6 +229,13 @@ class MediaAnalyzer:
             ),
             "reasoning_refreshed": True,
         }
+
+        result["identification"] = self._apply_identity_hint(
+            result.get("identification") or {},
+            identity_hint,
+        )
+
+        result["evidence"] = self._build_evidence(result)
 
         if self.source_manager is not None:
             result["source_plan"] = self.source_manager.plan(result)
@@ -316,6 +347,60 @@ class MediaAnalyzer:
 
         return result
 
+
+
+    @staticmethod
+    def _apply_identity_hint(
+        identification: dict[str, Any],
+        identity_hint: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        """Ergänzt eine bereits geprüfte Identität als priorisierten Hint.
+
+        Der ursprüngliche Filename-Identifier bleibt erhalten. Der Hint
+        überschreibt nur strukturierte Identitätsfelder, die ausdrücklich
+        geliefert wurden.
+        """
+        merged = dict(identification or {})
+
+        if not isinstance(identity_hint, dict):
+            return merged
+
+        title = str(identity_hint.get("title") or "").strip()
+        media_type = str(
+            identity_hint.get("media_type") or ""
+        ).strip()
+
+        year = identity_hint.get("year")
+        edition = str(
+            identity_hint.get("edition") or ""
+        ).strip()
+
+        if title:
+            merged["title_candidate"] = title
+            merged["identity_hint_title"] = title
+
+        if media_type:
+            merged["media_type"] = media_type
+            merged["identity_hint_media_type"] = media_type
+
+        if year not in (None, ""):
+            try:
+                year = int(year)
+            except (TypeError, ValueError):
+                pass
+            else:
+                merged["year"] = year
+                merged["year_candidate"] = year
+                merged["identity_hint_year"] = year
+
+        if edition:
+            merged["edition"] = edition
+            merged["identity_hint_edition"] = edition
+
+        if title or media_type or year not in (None, "") or edition:
+            merged["identity_hint_applied"] = True
+
+        return merged
 
 
     @staticmethod

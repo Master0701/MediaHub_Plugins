@@ -55,9 +55,41 @@ class SearchVariantReasoner:
         media_type = identification.get("media_type")
         raw: list[tuple[str, float, str, tuple[str, ...]]] = []
 
-        self._append(raw, identification.get("title_candidate"), 1.0, "filename", "Titelkandidat aus Datei-/Ordnername")
-        self._append(raw, identification.get("parent_title_candidate"), 0.88, "folder", "Titelkandidat aus übergeordnetem Ordner")
-        self._append(raw, identification.get("normalized_name") or file_info.get("name"), 0.92, "normalized_filename", "Technische Bestandteile entfernt")
+        identity_hint_title = str(
+            identification.get("identity_hint_title") or ""
+        ).strip()
+
+        if identity_hint_title:
+            self._append(
+                raw,
+                identity_hint_title,
+                1.15,
+                "identity_hint",
+                "Strukturierte Identität aus vorgelagerter Medienerkennung",
+            )
+
+        self._append(
+            raw,
+            identification.get("title_candidate"),
+            1.0,
+            "filename",
+            "Titelkandidat aus Datei-/Ordnername",
+        )
+        self._append(
+            raw,
+            identification.get("parent_title_candidate"),
+            0.88,
+            "folder",
+            "Titelkandidat aus übergeordnetem Ordner",
+        )
+        self._append(
+            raw,
+            identification.get("normalized_name")
+            or file_info.get("name"),
+            0.92,
+            "normalized_filename",
+            "Technische Bestandteile entfernt",
+        )
 
         expanded: list[SearchVariant] = []
         for value, score, source, reasons in raw:
@@ -86,8 +118,19 @@ class SearchVariantReasoner:
             key = self._variant_key(item.title)
             if not key:
                 continue
-            known = item.source.startswith("knowledge_")
-            quality_source = "ocr" if item.source == "ocr" else ("fallback" if "Fallback" in item.reasons else item.source)
+            known = (
+                item.source.startswith("knowledge_")
+                or item.source == "identity_hint"
+            )
+            quality_source = (
+                "ocr"
+                if item.source == "ocr"
+                else (
+                    "fallback"
+                    if "Fallback" in item.reasons
+                    else item.source
+                )
+            )
             quality = evaluate_text(item.title, source=quality_source, known_alias=known)
             adjusted_score = item.score * (0.45 + 0.55 * quality.score)
             adjusted = SearchVariant(item.title, round(adjusted_score, 3), item.source, item.reasons, item.media_type, quality.score, quality.reasons)
