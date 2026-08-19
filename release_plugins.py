@@ -64,9 +64,9 @@ def validate_release_text_encoding(
 
     # Typischer Schaden aus ASCII-/OEM-Pipelines:
     #
-    #   H?rb?cher
-    #   f?r
-    #   Schreibvorg?nge
+    #   Hörbücher
+    #   für
+    #   Schreibvorgänge
     #
     # Ein Fragezeichen mitten in einem Wort ist in unseren
     # deutschen Release-Notizen kein erwarteter Normalfall.
@@ -79,7 +79,7 @@ def validate_release_text_encoding(
             "Fragezeichen innerhalb eines Wortes gefunden"
         )
 
-    # Beschädigtes großes Ä am Wortanfang, z. B. ?nderungen.
+    # Beschädigtes großes Ä am Wortanfang, z. B. Änderungen.
     if re.search(
         r"(?m)(?:^|[\s(])\?(?:nder|nderung|nderungen)",
         text,

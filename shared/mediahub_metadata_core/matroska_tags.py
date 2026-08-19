@@ -36,7 +36,7 @@ def _target_type_value(tag: ET.Element) -> str:
     if node is not None and _clean(node.text):
         return _clean(node.text)
 
-    # Matroska definiert 50 als Standardwert f?r
+    # Matroska definiert 50 als Standardwert für
     # TargetTypeValue. MKVToolNix darf diesen
     # Standardwert beim Schreiben weglassen.
     #
@@ -174,7 +174,7 @@ def merge_mediahub_matroska_tags(
             root = ET.fromstring(source)
         except ET.ParseError as error:
             raise ValueError(
-                f"Ung?ltige Matroska-Tag-XML: {error}"
+                f"Ungültige Matroska-Tag-XML: {error}"
             ) from error
     else:
         root = ET.Element("Tags")
@@ -278,7 +278,7 @@ def merge_mediahub_matroska_tags(
 
     else:
         # Allgemeines Video:
-        # keine k?nstliche MOVIE-/EPISODE-Klassifikation.
+        # keine künstliche MOVIE-/EPISODE-Klassifikation.
         generic = _find_or_create_scope(
             root,
             target_value=None,
@@ -467,7 +467,7 @@ def read_mediahub_matroska_tags(
 
     # Wenn Collection/Season vorhanden ist, ist die Datei
     # auch dann eine Serie, wenn der Episode-Tag keinerlei
-    # explizite Typbezeichnung mehr enth?lt.
+    # explizite Typbezeichnung mehr enthält.
     if series_context:
         result["media_type"] = "series"
 

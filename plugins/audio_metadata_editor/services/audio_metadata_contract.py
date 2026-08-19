@@ -22,6 +22,6 @@ OPERATIONS = (
 SUPPORTED_AUDIO_EXTENSIONS = AUDIO_EXTENSIONS
 
 # Die zentrale MediaHub-Sicherheitsrichtlinie wird bewusst
-# ?ber den Audio-Metadata-Contract bereitgestellt. Dadurch
-# verwenden alle Audio-/H?rbuch-Schreibpfade dieselben Regeln.
+# über den Audio-Metadata-Contract bereitgestellt. Dadurch
+# verwenden alle Audio-/Hörbuch-Schreibpfade dieselben Regeln.
 SAFE_WRITE_POLICY = CORE_SAFE_WRITE_POLICY

@@ -39,7 +39,7 @@ def test_audio_metadata():
         {
             "title": "Kapitel 1",
             "artist": "Max Mustermann",
-            "album": "Testh?rbuch",
+            "album": "Testhörbuch",
             "track": "3/12",
             "genre": "Audiobook",
         },
@@ -47,7 +47,7 @@ def test_audio_metadata():
 
     assert result["title"] == "Kapitel 1"
     assert result["artist"] == "Max Mustermann"
-    assert result["album"] == "Testh?rbuch"
+    assert result["album"] == "Testhörbuch"
     assert result["track"] == 3
     assert result["genre"] == "Audiobook"
 
@@ -56,14 +56,14 @@ def test_m4b_audiobook_metadata():
     result = normalize_tags(
         ".m4b",
         {
-            "title": "Mein H?rbuch",
+            "title": "Mein Hörbuch",
             "artist": "Autor",
             "narrator": "Sprecher",
             "publisher": "Verlag",
         },
     )
 
-    assert result["title"] == "Mein H?rbuch"
+    assert result["title"] == "Mein Hörbuch"
     assert result["author"] == "Autor"
     assert result["narrator"] == "Sprecher"
     assert result["publisher"] == "Verlag"
@@ -72,5 +72,5 @@ def test_m4b_audiobook_metadata():
 def test_unknown_format_reads_nothing():
     assert normalize_tags(
         ".xyz",
-        {"title": "Nicht ?bernehmen"},
+        {"title": "Nicht übernehmen"},
     ) == {}

@@ -98,7 +98,7 @@ def test_track_tags_are_ignored():
     </Targets>
     <Simple>
       <Name>TITLE</Name>
-      <String>Nicht ?bernehmen</String>
+      <String>Nicht übernehmen</String>
     </Simple>
   </Tag>
 </Tags>

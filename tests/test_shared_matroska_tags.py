@@ -84,7 +84,7 @@ def test_existing_track_tag_is_preserved():
     </Targets>
     <Simple>
       <Name>CUSTOM_TRACK_DATA</Name>
-      <String>Nicht l?schen</String>
+      <String>Nicht löschen</String>
     </Simple>
   </Tag>
 </Tags>
@@ -100,7 +100,7 @@ def test_existing_track_tag_is_preserved():
     )
 
     assert "CUSTOM_TRACK_DATA" in xml
-    assert "Nicht l?schen" in xml
+    assert "Nicht löschen" in xml
 
 
 def test_media_type_is_never_written_as_tag():

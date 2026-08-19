@@ -25,7 +25,7 @@ from services.providers import (
 
 
 class SourceManager:
-    """LÃ¤dt feste und frei definierbare Online-Quellen aus einer JSON-Datei."""
+    """Lädt feste und frei definierbare Online-Quellen aus einer JSON-Datei."""
 
     def __init__(self, plugin_path: Path, knowledge_database_path: Path | None = None):
         self.plugin_path = Path(plugin_path).resolve()
@@ -86,7 +86,7 @@ class SourceManager:
         defaults: dict[str, Any],
         persistent: dict[str, Any],
     ) -> dict[str, Any]:
-        """ErgÃ¤nzt neue Standardfelder, bewahrt aber Benutzereinstellungen."""
+        """Ergänzt neue Standardfelder, bewahrt aber Benutzereinstellungen."""
         default_sources = [
             dict(item)
             for item in (defaults.get("sources") or [])
@@ -117,7 +117,7 @@ class SourceManager:
                 seen.add(provider_id)
 
         # Benutzerdefinierte Provider, die nicht in den Standards vorkommen,
-        # bleiben vollstÃ¤ndig erhalten.
+        # bleiben vollständig erhalten.
         for item in persistent_sources:
             provider_id = str(item.get("id") or "")
             if provider_id and provider_id in seen:
@@ -189,7 +189,7 @@ class SourceManager:
         language: str | None = None,
         credentials: dict[str, str] | None = None,
     ) -> dict[str, Any]:
-        """Persistiert GUI-Einstellungen und lÃ¤dt Provider sofort neu."""
+        """Persistiert GUI-Einstellungen und lädt Provider sofort neu."""
         provider_id = str(provider_id or "").strip()
         if not provider_id:
             raise ValueError("provider_id fehlt.")

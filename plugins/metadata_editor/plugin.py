@@ -233,7 +233,7 @@ class MediaHubMetadataEditorPlugin:
             return {}, {
                 "available": False,
                 "ok": False,
-                "message": "Dateiformat wird nicht unterst?tzt.",
+                "message": "Dateiformat wird nicht unterstützt.",
             }
 
         ffprobe = self._tool_path("ffprobe")
@@ -243,8 +243,8 @@ class MediaHubMetadataEditorPlugin:
                 "available": False,
                 "ok": False,
                 "message": (
-                    "FFprobe ist ?ber den MediaHub-Tool-Manager "
-                    "nicht verf?gbar."
+                    "FFprobe ist über den MediaHub-Tool-Manager "
+                    "nicht verfügbar."
                 ),
             }
 
@@ -295,7 +295,7 @@ class MediaHubMetadataEditorPlugin:
                             )
 
                             # Die hierarchischen Matroska-Tags
-                            # sind f?r Serie/Staffel/Episode
+                            # sind für Serie/Staffel/Episode
                             # genauer als allgemeine FFprobe-Tags.
                             for key, value in (
                                 matroska_values.items()
@@ -305,7 +305,7 @@ class MediaHubMetadataEditorPlugin:
 
                             # FFprobe flacht hierarchische
                             # Matroska-TITLE-Tags ab. Dadurch
-                            # kann der Episodentitel f?lschlich
+                            # kann der Episodentitel fälschlich
                             # als allgemeiner Titel erscheinen.
                             #
                             # Den echten Segmenttitel lesen wir
@@ -345,9 +345,9 @@ class MediaHubMetadataEditorPlugin:
                                         ] = segment_title
 
                             except Exception:  # noqa: BLE001,S110 - optionaler MKV-Fallback
-                                # Fehler beim zus?tzlichen
+                                # Fehler beim zusätzlichen
                                 # MKVToolNix-Lesen darf die
-                                # ?brigen Metadaten nicht
+                                # übrigen Metadaten nicht
                                 # unbrauchbar machen.
                                 pass
 
@@ -403,7 +403,7 @@ class MediaHubMetadataEditorPlugin:
             self._read_nfo_metadata(item)
         )
 
-        # Priorit?t:
+        # Priorität:
         # 1. Standard-/MediaHub-Werte
         # 2. eingebettete Datei-Metadaten
         # 3. vorhandene NFO
@@ -689,8 +689,8 @@ class MediaHubMetadataEditorPlugin:
             return {
                 "ok": False,
                 "message": (
-                    "mkvextract.exe ist ?ber den "
-                    "MediaHub-Tool-Manager nicht verf?gbar."
+                    "mkvextract.exe ist über den "
+                    "MediaHub-Tool-Manager nicht verfügbar."
                 ),
             }
 
@@ -761,8 +761,8 @@ class MediaHubMetadataEditorPlugin:
                 "written": False,
                 "backend": "mkvtoolnix",
                 "message": (
-                    "mkvpropedit.exe ist ?ber den "
-                    "MediaHub-Tool-Manager nicht verf?gbar."
+                    "mkvpropedit.exe ist über den "
+                    "MediaHub-Tool-Manager nicht verfügbar."
                 ),
             }
 
@@ -820,7 +820,7 @@ class MediaHubMetadataEditorPlugin:
                     "written": False,
                     "backend": "mkvtoolnix",
                     "message": (
-                        "Vorhandene MKV-Tags k?nnen nicht "
+                        "Vorhandene MKV-Tags können nicht "
                         "sicher erhalten werden, weil "
                         "mkvextract.exe fehlt."
                     ),
@@ -905,8 +905,8 @@ class MediaHubMetadataEditorPlugin:
                 "written": False,
                 "backend": "mkvtoolnix",
                 "message": (
-                    "F?r MKV sind keine schreibbaren "
-                    "?nderungen vorhanden."
+                    "Für MKV sind keine schreibbaren "
+                    "Änderungen vorhanden."
                 ),
             }
 
@@ -1009,8 +1009,8 @@ class MediaHubMetadataEditorPlugin:
             "returncode": completed.returncode,
             "message": (
                 "MKV-Metadaten wurden mit MKVToolNix "
-                "direkt in der Datei ge?ndert; vorhandene "
-                "MKV-Tags wurden vor der ?nderung ?bernommen."
+                "direkt in der Datei geändert; vorhandene "
+                "MKV-Tags wurden vor der Änderung übernommen."
             ),
         }
 
@@ -1034,8 +1034,8 @@ class MediaHubMetadataEditorPlugin:
                 "supported": bool(capability.get("supported")),
                 "written": False,
                 "message": (
-                    f"Direktes Schreiben eingebetteter Metadaten wird f?r "
-                    f"{extension or 'dieses Format'} derzeit nicht unterst?tzt."
+                    f"Direktes Schreiben eingebetteter Metadaten wird für "
+                    f"{extension or 'dieses Format'} derzeit nicht unterstützt."
                 ),
             }
 
@@ -1058,7 +1058,7 @@ class MediaHubMetadataEditorPlugin:
                 "supported": True,
                 "written": False,
                 "message": (
-                    f"F?r {extension} ist kein direkter FFmpeg-Writer "
+                    f"Für {extension} ist kein direkter FFmpeg-Writer "
                     "freigegeben."
                 ),
             }
@@ -1071,7 +1071,7 @@ class MediaHubMetadataEditorPlugin:
                 "supported": True,
                 "written": False,
                 "message": (
-                    "FFmpeg ist ?ber den MediaHub-Tool-Manager nicht verf?gbar."
+                    "FFmpeg ist über den MediaHub-Tool-Manager nicht verfügbar."
                 ),
             }
 
@@ -1156,7 +1156,7 @@ class MediaHubMetadataEditorPlugin:
                     "supported": True,
                     "written": False,
                     "message": (
-                        "FFmpeg hat keine g?ltige Ausgabedatei erzeugt."
+                        "FFmpeg hat keine gültige Ausgabedatei erzeugt."
                     ),
                     "backup": str(backup or ""),
                 }
@@ -2000,7 +2000,7 @@ class MediaHubMetadataEditorPlugin:
                     info["preview"] = f"data:{mime};base64,{encoded}"
                 except (OSError, UnicodeError, ValueError):
                     # Die Vorschau ist optional. Pfad und sonstige
-                    # Bildinformationen bleiben trotzdem verf?gbar.
+                    # Bildinformationen bleiben trotzdem verfügbar.
                     info["preview"] = ""
             images[kind] = info
         return self._json({"ok": True, "media_path": str(media_path or ""), "folder": str(folder or ""), "nfo": nfo, "images": images})

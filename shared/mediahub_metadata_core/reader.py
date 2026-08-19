@@ -46,7 +46,7 @@ def _integer(value):
 
     text = str(value).strip()
 
-    # Track/Disc k?nnen z.B. "3/12" enthalten.
+    # Track/Disc können z.B. "3/12" enthalten.
     if "/" in text:
         text = text.split("/", 1)[0].strip()
 
@@ -121,7 +121,7 @@ def read_embedded_metadata(
             "path": str(media_path),
             "tags": {},
             "raw_tags": {},
-            "message": "Dateiformat wird vom Metadata-Core nicht unterst?tzt.",
+            "message": "Dateiformat wird vom Metadata-Core nicht unterstützt.",
         }
 
     if not media_path.is_file():
@@ -143,7 +143,7 @@ def read_embedded_metadata(
             "path": str(media_path),
             "tags": {},
             "raw_tags": {},
-            "message": "FFprobe ist nicht verf?gbar.",
+            "message": "FFprobe ist nicht verfügbar.",
         }
 
     process = subprocess.run(
@@ -187,7 +187,7 @@ def read_embedded_metadata(
             "path": str(media_path),
             "tags": {},
             "raw_tags": {},
-            "message": "FFprobe lieferte ung?ltige JSON-Daten.",
+            "message": "FFprobe lieferte ungültige JSON-Daten.",
         }
 
     raw_tags = dict(

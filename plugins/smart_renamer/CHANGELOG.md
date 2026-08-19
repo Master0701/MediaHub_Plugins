@@ -337,10 +337,10 @@
 
 ## v0.4.4
 
-- Web- und Mobile-OberflÃ¤che wieder funktionsfÃ¤hig.
-- BeschÃ¤digten JavaScript-Zeilentrenner in der Pfadverarbeitung repariert.
+- Web- und Mobile-Oberfläche wieder funktionsfähig.
+- Beschädigten JavaScript-Zeilentrenner in der Pfadverarbeitung repariert.
 - Profil- und Backend-Initialisierung startet wieder korrekt.
-- Regressionstest fÃ¼r den ausgelieferten JavaScript-Code ergÃ¤nzt.
+- Regressionstest für den ausgelieferten JavaScript-Code ergänzt.
 - Reine Vorschau bleibt erhalten; echte Umbenennung bleibt weiterhin gesperrt.
 # Changelog
 
