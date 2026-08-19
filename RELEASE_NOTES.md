@@ -1,88 +1,53 @@
-# MediaHub Plugins v0.5.11 – vollständiges Release
+# MediaHub Plugins v0.5.12 – vollständiges Release
 
-## MediaHub KI-Assistent v7.0.7
+## MediaHub KI-Assistent v7.0.8
 
-- Online-Metadaten-Erkennung für Serien und Episoden erweitert.
-- TheTVDB- und TMDb-Provider ausgebaut und in die gemeinsame Provider-Auswertung integriert.
-- Episodentitel können aus Online-Quellen erkannt und in KI-Reviews übernommen werden.
-- Seriennamen werden bei unbrauchbaren oder technisch geprägten Dateinamen zuverlässiger bereinigt.
-- Beschreibung sowie Veröffentlichungs-/Ausstrahlungsdatum können aus Online-Evidenz in die Metadaten-Vorschau übernommen werden.
-- Neue Metadata-Review-Capability für die Zusammenarbeit mit dem Metadata Editor.
-- Rename-Review- und Batch-Rename-Review-Schnittstellen für den Smart Renamer erweitert.
-- Provider-Einstellungen werden dauerhaft gespeichert.
-- Aktiviert-/Deaktiviert-Zustand der Quellen bleibt nach Plugin-Updates erhalten.
-- Provider-Zugangsdaten werden getrennt vom Plugin dauerhaft und unter Windows per DPAPI geschützt gespeichert.
-- Zugangsdaten bleiben bei Plugin-Neuinstallation bzw. Plugin-Update erhalten.
-- Provider-Verbindungstest verwendet den aktuellen gespeicherten Formular- und Aktivierungszustand.
-- Umfangreiche neue Regressionstests für Provider, Episodenerkennung, Metadata Review und Rename Review ergänzt.
+- Filmidentifikation bei technisch erweiterten oder verschmutzten Dateinamen verbessert.
+- Strukturierte Identity-Hints werden vor der Online-Suche berücksichtigt.
+- Query-Reasoner priorisiert bestätigte Identity-Hints gegenüber schwachen Dateinamen-Fallbacks.
+- Identity-Hints werden auch bei Treffern aus dem Analyse-Cache korrekt angewendet.
+- Filmtitel und Erscheinungsjahr werden zuverlässiger aus der erkannten Medienidentität übernommen.
+- Editions-/Fassungserkennung für Angaben wie Remastered verbessert.
+- Editionshinweise können zusätzlich aus bereits vorhandenen lokalen Metadaten übernommen werden.
+- Online-Metadaten und Filmcover werden nach erfolgreicher Identifikation zuverlässiger gefunden.
+- Neue Regressionstests für verifizierte Medienidentität und Query-Reasoning ergänzt.
+- Temporäre Laufzeit-Debugausgaben entfernt.
 
 ## MediaHub Audio Metadata Editor v0.0.1
 
-- Neues eigenständiges MediaHub-Plugin für Audio-Metadaten und Hörbücher.
-- Ersetzt die bisherige geplante MediaHub Hörbuchverwaltung als gemeinsame Audio-Metadaten-Lösung.
-- Audio und Hörbücher werden innerhalb desselben Plugins verwaltet.
-- Gemeinsamer Audio-Metadata-Contract für Lesen, Erkennen, Vergleichen, Schreibplanung und spätere Schreibvorgänge vorbereitet.
-- Gemeinsame MediaHub-Metadata-Core-Infrastruktur für Audio- und Video-Metadaten angebunden.
-- Unterstützte Audioformate und sichere Schreibregeln zentral vorbereitet.
-- Hörbuchdateien wie M4B werden bereits als eigener Medientyp erkannt.
-- Tool-Anbindung für FFmpeg, FFprobe, MediaInfo, Chromaprint/fpcalc und Mp3tag vorbereitet.
-- Drittanbieter-, Lizenz-, Installations- und Tool-Dokumentation ist Bestandteil des Plugins.
-- Tatsächliches Schreiben von Audio-Tags bleibt in v0.0.1 noch deaktiviert.
-- Änderungen bleiben bestätigungspflichtig; Backup und Prüfung nach späteren Schreibvorgängen sind verbindlich vorgesehen.
+- Funktionsstand unverändert.
+- Manifest und gemeinsamer Plugin-Katalog wurden im aktuellen Repository-Stand berücksichtigt.
+- Wird mit dem vollständigen Release erneut gebaut und validiert.
 
-## MediaHub Metadata Editor v0.4.2
+## MediaHub Metadata Editor v0.4.4
 
-- Lokale Ordner können direkt ausgewählt und als Medienquelle eingelesen werden.
-- Mehrere lokale Quellordner können dauerhaft als Quellen gespeichert und gemeinsam erneut eingelesen werden.
-- Beim erneuten Einlesen werden Dateien als `new`, `changed` oder `unchanged` erkannt.
-- Die Änderungsverfolgung speichert nur leichte Dateisignaturen aus Pfad, Größe und Änderungszeit; es wird keine dauerhafte vollständige Medienliste geführt.
-- Die bisherige Einzelordner-Konfiguration wird in die neue Quellenverwaltung übernommen.
-- MediaHub-/YouTube-Bibliothek und lokale Ordner stehen als getrennte Quellen zur Verfügung.
-- Vorhandene Metadaten aus Datei und NFO werden separat angezeigt.
-- KI-Metadaten-Vorschau mit Alt-/Neu-Vergleich integriert.
-- KI-Vorschläge können die Bearbeitungsfelder im Entwurf vorausfüllen.
-- Serienname, Staffel, Episode und Episodentitel werden aus dem KI-Assistenten übernommen.
-- Beschreibung sowie Veröffentlichungs-/Ausstrahlungsdatum können in den Metadaten-Entwurf übernommen werden.
-- Poster-Vorschau für lokale bzw. online ermittelte Bilder ergänzt.
-- Grunddaten-, Serien- und Quellenbereiche neu strukturiert.
-- Staffel und Episode werden gemeinsam und übersichtlich dargestellt.
-- Beschreibung im Hauptfenster auf eine kompakte Vorschau reduziert und kann über einen separaten Dialog vollständig bearbeitet werden.
-- Metadaten-Entwürfe sind jetzt sitzungsbezogen und werden nicht mehr dauerhaft in `drafts.json` gespeichert.
-- Sitzungsentwürfe können vollständig verworfen werden.
-- Für tatsächliche Änderungen ist eine dauerhafte Recovery-Grundlage mit Vorher-/Nachher-Zustand vorbereitet.
-- Recovery-Daten und temporäre Bearbeitungsentwürfe sind klar voneinander getrennt.
-- Metadata Write bleibt weiterhin gesperrt; KI-Ergebnisse und Bearbeitungen bleiben aktuell Vorschläge/Entwürfe.
-- Regressionstests für Quellenverwaltung, Neu-Scan, Sitzungsentwürfe, Recovery, Layout, Dialoge, Poster und KI-Metadaten ergänzt.
+- Neues sichtbares Grunddatenfeld „Fassung / Edition“.
+- Unterstützt unter anderem Remastered, Extended, Uncut und Director's Cut.
+- KI-Vorschläge für Fassung/Edition werden in das echte Editor-Feld übernommen.
+- Anzeige „Veröffentlichung / Ausstrahlung“ auf korrekte UTF-8-Darstellung repariert.
+- GUI- und UTF-8-Regressionstests ergänzt.
+- Temporäre KI-Debugausgabe aus der Metadatenvorschau entfernt.
 
 ## MediaHub Mobile Dashboard v0.1.7
 
-- Unveränderter Plugin-Stand in diesem Release.
-- Mobile Oberfläche für Handy und Tablet mit gemeinsamer lokaler MediaHub-Webbasis.
+- Funktionsstand unverändert.
+- Wird mit dem vollständigen Release erneut gebaut und validiert.
 
 ## MediaHub Smart Renamer v0.5.17
 
-- Zusammenarbeit mit dem MediaHub KI-Assistenten deutlich erweitert.
-- Rename-Review kann strukturierte KI-Empfehlungen auswerten.
-- Batch-KI-Prüfung und Batch-Rename-Review erweitert.
-- Episodentitel aus Online-/KI-Metadaten können in Umbenennungsvorschläge übernommen werden.
-- Serien- und Episodenanker bei technisch geprägten Dateinamen verbessert.
-- Auflösungs- und Technik-Tokens werden zuverlässiger von Staffel-/Episode-Angaben getrennt.
-- KI- und Renamer-Ergebnisse können miteinander verglichen und Konflikte sichtbar gemacht werden.
-- Metadaten-Capability-Anbindung für die gemeinsame Vorschau ergänzt.
-- GUI-Anzeige für KI-Status, Review-Ergebnisse und Metadaten-Diagnose erweitert.
-- Vorschläge bleiben bestätigungspflichtig; keine automatische Umbenennung ohne Benutzerfreigabe.
-- Native und optionale externe Backends bleiben getrennt und über die bestehende Backend-Auswahl steuerbar.
-- Umfangreiche neue Tests für KI-Review, Batch-Review, Metadaten-Anbindung und technische Dateinamenerkennung ergänzt.
+- Funktionsstand unverändert.
+- Wird mit dem vollständigen Release erneut gebaut und validiert.
 
 ## MediaHub WebRemote v0.13.7
 
-- Unveränderter Plugin-Stand in diesem Release.
-- Lokale Desktop-/PC-Weboberfläche für MediaHub.
+- Funktionsstand unverändert.
+- Wird mit dem vollständigen Release erneut gebaut und validiert.
 
 ## MediaHub AI Test Provider v1.0.0
 
-- Unveränderter AI-Node-/Raspberry-Pi-Plugin-Stand.
-- Wird weiterhin als `.mhaiplugin` gemeinsam mit den MediaHub-Plugins gebaut und veröffentlicht.
+- AI-Node-Plugin.
+- Funktionsstand unverändert.
+- Wird getrennt als AI-Node-Plugin validiert und gemeinsam mit den MediaHub-Plugins veröffentlicht.
 
 ## Gemeinsamer Release-Stand
 
