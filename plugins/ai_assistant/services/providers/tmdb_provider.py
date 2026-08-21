@@ -59,6 +59,8 @@ class TmdbProvider(BaseProvider):
                 "title": item.get("name") or item.get("title"),
                 "original_title": item.get("original_name") or item.get("original_title"),
                 "year": int(date[:4]) if len(date) >= 4 and date[:4].isdigit() else None,
+                "release_date": date or None,
+                "published_at": date or None,
                 "media_type": item_type,
                 "overview": item.get("overview") or "",
                 "language": item.get("original_language"),

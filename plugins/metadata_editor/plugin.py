@@ -898,6 +898,60 @@ class MediaHubMetadataEditorPlugin:
                 ]
             )
 
+        poster_path = self._poster_path(edited)
+
+        poster_embedded = bool(
+            poster_path is not None
+            and poster_path.is_file()
+        )
+
+        if poster_embedded:
+            mime_by_suffix = {
+                ".jpg": "image/jpeg",
+                ".jpeg": "image/jpeg",
+                ".png": "image/png",
+                ".webp": "image/webp",
+            }
+
+            poster_mime = mime_by_suffix.get(
+                poster_path.suffix.lower(),
+                "image/jpeg",
+            )
+
+            # Bereits von MediaHub verwendete Cover-Namen ersetzen,
+            # andere unbekannte Attachments aber unangetastet lassen.
+            for attachment_name in (
+                "cover.jpg",
+                "cover.jpeg",
+                "cover.png",
+                "cover.webp",
+                "poster.jpg",
+                "poster.jpeg",
+                "poster.png",
+                "poster.webp",
+                "folder.jpg",
+                "folder.png",
+            ):
+                command.extend(
+                    [
+                        "--delete-attachment",
+                        f"name:{attachment_name}",
+                    ]
+                )
+
+            command.extend(
+                [
+                    "--attachment-name",
+                    "cover.jpg",
+                    "--attachment-mime-type",
+                    poster_mime,
+                    "--attachment-description",
+                    "MediaHub Poster",
+                    "--add-attachment",
+                    str(poster_path),
+                ]
+            )
+
         if len(command) == 2:
             return {
                 "ok": False,
@@ -990,6 +1044,7 @@ class MediaHubMetadataEditorPlugin:
                 "tool": "mkvpropedit",
                 "in_place": True,
                 "tags_preserved": wants_tags,
+                "poster_embedded": poster_embedded,
                 "returncode": completed.returncode,
                 "warning": (
                     completed.returncode == 1
@@ -2238,6 +2293,7 @@ class NativeMetadataEditorWidget(QWidget):
         )
         self._current = None
         self._loading = False
+        self._ai_poster_path = None
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -2747,6 +2803,7 @@ class NativeMetadataEditorWidget(QWidget):
 
     def _load_selected(self, row):
         item = self.media_list.item(row)
+        self._ai_poster_path = None
         self._current = dict(item.data(256) or {}) if item is not None else None
         if not self._current:
             self._clear_fields()
@@ -2890,6 +2947,13 @@ class NativeMetadataEditorWidget(QWidget):
 
     def _edited(self):
         item = dict(self._current or {})
+
+        if (
+            self._ai_poster_path is not None
+            and Path(self._ai_poster_path).is_file()
+        ):
+            item["poster_path"] = str(self._ai_poster_path)
+
         item.update({
             "title": self.title_edit.text().strip(),
             "media_type": str(
@@ -3023,6 +3087,8 @@ class NativeMetadataEditorWidget(QWidget):
 
         if not path:
             return
+
+        self._ai_poster_path = Path(path).resolve()
 
         from PySide6.QtCore import Qt
 

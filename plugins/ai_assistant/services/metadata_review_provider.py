@@ -591,7 +591,11 @@ class MetadataAIReviewProvider:
             and in_video.get("state") != "completed"
         ):
             try:
-                analysis = dict(
+                previous_online = dict(
+                    analysis.get("online") or {}
+                )
+
+                refreshed_analysis = dict(
                     analyzer.analyze(
                         media_path,
                         force=True,
@@ -600,6 +604,39 @@ class MetadataAIReviewProvider:
                     )
                     or {}
                 )
+
+                refreshed_online = dict(
+                    refreshed_analysis.get("online") or {}
+                )
+
+                has_refreshed_online = bool(
+                    refreshed_online.get("executed")
+                    and (
+                        refreshed_online.get("provider_results")
+                        or (
+                            refreshed_online.get("ranking") or {}
+                        ).get("best_match")
+                    )
+                )
+
+                has_previous_online = bool(
+                    previous_online.get("executed")
+                    and (
+                        previous_online.get("provider_results")
+                        or (
+                            previous_online.get("ranking") or {}
+                        ).get("best_match")
+                    )
+                )
+
+                if (
+                    not has_refreshed_online
+                    and has_previous_online
+                ):
+                    refreshed_analysis["online"] = previous_online
+
+                analysis = refreshed_analysis
+
                 identity = self._analysis_identity(
                     analysis
                 )
@@ -875,6 +912,24 @@ class MetadataAIReviewProvider:
 
         # Ein Veröffentlichungsdatum wird nur als KI-Vorschlag
         # ausgegeben, wenn dafür echte Online-Evidenz vorhanden ist.
+        debug_path = (
+            Path(__file__).resolve().parent
+            / "_metadata_date_runtime_debug.txt"
+        )
+
+        debug_path.write_text(
+            "=== VERIFIED ANALYSIS ONLINE ===\n"
+            + repr(verified_analysis.get("online"))
+            + "\n\n=== ANALYZER ONLINE ===\n"
+            + repr(analyzer_online)
+            + "\n\n=== ONLINE DETAILS ===\n"
+            + repr(online_details)
+            + "\n\n=== FIELDS BEFORE DATE ===\n"
+            + repr(fields)
+            + "\n",
+            encoding="utf-8",
+        )
+
         verified_published_at = self._clean(
             online_details.get("published_at")
         )

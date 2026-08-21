@@ -297,23 +297,48 @@ class MediaAnalyzer:
             }
 
         if not bool((result.get("source_plan") or {}).get("executed")):
-            result["online"] = {
-                "schema_version": 4,
-                "executed": False,
-                "reason": (
-                    "Keine geeignete konfigurierte Quelle verfügbar."
-                    if should_run_online
-                    else "Aktualisierter QueryPlan erfordert derzeit keinen Online-Abgleich; alte Online-Ergebnisse wurden verworfen."
-                ),
-                "query": (result.get("source_plan") or {}).get("query") or {},
-                "provider_results": [],
-                "ranking": {
-                    "schema_version": 3, "matches": [], "best_match": None,
-                    "match_count": 0, "confidence": 0.0, "confidence_gap": None,
-                    "decision": "not_executed",
-                    "weights": dict(self.online_agent.ranker.WEIGHTS) if self.online_agent is not None else {},
-                },
-            }
+            cached_online = dict(result.get("online") or {})
+
+            has_cached_online_result = bool(
+                cached_online.get("executed")
+                and (
+                    cached_online.get("provider_results")
+                    or (cached_online.get("ranking") or {}).get("best_match")
+                )
+            )
+
+            if has_cached_online_result:
+                cached_online["reason"] = (
+                    "Vorhandene gültige Online-Evidenz aus dem Cache "
+                    "wurde beibehalten; kein neuer Online-Abgleich erforderlich."
+                )
+                result["online"] = cached_online
+            else:
+                result["online"] = {
+                    "schema_version": 4,
+                    "executed": False,
+                    "reason": (
+                        "Keine geeignete konfigurierte Quelle verfügbar."
+                        if should_run_online
+                        else "Aktualisierter QueryPlan erfordert derzeit keinen Online-Abgleich."
+                    ),
+                    "query": (result.get("source_plan") or {}).get("query") or {},
+                    "provider_results": [],
+                    "ranking": {
+                        "schema_version": 3,
+                        "matches": [],
+                        "best_match": None,
+                        "match_count": 0,
+                        "confidence": 0.0,
+                        "confidence_gap": None,
+                        "decision": "not_executed",
+                        "weights": (
+                            dict(self.online_agent.ranker.WEIGHTS)
+                            if self.online_agent is not None
+                            else {}
+                        ),
+                    },
+                }
 
         result["supervisor"] = self.supervisor.evaluate(result)
         semantic_candidates = self.identity_candidate_builder.build(result)

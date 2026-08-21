@@ -10,8 +10,8 @@ from .formats import capability_for_extension
 TAG_ALIASES = {
     "title": ("title",),
     "description": ("description", "comment", "synopsis"),
-    "year": ("year", "date", "creation_time"),
-    "published_at": ("date", "creation_time"),
+    "year": ("year", "date"),
+    "published_at": ("date",),
     "series": ("show", "showtitle", "series"),
     "season": ("season_number", "season"),
     "episode": ("episode_sort", "episode_id", "episode"),
