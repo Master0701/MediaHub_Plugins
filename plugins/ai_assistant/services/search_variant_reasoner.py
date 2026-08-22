@@ -148,10 +148,43 @@ class SearchVariantReasoner:
             if previous is None or adjusted.score > previous.score:
                 dedup[key] = adjusted
 
-        variants = sorted(dedup.values(), key=lambda x: (x.score, x.quality_score, len(x.title)), reverse=True)[:20]
+        variants = sorted(
+            dedup.values(),
+            key=lambda x: (
+                x.score,
+                x.quality_score,
+                len(x.title),
+            ),
+            reverse=True,
+        )[:20]
+
+        primary_sources = (
+            "identity_hint",
+            "filename",
+            "folder",
+            "normalized_filename",
+        )
+
+        primary_variant = next(
+            (
+                item
+                for source in primary_sources
+                for item in variants
+                if item.source == source
+            ),
+            variants[0] if variants else None,
+        )
+
         return {
             "schema_version": 2,
-            "primary_title": variants[0].title if variants else str(identification.get("title_candidate") or ""),
+            "primary_title": (
+                primary_variant.title
+                if primary_variant
+                else str(
+                    identification.get("title_candidate")
+                    or ""
+                )
+            ),
             "variant_count": len(variants),
             "variants": [item.as_dict() for item in variants],
             "knowledge_matches": len(knowledge_matches),
@@ -191,6 +224,33 @@ class SearchVariantReasoner:
             text = str(finding.get("text") or "").strip()
             if 3 <= len(text) <= 100:
                 cleaned = self._clean_title(text)
+
+                narrative_time_patterns = (
+                    r"^(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|"
+                    r"eleven|twelve|several|many|a|an)\s+"
+                    r"(?:second|seconds|minute|minutes|hour|hours|day|days|"
+                    r"week|weeks|month|months|year|years)\s+"
+                    r"(?:earlier|later|ago)$",
+                    r"^(?:earlier|later)\s+that\s+"
+                    r"(?:day|night|week|month|year)$",
+                    r"^(?:the\s+)?(?:next|following|previous)\s+"
+                    r"(?:day|night|morning|evening|week|month|year)$",
+                    r"^(?:present\s+day|present\s+time)$",
+                )
+
+                narrative_time_card = any(
+                    re.fullmatch(
+                        pattern,
+                        cleaned.casefold(),
+                        flags=re.IGNORECASE,
+                    )
+                    is not None
+                    for pattern in narrative_time_patterns
+                )
+
+                if narrative_time_card:
+                    continue
+
                 quality = evaluate_text(cleaned, source="ocr")
                 if cleaned and quality.accepted:
                     result.append(SearchVariant(cleaned, round(0.68 * quality.score, 3), "ocr", ("OCR-Titelhinweis", "OCR-Qualitätsprüfung bestanden"), media_type, quality.score, quality.reasons))
@@ -199,6 +259,20 @@ class SearchVariantReasoner:
     def _clean_title(self, value: str) -> str:
         text = unicodedata.normalize("NFKC", str(value))
         text = re.sub(r"\.(mkv|mp4|avi|mov|m4v|ts|m2ts|webm|wmv|mpg|mpeg)$", "", text, flags=re.I)
+
+        # Vom Dateisystem erzeugte Kopie-Suffixe gehören nicht
+        # zur Medienidentität und dürfen keine Suchvariante erzeugen.
+        text = re.sub(
+            r"(?i)\s+-\s+(?:Kopie|Copy)(?:\s*\(\d+\))?$",
+            "",
+            text,
+        ).strip()
+
+        text = re.sub(
+            r"(?i)\s+(?:Kopie|Copy)\s*\(\d+\)$",
+            "",
+            text,
+        ).strip()
         text = re.sub(r"[\[({].*?[\])}]", " ", text)
         text = self.EPISODE_PATTERN.sub(" ", text)
         text = self.YEAR_PATTERN.sub(" ", text)
