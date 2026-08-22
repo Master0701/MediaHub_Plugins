@@ -2299,6 +2299,208 @@ class MediaHubMetadataEditorPlugin:
         temporary.replace(path)
         return path
 
+    def _latest_recovery_backup(
+        self,
+        item_id: str,
+        target: str = "",
+    ):
+        item_id = str(item_id or "").strip()
+        target = str(target or "").strip()
+
+        if not item_id or not self.recovery_dir.exists():
+            return None
+
+        candidates = sorted(
+            self.recovery_dir.glob("*.json"),
+            key=lambda entry: entry.stat().st_mtime,
+            reverse=True,
+        )
+
+        for recovery_path in candidates:
+            try:
+                payload = json.loads(
+                    recovery_path.read_text(encoding="utf-8")
+                )
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+                continue
+
+            if str(payload.get("item_id") or "").strip() != item_id:
+                continue
+
+            recovery_target = str(
+                payload.get("target") or ""
+            ).strip()
+
+            if (
+                target
+                and recovery_target
+                and Path(recovery_target) != Path(target)
+            ):
+                continue
+
+            backup = str(payload.get("backup") or "").strip()
+
+            if not backup:
+                result = payload.get("result")
+                if isinstance(result, dict):
+                    backup = str(
+                        result.get("backup") or ""
+                    ).strip()
+
+            if not backup:
+                before = payload.get("before")
+                if isinstance(before, dict):
+                    backup = str(
+                        before.get("backup") or ""
+                    ).strip()
+
+            if not backup:
+                continue
+
+            backup_path = Path(backup)
+
+            if not backup_path.is_file():
+                continue
+
+            return {
+                "recovery_path": recovery_path,
+                "backup_path": backup_path,
+                "payload": payload,
+            }
+
+        return None
+
+    def restore_latest_backup(self, payload=None):
+        source = dict(payload or {})
+        item = dict(source.get("item") or {})
+
+        item_id = str(
+            item.get("mediahub_id")
+            or item.get("video_id")
+            or item.get("id")
+            or source.get("id")
+            or ""
+        ).strip()
+
+        target_text = str(
+            item.get("path")
+            or item.get("file_path")
+            or item.get("filepath")
+            or item.get("local_path")
+            or source.get("target")
+            or ""
+        ).strip()
+
+        if not item_id:
+            return self._json(
+                {
+                    "ok": False,
+                    "message": "Keine gültige Medien-ID vorhanden.",
+                },
+                400,
+            )
+
+        if not target_text:
+            return self._json(
+                {
+                    "ok": False,
+                    "message": "Kein lokaler Medienpfad vorhanden.",
+                },
+                400,
+            )
+
+        target = Path(target_text)
+
+        if not target.is_file():
+            return self._json(
+                {
+                    "ok": False,
+                    "message": (
+                        "Die aktuelle Mediendatei wurde nicht gefunden."
+                    ),
+                },
+                404,
+            )
+
+        recovery = self._latest_recovery_backup(
+            item_id,
+            str(target),
+        )
+
+        if recovery is None:
+            return self._json(
+                {
+                    "ok": False,
+                    "message": (
+                        "Für dieses Medium wurde kein verwendbares "
+                        "Recovery-Backup gefunden."
+                    ),
+                },
+                404,
+            )
+
+        backup = recovery["backup_path"]
+
+        try:
+            undo_backup = self._backup_file(
+                target,
+                item_id,
+                "before_restore",
+            )
+
+            temporary = target.with_suffix(
+                target.suffix + ".restore.tmp"
+            )
+
+            shutil.copy2(backup, temporary)
+            temporary.replace(target)
+
+        except OSError as error:
+            return self._json(
+                {
+                    "ok": False,
+                    "message": (
+                        "Backup konnte nicht wiederhergestellt werden: "
+                        f"{error}"
+                    ),
+                },
+                500,
+            )
+
+        restore_recovery = self._record_recovery(
+            action="backup.restore",
+            item_id=item_id,
+            target=str(target),
+            before={
+                "backup": str(undo_backup),
+            },
+            after={
+                "restored_from": str(backup),
+            },
+            backup=str(undo_backup),
+            result={
+                "ok": True,
+                "source_recovery": str(
+                    recovery["recovery_path"]
+                ),
+                "restored_backup": str(backup),
+            },
+        )
+
+        return self._json(
+            {
+                "ok": True,
+                "message": (
+                    "Die letzte Änderung wurde aus dem Backup "
+                    "wiederhergestellt."
+                ),
+                "path": str(target),
+                "restored_backup": str(backup),
+                "undo_backup": str(undo_backup),
+                "recovery": str(restore_recovery),
+            }
+        )
+
     @staticmethod
     def _set_xml_text(root: ET.Element, tag: str, value: Any):
         node = root.find(tag)
@@ -2768,17 +2970,20 @@ class NativeMetadataEditorWidget(QWidget):
         self.btn_commit = QPushButton("Metadaten übernehmen…")
         self.btn_nfo = QPushButton("NFO speichern")
         self.btn_poster = QPushButton("Poster ersetzen")
+        self.btn_undo = QPushButton("Änderung rückgängig…")
         self.btn_reset = QPushButton("Zurücksetzen")
         self.btn_draft.clicked.connect(self._save_draft)
         self.btn_commit.clicked.connect(self._commit_metadata)
         self.btn_nfo.clicked.connect(self._save_nfo)
         self.btn_poster.clicked.connect(self._replace_poster)
+        self.btn_undo.clicked.connect(self._undo_last_change)
         self.btn_reset.clicked.connect(self._reset_fields)
         for button in (
             self.btn_draft,
             self.btn_commit,
             self.btn_nfo,
             self.btn_poster,
+            self.btn_undo,
             self.btn_reset,
         ):
             buttons.addWidget(button)
@@ -3560,6 +3765,59 @@ class NativeMetadataEditorWidget(QWidget):
         self._show_result(status, body)
         if int(status) < 400:
             self._update_poster_preview(self._current)
+
+    def _undo_last_change(self):
+        from PySide6.QtWidgets import QMessageBox
+
+        if not self._current:
+            return
+
+        target = str(
+            self._current.get("path")
+            or self._current.get("file_path")
+            or self._current.get("filepath")
+            or self._current.get("local_path")
+            or ""
+        ).strip()
+
+        title = str(
+            self._current.get("title")
+            or Path(target).name
+            or "Ausgewähltes Medium"
+        )
+
+        answer = QMessageBox.question(
+            self,
+            "Änderung rückgängig machen",
+            (
+                f"Die letzte gespeicherte Änderung für\n\n"
+                f"{title}\n\n"
+                "wird aus dem vorhandenen Backup wiederhergestellt.\n\n"
+                "Der aktuelle Zustand wird vorher nochmals gesichert, "
+                "damit auch diese Wiederherstellung rückgängig gemacht "
+                "werden kann.\n\n"
+                "Fortfahren?"
+            ),
+            (
+                QMessageBox.StandardButton.Yes
+                | QMessageBox.StandardButton.No
+            ),
+            QMessageBox.StandardButton.No,
+        )
+
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        status, _, body = self.plugin.restore_latest_backup(
+            {
+                "item": self._current,
+            }
+        )
+
+        self._show_result(status, body)
+
+        if int(status) < 400:
+            self.refresh()
 
     def _reset_fields(self):
         if self._current:
