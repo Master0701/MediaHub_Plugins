@@ -2299,16 +2299,18 @@ class MediaHubMetadataEditorPlugin:
         temporary.replace(path)
         return path
 
-    def _latest_recovery_backup(
+    def recovery_backups(
         self,
         item_id: str,
         target: str = "",
-    ):
+    ) -> list[dict]:
         item_id = str(item_id or "").strip()
         target = str(target or "").strip()
 
         if not item_id or not self.recovery_dir.exists():
-            return None
+            return []
+
+        entries: list[dict] = []
 
         candidates = sorted(
             self.recovery_dir.glob("*.json"),
@@ -2362,13 +2364,160 @@ class MediaHubMetadataEditorPlugin:
             if not backup_path.is_file():
                 continue
 
-            return {
-                "recovery_path": recovery_path,
-                "backup_path": backup_path,
-                "payload": payload,
-            }
+            entries.append(
+                {
+                    "recovery_path": recovery_path,
+                    "backup_path": backup_path,
+                    "payload": payload,
+                }
+            )
 
-        return None
+        return entries
+
+    def _latest_recovery_backup(
+        self,
+        item_id: str,
+        target: str = "",
+    ):
+        entries = self.recovery_backups(
+            item_id,
+            target,
+        )
+
+        return entries[0] if entries else None
+
+    def restore_selected_backup(
+        self,
+        payload=None,
+    ):
+        source = dict(payload or {})
+        item = dict(source.get("item") or {})
+
+        item_id = str(
+            item.get("mediahub_id")
+            or item.get("video_id")
+            or item.get("id")
+            or source.get("id")
+            or ""
+        ).strip()
+
+        target_text = str(
+            item.get("path")
+            or item.get("file_path")
+            or item.get("filepath")
+            or item.get("local_path")
+            or source.get("target")
+            or ""
+        ).strip()
+
+        recovery_text = str(
+            source.get("recovery_path") or ""
+        ).strip()
+
+        if not item_id or not target_text or not recovery_text:
+            return self._json(
+                {
+                    "ok": False,
+                    "message": (
+                        "Medien-ID, Zielpfad oder Recovery-Auswahl fehlt."
+                    ),
+                },
+                400,
+            )
+
+        target = Path(target_text)
+        selected_recovery = Path(recovery_text)
+
+        if not target.is_file():
+            return self._json(
+                {
+                    "ok": False,
+                    "message": "Die aktuelle Mediendatei wurde nicht gefunden.",
+                },
+                404,
+            )
+
+        matching = None
+
+        for entry in self.recovery_backups(
+            item_id,
+            str(target),
+        ):
+            if entry["recovery_path"] == selected_recovery:
+                matching = entry
+                break
+
+        if matching is None:
+            return self._json(
+                {
+                    "ok": False,
+                    "message": (
+                        "Der ausgewählte Recovery-Stand ist nicht mehr verfügbar."
+                    ),
+                },
+                404,
+            )
+
+        backup = matching["backup_path"]
+
+        try:
+            undo_backup = self._backup_file(
+                target,
+                item_id,
+                "before_restore",
+            )
+
+            temporary = target.with_suffix(
+                target.suffix + ".restore.tmp"
+            )
+
+            shutil.copy2(backup, temporary)
+            temporary.replace(target)
+
+        except OSError as error:
+            return self._json(
+                {
+                    "ok": False,
+                    "message": (
+                        "Backup konnte nicht wiederhergestellt werden: "
+                        f"{error}"
+                    ),
+                },
+                500,
+            )
+
+        restore_recovery = self._record_recovery(
+            action="backup.restore",
+            item_id=item_id,
+            target=str(target),
+            before={
+                "backup": str(undo_backup),
+            },
+            after={
+                "restored_from": str(backup),
+            },
+            backup=str(undo_backup),
+            result={
+                "ok": True,
+                "source_recovery": str(
+                    matching["recovery_path"]
+                ),
+                "restored_backup": str(backup),
+            },
+        )
+
+        return self._json(
+            {
+                "ok": True,
+                "message": (
+                    "Der ausgewählte Sicherungsstand wurde wiederhergestellt."
+                ),
+                "path": str(target),
+                "restored_backup": str(backup),
+                "undo_backup": str(undo_backup),
+                "recovery": str(restore_recovery),
+            }
+        )
 
     def restore_latest_backup(self, payload=None):
         source = dict(payload or {})
@@ -3767,7 +3916,7 @@ class NativeMetadataEditorWidget(QWidget):
             self._update_poster_preview(self._current)
 
     def _undo_last_change(self):
-        from PySide6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QInputDialog, QMessageBox
 
         if not self._current:
             return
@@ -3780,23 +3929,104 @@ class NativeMetadataEditorWidget(QWidget):
             or ""
         ).strip()
 
+        item_id = str(
+            self._current.get("mediahub_id")
+            or self._current.get("video_id")
+            or self._current.get("id")
+            or ""
+        ).strip()
+
         title = str(
             self._current.get("title")
             or Path(target).name
             or "Ausgewähltes Medium"
         )
 
+        entries = self.plugin.recovery_backups(
+            item_id,
+            target,
+        )
+
+        if not entries:
+            QMessageBox.information(
+                self,
+                "Änderung rückgängig machen",
+                "Für dieses Medium sind keine Sicherungsstände verfügbar.",
+            )
+            return
+
+        labels = []
+
+        for number, entry in enumerate(entries, start=1):
+            payload = dict(entry.get("payload") or {})
+
+            created_at = str(
+                payload.get("created_at") or ""
+            ).replace("T", " ")
+
+            if "+" in created_at:
+                created_at = created_at.split("+", 1)[0]
+
+            action = str(
+                payload.get("action") or "Änderung"
+            )
+
+            action_labels = {
+                "metadata.file.write": "Vor Metadatenänderung",
+                "backup.restore": "Vor Wiederherstellung",
+            }
+
+            display_action = action_labels.get(
+                action,
+                action,
+            )
+
+            try:
+                display_date = datetime.fromisoformat(
+                    str(payload.get("created_at") or "")
+                ).strftime("%d.%m.%Y %H:%M:%S")
+            except (TypeError, ValueError):
+                display_date = created_at
+
+            labels.append(
+                f"{number}. {display_date} · {display_action}"
+            )
+
+        selection, accepted = QInputDialog.getItem(
+            self,
+            "Sicherungsstand auswählen",
+            (
+                f"Sicherungsstand für {title} auswählen:\n\n"
+                "Neueste Sicherungen stehen oben."
+            ),
+            labels,
+            0,
+            False,
+        )
+
+        if not accepted or not selection:
+            return
+
+        index = labels.index(selection)
+        selected = entries[index]
+
+        selected_payload = dict(
+            selected.get("payload") or {}
+        )
+
+        created_at = str(
+            selected_payload.get("created_at") or ""
+        ).replace("T", " ")
+
         answer = QMessageBox.question(
             self,
-            "Änderung rückgängig machen",
+            "Sicherungsstand wiederherstellen",
             (
-                f"Die letzte gespeicherte Änderung für\n\n"
                 f"{title}\n\n"
-                "wird aus dem vorhandenen Backup wiederhergestellt.\n\n"
-                "Der aktuelle Zustand wird vorher nochmals gesichert, "
-                "damit auch diese Wiederherstellung rückgängig gemacht "
-                "werden kann.\n\n"
-                "Fortfahren?"
+                f"Sicherungsstand: {created_at}\n"
+                f"Aktion: {selected_payload.get('action') or '-'}\n\n"
+                "Der aktuelle Zustand wird vorher nochmals gesichert.\n\n"
+                "Diesen Stand wirklich wiederherstellen?"
             ),
             (
                 QMessageBox.StandardButton.Yes
@@ -3808,9 +4038,12 @@ class NativeMetadataEditorWidget(QWidget):
         if answer != QMessageBox.StandardButton.Yes:
             return
 
-        status, _, body = self.plugin.restore_latest_backup(
+        status, _, body = self.plugin.restore_selected_backup(
             {
                 "item": self._current,
+                "recovery_path": str(
+                    selected["recovery_path"]
+                ),
             }
         )
 
