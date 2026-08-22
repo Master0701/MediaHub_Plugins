@@ -49,15 +49,111 @@ class TmdbProvider(BaseProvider):
 
         data = request_json(f"{self.API_BASE}/search/{endpoint_type}", params=params, headers=headers)
         matches = []
+
+        query_title = self._normalized_title(query.get("title"))
+
         for item in (data.get("results") or [])[:10]:
             item_type = item.get("media_type") or ("series" if endpoint_type == "tv" else "movie")
             if item_type == "tv":
                 item_type = "series"
+
             date = item.get("first_air_date") or item.get("release_date") or ""
+
+            title = item.get("name") or item.get("title")
+            original_title = item.get("original_name") or item.get("original_title")
+
+            aliases: list[str] = []
+
+            item_id = str(item.get("id") or "").strip()
+
+            # TMDb-Suchergebnisse enthalten nicht alle offiziellen
+            # Alternativtitel. Kandidaten, deren normaler oder originaler
+            # Titel nicht exakt der Suchanfrage entspricht, werden deshalb
+            # gezielt um TMDb-Aliase ergänzt.
+            direct_title_match = query_title in {
+                self._normalized_title(title),
+                self._normalized_title(original_title),
+            }
+
+            if item_id and not direct_title_match:
+                alias_params: dict[str, Any] = {}
+
+                if credential[0] != "bearer":
+                    alias_params["api_key"] = credential[1]
+
+                try:
+                    if item_type == "movie":
+                        alias_data = request_json(
+                            f"{self.API_BASE}/movie/{item_id}/alternative_titles",
+                            params=alias_params,
+                            headers=headers,
+                        )
+
+                        alias_rows = alias_data.get("titles") or []
+
+                        aliases = [
+                            str(row.get("title") or "").strip()
+                            for row in alias_rows
+                            if str(row.get("title") or "").strip()
+                        ]
+
+                    elif item_type == "series":
+                        alias_data = request_json(
+                            f"{self.API_BASE}/tv/{item_id}/alternative_titles",
+                            params=alias_params,
+                            headers=headers,
+                        )
+
+                        alias_rows = alias_data.get("results") or []
+
+                        aliases = [
+                            str(
+                                row.get("title")
+                                or row.get("name")
+                                or ""
+                            ).strip()
+                            for row in alias_rows
+                            if str(
+                                row.get("title")
+                                or row.get("name")
+                                or ""
+                            ).strip()
+                        ]
+
+                except Exception:
+                    # Alternativtitel sind zusätzliche Evidenz.
+                    # Ein Fehler dieser Zusatzabfrage darf den normalen
+                    # TMDb-Suchtreffer nicht zerstören.
+                    aliases = []
+
+            # Doppelte Titel sowie Haupt-/Originaltitel nicht nochmals
+            # als Alias an den Ranker übergeben.
+            known_titles = {
+                self._normalized_title(title),
+                self._normalized_title(original_title),
+            }
+
+            unique_aliases: list[str] = []
+            seen_aliases: set[str] = set()
+
+            for alias in aliases:
+                normalized = self._normalized_title(alias)
+
+                if (
+                    not normalized
+                    or normalized in known_titles
+                    or normalized in seen_aliases
+                ):
+                    continue
+
+                seen_aliases.add(normalized)
+                unique_aliases.append(alias)
+
             matches.append({
-                "external_id": str(item.get("id") or ""),
-                "title": item.get("name") or item.get("title"),
-                "original_title": item.get("original_name") or item.get("original_title"),
+                "external_id": item_id,
+                "title": title,
+                "original_title": original_title,
+                "aliases": unique_aliases,
                 "year": int(date[:4]) if len(date) >= 4 and date[:4].isdigit() else None,
                 "release_date": date or None,
                 "published_at": date or None,

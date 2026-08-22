@@ -52,7 +52,42 @@ class DecisionEngine:
         if best:
             candidate = str(best.get("title") or "").strip()
             candidate_conf = self._clamp(float(best.get("score") or 0.0))
-            similarity = self._similarity(normalized_title, self._normalize(candidate)) if title else 0.0
+
+            candidate_titles = [
+                candidate,
+                str(best.get("original_title") or "").strip(),
+                *[
+                    str(alias or "").strip()
+                    for alias in (best.get("aliases") or [])
+                ],
+            ]
+
+            candidate_similarities = [
+                self._similarity(
+                    normalized_title,
+                    self._normalize(candidate_title),
+                )
+                for candidate_title in candidate_titles
+                if title and candidate_title
+            ]
+
+            similarity = (
+                max(candidate_similarities)
+                if candidate_similarities
+                else 0.0
+            )
+
+            normalized_aliases = {
+                self._normalize(alias)
+                for alias in (best.get("aliases") or [])
+                if str(alias or "").strip()
+            }
+
+            exact_alias_match = bool(
+                normalized_title
+                and normalized_title in normalized_aliases
+            )
+
             ranking_decision = str(ranking.get("decision") or "").strip().lower()
             penalties = {str(item) for item in (best.get("penalties") or [])}
             evidence_count = int(best.get("evidence_count") or 0)
@@ -151,13 +186,23 @@ class DecisionEngine:
                         f"{round(similarity * 100)} %."
                     )
                 else:
-                    detail = (
-                        "Online-Treffer bestätigt die Identität; "
-                        f"Ranking {ranking_decision}, "
-                        f"{evidence_count} Belege und "
-                        f"Titelähnlichkeit "
-                        f"{round(similarity * 100)} %."
-                    )
+                    if exact_alias_match:
+                        detail = (
+                            "Online-Treffer bestätigt die Identität "
+                            "über einen offiziellen Alternativtitel; "
+                            f"Ranking {ranking_decision}, "
+                            f"{evidence_count} Belege und "
+                            f"Titelähnlichkeit "
+                            f"{round(similarity * 100)} %."
+                        )
+                    else:
+                        detail = (
+                            "Online-Treffer bestätigt die Identität; "
+                            f"Ranking {ranking_decision}, "
+                            f"{evidence_count} Belege und "
+                            f"Titelähnlichkeit "
+                            f"{round(similarity * 100)} %."
+                        )
             else:
                 blockers: list[str] = []
                 if ranking_decision not in {"probable_match", "strong_match"}:

@@ -1,4 +1,4 @@
-﻿import sys
+import sys
 from pathlib import Path
 
 PLUGIN_DIR = Path(__file__).resolve().parents[1]
@@ -132,3 +132,69 @@ def test_single_provider_weak_single_word_stays_blocked():
     )
 
     assert online["supports"] is False
+
+
+def test_official_alias_confirms_same_media_identity():
+    analysis = {
+        "identification": {
+            "title_candidate": "Live Die Repeat",
+            "media_type": "movie",
+            "confidence": 0.40,
+        },
+        "online": {
+            "provider_results": [
+                {
+                    "provider_id": "tmdb",
+                    "provider_name": "TMDb",
+                    "matches": [
+                        {
+                            "title": "Edge of Tomorrow",
+                            "original_title": "Edge of Tomorrow",
+                            "aliases": [
+                                "Live Die Repeat",
+                            ],
+                            "year": 2014,
+                            "media_type": "movie",
+                            "provider_confidence": 0.76,
+                        }
+                    ],
+                }
+            ],
+            "ranking": {
+                "decision": "strong_match",
+                "best_match": {
+                    "title": "Edge of Tomorrow",
+                    "original_title": "Edge of Tomorrow",
+                    "aliases": [
+                        "Live Die Repeat",
+                    ],
+                    "score": 0.8875,
+                    "evidence_count": 4,
+                    "penalties": [],
+                },
+            },
+        },
+        "in_video": {
+            "state": "completed",
+            "agents": {},
+        },
+    }
+
+    result = DecisionEngine().evaluate(analysis)
+
+    online = next(
+        item
+        for item in result["all_evidence"]
+        if item["source"] == "online"
+    )
+
+    assert online["supports"] is True
+    assert online["confidence"] >= 0.85
+
+    assert (
+        "offiziellen Alternativtitel"
+        in online["detail"]
+    )
+
+    assert result["confidence"] >= 0.62
+    assert result["status"] != "insufficient"
