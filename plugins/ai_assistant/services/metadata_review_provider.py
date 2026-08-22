@@ -84,6 +84,20 @@ class MetadataAIReviewProvider:
 
         stem = Path(str(name or "")).stem
 
+        # Typische vom Dateisystem erzeugte Kopie-Suffixe dürfen
+        # nicht Teil der Filmidentität werden.
+        stem = re.sub(
+            r"(?i)\s+-\s+(?:Kopie|Copy)(?:\s*\(\d+\))?$",
+            "",
+            stem,
+        ).strip()
+
+        stem = re.sub(
+            r"(?i)\s+(?:Kopie|Copy)\s*\(\d+\)$",
+            "",
+            stem,
+        ).strip()
+
         normalized = (
             stem
             .replace("_", " ")
@@ -145,7 +159,29 @@ class MetadataAIReviewProvider:
                 year = number
 
         if year_index is None:
-            return {}
+            title_tokens = list(tokens)
+
+            while (
+                title_tokens
+                and title_tokens[-1].casefold()
+                in cls.QUALITY_TOKENS
+            ):
+                title_tokens.pop()
+
+            title = cls._smart_words(
+                " ".join(title_tokens).strip(" -._")
+            )
+
+            if not title:
+                return {}
+
+            return {
+                "media_type": "movie",
+                "title": title,
+                "year": None,
+                "edition": None,
+                "source": "filename_without_year",
+            }
 
         title_tokens = tokens[:year_index]
 
@@ -912,29 +948,27 @@ class MetadataAIReviewProvider:
 
         # Ein Veröffentlichungsdatum wird nur als KI-Vorschlag
         # ausgegeben, wenn dafür echte Online-Evidenz vorhanden ist.
-        debug_path = (
-            Path(__file__).resolve().parent
-            / "_metadata_date_runtime_debug.txt"
-        )
-
-        debug_path.write_text(
-            "=== VERIFIED ANALYSIS ONLINE ===\n"
-            + repr(verified_analysis.get("online"))
-            + "\n\n=== ANALYZER ONLINE ===\n"
-            + repr(analyzer_online)
-            + "\n\n=== ONLINE DETAILS ===\n"
-            + repr(online_details)
-            + "\n\n=== FIELDS BEFORE DATE ===\n"
-            + repr(fields)
-            + "\n",
-            encoding="utf-8",
-        )
-
         verified_published_at = self._clean(
             online_details.get("published_at")
         )
         if verified_published_at:
             fields["published_at"] = verified_published_at
+
+            # Bei Filmen ist ein verifiziertes Online-
+            # Veröffentlichungsdatum stärker als ein vorhandenes
+            # Metadaten-/Containerjahr. Beispiel:
+            # Chappie: altes Metadatenjahr 2016,
+            # verifiziertes Release-Datum 2015-03-04.
+            if media_type == "movie":
+                published_year_match = re.match(
+                    r"^(?P<year>\d{4})(?:-|$)",
+                    verified_published_at,
+                )
+
+                if published_year_match:
+                    fields["year"] = int(
+                        published_year_match.group("year")
+                    )
 
         sources = list(
             episode_online.get("sources") or []
@@ -955,13 +989,27 @@ class MetadataAIReviewProvider:
             else None
         )
 
+        verified_decision = dict(
+            verified_analysis.get("decision") or {}
+        )
+
+        decision_confidence = (
+            verified_decision.get("confidence")
+            if verified_decision
+            else None
+        )
+
         confidence_source = (
             verified_confidence
             if verified_confidence not in (None, "")
             else (
-                result.get("confidence")
-                or structured.get("confidence")
-                or 0.0
+                decision_confidence
+                if decision_confidence not in (None, "")
+                else (
+                    result.get("confidence")
+                    or structured.get("confidence")
+                    or 0.0
+                )
             )
         )
 
@@ -1014,6 +1062,22 @@ class MetadataAIReviewProvider:
             if str(current.get(key) or "").strip() != str(value or "").strip()
         }
 
+        result_warnings = list(
+            result.get("warnings") or []
+        )
+
+        if media_type:
+            obsolete_media_type_warnings = {
+                "Medientyp noch nicht eindeutig erkannt.",
+            }
+
+            result_warnings = [
+                warning
+                for warning in result_warnings
+                if self._clean(warning)
+                not in obsolete_media_type_warnings
+            ]
+
         return {
             "available": True,
             "provider": "MediaHub KI-Assistent",
@@ -1033,7 +1097,7 @@ class MetadataAIReviewProvider:
                 else self._clean(result.get("rationale"))
             ),
             "warnings": (
-                list(result.get("warnings") or [])
+                result_warnings
                 + verification_warnings
                 + [
                     (

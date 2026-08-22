@@ -60,19 +60,104 @@ class DecisionEngine:
                 "weak_single_word_variant",
                 "insufficient_combined_evidence",
             }
-            identity_supported = (
-                ranking_decision in {"probable_match", "strong_match"}
+
+            # Einwort-Titel wie "Chappie" dürfen nicht allein deshalb
+            # verworfen werden, weil sie aus nur einem Wort bestehen.
+            #
+            # Die Ausnahme gilt ausschließlich dann, wenn mindestens
+            # zwei unterschiedliche Online-Provider exakt denselben
+            # Titel wie der lokale Titelkandidat liefern.
+            provider_results = list(
+                online.get("provider_results") or []
+            )
+
+            exact_title_providers: set[str] = set()
+
+            for provider_result in provider_results:
+                provider_id = str(
+                    provider_result.get("provider_id")
+                    or provider_result.get("provider_name")
+                    or ""
+                ).strip()
+
+                matches = (
+                    provider_result.get("matches")
+                    or provider_result.get("results")
+                    or []
+                )
+
+                if isinstance(matches, dict):
+                    matches = [matches]
+
+                for match in matches:
+                    if not isinstance(match, dict):
+                        continue
+
+                    match_title = self._normalize(
+                        str(match.get("title") or "")
+                    )
+
+                    if (
+                        normalized_title
+                        and match_title == normalized_title
+                    ):
+                        if provider_id:
+                            exact_title_providers.add(provider_id)
+                        break
+
+            multi_provider_exact_match = (
+                len(exact_title_providers) >= 2
+            )
+
+            effective_blocking_penalties = set(
+                blocking_penalties
+            )
+
+            if multi_provider_exact_match:
+                effective_blocking_penalties.discard(
+                    "weak_single_word_variant"
+                )
+                effective_blocking_penalties.discard(
+                    "insufficient_combined_evidence"
+                )
+
+            normal_online_confirmation = (
+                ranking_decision
+                in {"probable_match", "strong_match"}
                 and candidate_conf >= 0.65
                 and evidence_count >= 2
-                and not penalties.intersection(blocking_penalties)
+                and not penalties.intersection(
+                    effective_blocking_penalties
+                )
                 and similarity >= 0.45
             )
+
+            multi_provider_confirmation = (
+                multi_provider_exact_match
+                and similarity >= 0.95
+            )
+
+            identity_supported = (
+                normal_online_confirmation
+                or multi_provider_confirmation
+            )
             if identity_supported:
-                detail = (
-                    "Online-Treffer bestätigt die Identität; "
-                    f"Ranking {ranking_decision}, {evidence_count} Belege und "
-                    f"Titelähnlichkeit {round(similarity * 100)} %."
-                )
+                if multi_provider_confirmation:
+                    detail = (
+                        "Mehrere unabhängige Online-Provider bestätigen "
+                        "denselben exakten Titel; "
+                        f"{len(exact_title_providers)} Provider und "
+                        f"Titelähnlichkeit "
+                        f"{round(similarity * 100)} %."
+                    )
+                else:
+                    detail = (
+                        "Online-Treffer bestätigt die Identität; "
+                        f"Ranking {ranking_decision}, "
+                        f"{evidence_count} Belege und "
+                        f"Titelähnlichkeit "
+                        f"{round(similarity * 100)} %."
+                    )
             else:
                 blockers: list[str] = []
                 if ranking_decision not in {"probable_match", "strong_match"}:
@@ -87,11 +172,76 @@ class DecisionEngine:
                     "Online-Treffer gefunden, aber nicht als Identitätsbestätigung verwendet"
                     + (": " + "; ".join(blockers) if blockers else ".")
                 )
+            online_evidence_confidence = candidate_conf
+
+            if multi_provider_confirmation:
+                provider_confidences: list[float] = []
+
+                for provider_result in provider_results:
+                    provider_id = str(
+                        provider_result.get("provider_id")
+                        or provider_result.get("provider_name")
+                        or ""
+                    ).strip()
+
+                    if provider_id not in exact_title_providers:
+                        continue
+
+                    matches = (
+                        provider_result.get("matches")
+                        or provider_result.get("results")
+                        or []
+                    )
+
+                    if isinstance(matches, dict):
+                        matches = [matches]
+
+                    for match in matches:
+                        if not isinstance(match, dict):
+                            continue
+
+                        match_title = self._normalize(
+                            str(match.get("title") or "")
+                        )
+
+                        if match_title != normalized_title:
+                            continue
+
+                        try:
+                            provider_confidence = float(
+                                match.get("provider_confidence")
+                                or 0.0
+                            )
+                        except (TypeError, ValueError):
+                            provider_confidence = 0.0
+
+                        if provider_confidence > 0:
+                            provider_confidences.append(
+                                self._clamp(provider_confidence)
+                            )
+
+                        break
+
+                if provider_confidences:
+                    online_evidence_confidence = (
+                        sum(provider_confidences)
+                        / len(provider_confidences)
+                    )
+                else:
+                    # Mehrere unabhängige exakte Provider-Treffer
+                    # sind auch ohne expliziten Provider-Confidence-
+                    # Wert deutlich stärker als der durch die
+                    # Einwort-Strafe reduzierte Ranking-Score.
+                    online_evidence_confidence = max(
+                        candidate_conf,
+                        0.82,
+                    )
+
             evidence.append(self._item(
                 source="online",
                 label=str(best.get("provider_name") or "Online"),
                 value=candidate,
-                confidence=candidate_conf,
+                confidence=online_evidence_confidence,
                 supports=identity_supported,
                 detail=detail,
             ))
