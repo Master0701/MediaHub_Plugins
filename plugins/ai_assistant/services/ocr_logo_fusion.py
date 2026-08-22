@@ -172,10 +172,53 @@ def fuse_ocr_logo_hints(
             and position in {"intro", "outro"}
         )
 
+        normalized_text = quality["normalized"]
+        normalized_casefold = normalized_text.casefold()
+
+        # Zeit- und Handlungseinblendungen sind häufig sauber lesbarer
+        # OCR-Text, aber keine Medien-/Titelidentität.
+        #
+        # Beispiele:
+        #   "18 months earlier"
+        #   "3 days later"
+        #   "two years ago"
+        #   "present day"
+        #
+        # Solche Texte dürfen daher nicht als Titelkarte in die
+        # Identitätserkennung gelangen.
+        narrative_time_patterns = (
+            r"^(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|"
+            r"eleven|twelve|several|many|a|an)\s+"
+            r"(?:second|seconds|minute|minutes|hour|hours|day|days|"
+            r"week|weeks|month|months|year|years)\s+"
+            r"(?:earlier|later|ago)$",
+            r"^(?:earlier|later)\s+that\s+"
+            r"(?:day|night|week|month|year)$",
+            r"^(?:the\s+)?(?:next|following|previous)\s+"
+            r"(?:day|night|morning|evening|week|month|year)$",
+            r"^(?:present\s+day|present\s+time)$",
+        )
+
+        narrative_time_card = any(
+            re.fullmatch(
+                pattern,
+                normalized_casefold,
+                flags=re.IGNORECASE,
+            )
+            is not None
+            for pattern in narrative_time_patterns
+        )
+
+        if narrative_time_card:
+            reasons.append(
+                "narrative Zeit-/Handlungseinblendung, kein Titel"
+            )
+
         title_candidate = bool(
             text_is_usable
             and score >= 0.62
-            and len(quality["normalized"]) >= 3
+            and len(normalized_text) >= 3
+            and not narrative_time_card
         )
 
         item = {

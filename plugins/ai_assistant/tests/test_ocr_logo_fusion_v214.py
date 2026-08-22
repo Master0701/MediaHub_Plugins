@@ -60,6 +60,35 @@ def test_fusion_rejects_garbage_ocr():
     assert result["rejected_count"] == 1
 
 
+def test_fusion_rejects_narrative_time_cards():
+    samples = (
+        "18 MONTHS EARLIER",
+        "3 DAYS LATER",
+        "TWO YEARS AGO",
+        "PRESENT DAY",
+        "THE NEXT MORNING",
+    )
+
+    for text in samples:
+        result = fuse_ocr_logo_hints(
+            [{"second": 30, "text": text}],
+            [_frame(30)],
+            7200,
+        )
+
+        assert result["candidate_count"] == 0
+        assert result["best_title"] is None
+        assert result["rejected_count"] == 1
+
+        rejected = result["rejected"][0]
+
+        assert rejected["title_candidate"] is False
+        assert (
+            "narrative Zeit-/Handlungseinblendung, kein Titel"
+            in rejected["reasons"]
+        )
+
+
 def test_visual_engine_contains_fusion_result():
     engine = VisualIntelligenceEngine()
     in_video = {
