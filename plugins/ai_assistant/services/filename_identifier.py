@@ -16,6 +16,7 @@ VIDEO_NOISE_TOKENS = {
     "multi", "multilingual", "dubbed", "subbed", "sub", "subs", "proper", "repack",
     "rerip", "internal", "complete", "final", "limited", "readnfo", "nfofix",
     "sample", "fix", "proof", "dirfix", "subfix", "syncfix", "rsg", "rr", "grp",
+    "microhd",
 }
 
 RELEASE_PREFIXES = {"rr", "r", "rsg", "grp", "dl", "ws", "fs", "ld", "md", "ac3d", "dtsd"}
@@ -99,6 +100,7 @@ class FilenameIdentifier:
     def identify(self, file_path: str | Path) -> dict[str, Any]:
         path = Path(file_path)
         source_stem = path.stem
+        source_stem = self._remove_copy_suffix(source_stem)
         normalized = self._normalize(source_stem)
         parent_candidates = self._parent_candidates(path)
 
@@ -202,6 +204,34 @@ class FilenameIdentifier:
         return None
 
     @staticmethod
+    def _remove_copy_suffix(value: str) -> str:
+        """Entfernt typische vom Dateisystem erzeugte Kopie-Suffixe.
+
+        Die Erkennung ist absichtlich auf das Dateiende und typische
+        Trennzeichen beschränkt, damit echte Titel wie "Die Kopie"
+        unverändert bleiben.
+        """
+        value = str(value or "")
+
+        patterns = (
+            r"\s+-\s+(?:Kopie|Copy)(?:\s*\(\d+\))?$",
+            r"\s+(?:Kopie|Copy)\s*\(\d+\)$",
+        )
+
+        for pattern in patterns:
+            cleaned = re.sub(
+                pattern,
+                "",
+                value,
+                flags=re.IGNORECASE,
+            ).strip()
+
+            if cleaned != value.strip():
+                return cleaned
+
+        return value
+
+    @staticmethod
     def _normalize(value: str) -> str:
         value = value.replace("[", " ").replace("]", " ").replace("(", " ").replace(")", " ")
         value = re.sub(r"[._]+", " ", value)
@@ -255,6 +285,18 @@ class FilenameIdentifier:
     @staticmethod
     def _clean_title(value: str) -> str:
         value = re.sub(r"(?i)^(?:rr|proper|repack|rerip)\b", " ", value)
+
+        release_tail = re.search(
+            r"(?i)(?:^|[\s._-])"
+            r"(?:x264|x265|h264|h265|hevc|avc|av1)"
+            r"[\s._-]+"
+            r"(?P<group>[A-Za-z0-9][A-Za-z0-9._-]{1,31})$",
+            value,
+        )
+
+        if release_tail:
+            value = value[: release_tail.start("group")]
+
         tokens = re.split(r"[\s-]+", value)
         cleaned: list[str] = []
         stop_release_tail = False
@@ -262,21 +304,28 @@ class FilenameIdentifier:
         for token in tokens:
             stripped = token.strip(" -_.")
             lower = stripped.lower()
+
             if not stripped:
                 continue
+
             if lower in VIDEO_NOISE_TOKENS or lower in RELEASE_PREFIXES:
                 continue
+
             if re.fullmatch(r"\d{3,4}[pi]", lower):
                 continue
+
             if re.fullmatch(r"(?:x|h)\.?26[45]", lower):
                 continue
+
             if re.fullmatch(r"(?:ddp?|eac3|dts)(?:\d(?:\.\d)?)?", lower):
                 continue
+
             if re.fullmatch(r"\d(?:\.\d)?ch", lower):
                 continue
+
             if stop_release_tail:
                 continue
-            # Ein abschließender Bindestrich plus kurze Releasegruppe ist typisch.
+
             if (
                 cleaned
                 and re.fullmatch(r"[A-Z0-9]{2,8}", stripped)
@@ -285,6 +334,7 @@ class FilenameIdentifier:
             ):
                 stop_release_tail = True
                 continue
+
             cleaned.append(stripped)
 
         title = " ".join(cleaned)
