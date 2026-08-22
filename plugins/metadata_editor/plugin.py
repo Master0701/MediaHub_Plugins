@@ -598,6 +598,10 @@ class MediaHubMetadataEditorPlugin:
     ) -> list[str]:
         allowed = set(allowed_fields or ())
 
+        published_at = str(
+            metadata.get("published_at") or ""
+        ).strip()
+
         mappings = (
             ("title", "title", metadata.get("title")),
             (
@@ -613,12 +617,16 @@ class MediaHubMetadataEditorPlugin:
             (
                 "date",
                 "published_at",
-                metadata.get("published_at"),
+                published_at,
             ),
             (
                 "date",
                 "year",
-                metadata.get("year"),
+                (
+                    metadata.get("year")
+                    if not published_at
+                    else None
+                ),
             ),
             ("year", "year", metadata.get("year")),
             ("show", "series", metadata.get("series")),
@@ -1154,6 +1162,114 @@ class MediaHubMetadataEditorPlugin:
 
         temporary.unlink(missing_ok=True)
 
+        poster_path = self._poster_path(edited)
+
+        poster_embedded = bool(
+            extension in {".mp4", ".m4v", ".mov"}
+            and poster_path is not None
+            and poster_path.is_file()
+        )
+
+        mapped_input_streams: list[int] = []
+        poster_video_index: int | None = None
+
+        if poster_embedded:
+            ffprobe = self._tool_path("ffprobe")
+
+            if ffprobe is None:
+                return {
+                    "ok": False,
+                    "supported": True,
+                    "written": False,
+                    "message": (
+                        "FFprobe ist für das sichere Ersetzen "
+                        "eingebetteter MP4-/M4V-/MOV-Poster nicht verfügbar."
+                    ),
+                    "backup": str(backup or ""),
+                }
+
+            probe = subprocess.run(
+                [
+                    str(ffprobe),
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    (
+                        "stream=index,codec_type:"
+                        "stream_disposition=attached_pic"
+                    ),
+                    "-of",
+                    "json",
+                    str(media_path),
+                ],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+                creationflags=(
+                    getattr(subprocess, "CREATE_NO_WINDOW", 0)
+                ),
+            )
+
+            if probe.returncode != 0:
+                return {
+                    "ok": False,
+                    "supported": True,
+                    "written": False,
+                    "message": (
+                        "FFprobe konnte die vorhandenen MP4-/M4V-/MOV-"
+                        "Streams vor dem Poster-Schreiben nicht prüfen: "
+                        + str(probe.stderr or "").strip()
+                    ),
+                    "backup": str(backup or ""),
+                }
+
+            try:
+                probe_data = json.loads(probe.stdout or "{}")
+            except json.JSONDecodeError:
+                return {
+                    "ok": False,
+                    "supported": True,
+                    "written": False,
+                    "message": (
+                        "FFprobe lieferte beim Prüfen der vorhandenen "
+                        "Streams ungültige JSON-Daten."
+                    ),
+                    "backup": str(backup or ""),
+                }
+
+            normal_video_count = 0
+
+            for stream in probe_data.get("streams") or []:
+                try:
+                    stream_index = int(stream.get("index"))
+                except (TypeError, ValueError):
+                    continue
+
+                codec_type = str(
+                    stream.get("codec_type") or ""
+                ).strip().lower()
+
+                disposition = dict(
+                    stream.get("disposition") or {}
+                )
+
+                is_attached_pic = bool(
+                    codec_type == "video"
+                    and disposition.get("attached_pic")
+                )
+
+                if is_attached_pic:
+                    continue
+
+                mapped_input_streams.append(stream_index)
+
+                if codec_type == "video":
+                    normal_video_count += 1
+
+            poster_video_index = normal_video_count
+
         command = [
             str(ffmpeg),
             "-hide_banner",
@@ -1162,18 +1278,68 @@ class MediaHubMetadataEditorPlugin:
             "-y",
             "-i",
             str(media_path),
-            "-map",
-            "0",
-            "-map_metadata",
-            "0",
-            "-c",
-            "copy",
-            *self._ffmpeg_metadata_arguments(
-                edited,
-                capability.get("write_fields"),
-            ),
-            str(temporary),
         ]
+
+        if poster_embedded:
+            command.extend(
+                [
+                    "-i",
+                    str(poster_path),
+                ]
+            )
+
+            for stream_index in mapped_input_streams:
+                command.extend(
+                    [
+                        "-map",
+                        f"0:{stream_index}",
+                    ]
+                )
+
+            command.extend(
+                [
+                    "-map",
+                    "1:0",
+                ]
+            )
+        else:
+            command.extend(
+                [
+                    "-map",
+                    "0",
+                ]
+            )
+
+        command.extend(
+            [
+                "-map_metadata",
+                "0",
+                "-c",
+                "copy",
+            ]
+        )
+
+        if poster_embedded:
+            command.extend(
+                [
+                    f"-disposition:v:{poster_video_index}",
+                    "attached_pic",
+                    f"-metadata:s:v:{poster_video_index}",
+                    "title=MediaHub Poster",
+                    f"-metadata:s:v:{poster_video_index}",
+                    "comment=Cover (front)",
+                ]
+            )
+
+        command.extend(
+            [
+                *self._ffmpeg_metadata_arguments(
+                    edited,
+                    capability.get("write_fields"),
+                ),
+                str(temporary),
+            ]
+        )
 
         try:
             completed = subprocess.run(
