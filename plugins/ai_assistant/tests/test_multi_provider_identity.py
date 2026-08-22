@@ -198,3 +198,88 @@ def test_official_alias_confirms_same_media_identity():
 
     assert result["confidence"] >= 0.62
     assert result["status"] != "insufficient"
+
+
+def test_official_alias_prefix_can_confirm_ambiguous_identity():
+    analysis = {
+        "identification": {
+            "title_candidate": "Live Die Repeat",
+            "media_type": "movie",
+            "confidence": 0.40,
+        },
+        "online": {
+            "provider_results": [],
+            "ranking": {
+                "decision": "ambiguous",
+                "best_match": {
+                    "title": "Edge of Tomorrow",
+                    "original_title": "Edge of Tomorrow",
+                    "aliases": [
+                        "Live Die Repeat: Edge of Tomorrow",
+                    ],
+                    "score": 0.3925,
+                    "evidence_count": 1,
+                    "penalties": [
+                        "insufficient_combined_evidence",
+                    ],
+                },
+            },
+        },
+        "in_video": {
+            "state": "completed",
+            "agents": {},
+        },
+    }
+
+    result = DecisionEngine().evaluate(analysis)
+
+    online = next(
+        item
+        for item in result["all_evidence"]
+        if item["source"] == "online"
+    )
+
+    assert online["supports"] is True
+    assert "Alternativtitel" in online["detail"]
+
+
+def test_short_alias_prefix_does_not_confirm_ambiguous_identity():
+    analysis = {
+        "identification": {
+            "title_candidate": "Live Die",
+            "media_type": "movie",
+            "confidence": 0.40,
+        },
+        "online": {
+            "provider_results": [],
+            "ranking": {
+                "decision": "ambiguous",
+                "best_match": {
+                    "title": "Edge of Tomorrow",
+                    "original_title": "Edge of Tomorrow",
+                    "aliases": [
+                        "Live Die Repeat: Edge of Tomorrow",
+                    ],
+                    "score": 0.3925,
+                    "evidence_count": 1,
+                    "penalties": [
+                        "insufficient_combined_evidence",
+                    ],
+                },
+            },
+        },
+        "in_video": {
+            "state": "completed",
+            "agents": {},
+        },
+    }
+
+    result = DecisionEngine().evaluate(analysis)
+
+    online = next(
+        item
+        for item in result["all_evidence"]
+        if item["source"] == "online"
+    )
+
+    assert online["supports"] is False

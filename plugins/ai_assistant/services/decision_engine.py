@@ -88,6 +88,27 @@ class DecisionEngine:
                 and normalized_title in normalized_aliases
             )
 
+            # Offizielle Alternativtitel können einen bekannten Haupttitel
+            # als Zusatz enthalten, z. B.:
+            #
+            #   Live Die Repeat
+            #   Live Die Repeat: Edge of Tomorrow
+            #
+            # Ein Teiltreffer gilt nur dann als starker Alias-Hinweis, wenn
+            # der lokale Titel aus mindestens drei Wörtern besteht und als
+            # vollständiger Wort-Präfix eines offiziellen Alias vorkommt.
+            # Dadurch werden unsichere Einwort-/Kurztreffer vermieden.
+            title_words = normalized_title.split()
+
+            strong_alias_prefix_match = bool(
+                len(title_words) >= 3
+                and any(
+                    alias != normalized_title
+                    and alias.startswith(normalized_title + " ")
+                    for alias in normalized_aliases
+                )
+            )
+
             ranking_decision = str(ranking.get("decision") or "").strip().lower()
             penalties = {str(item) for item in (best.get("penalties") or [])}
             evidence_count = int(best.get("evidence_count") or 0)
@@ -172,9 +193,18 @@ class DecisionEngine:
                 and similarity >= 0.95
             )
 
+            alias_confirmation = (
+                (
+                    exact_alias_match
+                    or strong_alias_prefix_match
+                )
+                and candidate_conf >= 0.35
+            )
+
             identity_supported = (
                 normal_online_confirmation
                 or multi_provider_confirmation
+                or alias_confirmation
             )
             if identity_supported:
                 if multi_provider_confirmation:
@@ -186,7 +216,10 @@ class DecisionEngine:
                         f"{round(similarity * 100)} %."
                     )
                 else:
-                    if exact_alias_match:
+                    if (
+                        exact_alias_match
+                        or strong_alias_prefix_match
+                    ):
                         detail = (
                             "Online-Treffer bestätigt die Identität "
                             "über einen offiziellen Alternativtitel; "
@@ -218,6 +251,47 @@ class DecisionEngine:
                     + (": " + "; ".join(blockers) if blockers else ".")
                 )
             online_evidence_confidence = candidate_conf
+
+            # Ein bereits bestätigter offizieller Alias-/Präfix-Treffer
+            # darf für die Evidenzbewertung die echte Provider-Confidence
+            # verwenden. Der Ranking-Score kann zuvor durch Alias- oder
+            # Ähnlichkeitsstrafen reduziert worden sein und bildet dann
+            # nicht mehr die Stärke des offiziellen Provider-Belegs ab.
+            if alias_confirmation:
+                alias_provider_confidences: list[float] = []
+
+                for provider_result in provider_results:
+                    matches = (
+                        provider_result.get("matches")
+                        or provider_result.get("results")
+                        or []
+                    )
+
+                    if isinstance(matches, dict):
+                        matches = [matches]
+
+                    for match in matches:
+                        if not isinstance(match, dict):
+                            continue
+
+                        try:
+                            provider_confidence = float(
+                                match.get("provider_confidence")
+                                or 0.0
+                            )
+                        except (TypeError, ValueError):
+                            provider_confidence = 0.0
+
+                        if provider_confidence > 0:
+                            alias_provider_confidences.append(
+                                self._clamp(provider_confidence)
+                            )
+
+                if alias_provider_confidences:
+                    online_evidence_confidence = max(
+                        online_evidence_confidence,
+                        max(alias_provider_confidences),
+                    )
 
             if multi_provider_confirmation:
                 provider_confidences: list[float] = []
