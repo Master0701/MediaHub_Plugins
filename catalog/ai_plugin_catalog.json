@@ -15,7 +15,16 @@
       "project_page": "https://github.com/Master0701/MediaHub_Plugins/tree/main/ai_node_plugins/mediahub_test_provider",
       "package_asset": "MediaHub_AITestProvider_v1.0.0.mhaiplugin",
       "release_asset": "MediaHub_AITestProvider_v1.0.0.mhaiplugin",
-      "sha256_asset": "MediaHub_AITestProvider_v1.0.0.mhaiplugin.sha256"
+      "sha256_asset": "MediaHub_AITestProvider_v1.0.0.mhaiplugin.sha256",
+      "targets": [
+        "raspberry_pi",
+        "windows_compute"
+      ],
+      "platforms": [
+        "linux-aarch64",
+        "windows-amd64"
+      ],
+      "required_capabilities": []
     }
   ]
 }

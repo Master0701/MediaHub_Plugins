@@ -39,3 +39,31 @@ def test_ai_catalog_matches_ai_node_manifests():
             item["sha256_asset"]
             == item["package_asset"] + ".sha256"
         )
+
+        expected_targets = (
+            manifest.get("targets")
+            or ["raspberry_pi"]
+        )
+        expected_platforms = (
+            manifest.get("platforms")
+            or []
+        )
+        expected_capabilities = (
+            manifest.get(
+                "required_capabilities"
+            )
+            or []
+        )
+
+        assert (
+            item["targets"]
+            == expected_targets
+        )
+        assert (
+            item["platforms"]
+            == expected_platforms
+        )
+        assert (
+            item["required_capabilities"]
+            == expected_capabilities
+        )

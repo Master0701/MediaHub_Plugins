@@ -15,5 +15,14 @@
     "test_provider"
   ],
   "dependencies": [],
-  "required_tools": []
+  "required_tools": [],
+  "targets": [
+    "raspberry_pi",
+    "windows_compute"
+  ],
+  "platforms": [
+    "linux-aarch64",
+    "windows-amd64"
+  ],
+  "required_capabilities": []
 }

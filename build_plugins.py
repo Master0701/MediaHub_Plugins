@@ -219,6 +219,20 @@ def update_ai_node_catalog(plugins: dict[str, Path]) -> Path:
                 "package_asset": release_asset,
                 "release_asset": release_asset,
                 "sha256_asset": release_asset + ".sha256",
+                "targets": list(
+                    manifest.get("targets") or [
+                        "raspberry_pi"
+                    ]
+                ),
+                "platforms": list(
+                    manifest.get("platforms") or []
+                ),
+                "required_capabilities": list(
+                    manifest.get(
+                        "required_capabilities"
+                    )
+                    or []
+                ),
             }
         )
 
