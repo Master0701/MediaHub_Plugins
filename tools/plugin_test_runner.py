@@ -54,11 +54,16 @@ def run_plugin_suite(group: str, tests_dir: Path) -> SuiteResult:
     env = os.environ.copy()
 
     existing_pythonpath = env.get("PYTHONPATH", "")
-    env["PYTHONPATH"] = (
-        str(plugin_root)
-        if not existing_pythonpath
-        else str(plugin_root) + os.pathsep + existing_pythonpath
-    )
+
+    python_paths = [
+        str(plugin_root),
+        str(ROOT),
+    ]
+
+    if existing_pythonpath:
+        python_paths.append(existing_pythonpath)
+
+    env["PYTHONPATH"] = os.pathsep.join(python_paths)
 
     started = time.perf_counter()
     completed = subprocess.run(
@@ -76,6 +81,7 @@ def run_plugin_suite(group: str, tests_dir: Path) -> SuiteResult:
         encoding="utf-8",
         errors="replace",
         capture_output=True,
+        check=False,
     )
     duration = time.perf_counter() - started
 
@@ -102,7 +108,7 @@ def run_all_plugin_suites(
     suites = discover_plugin_test_suites()
 
     if print_output:
-        print("")
+        print()
         print("=" * 72)
         print("MediaHub Plugin-Gesamttest")
         print("=" * 72)
