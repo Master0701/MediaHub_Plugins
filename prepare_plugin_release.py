@@ -1,14 +1,19 @@
 from __future__ import annotations
 
+import json
 import re
-import shutil
 from pathlib import Path
+from typing import Iterator
 
 ROOT = Path(__file__).resolve().parent
 PENDING_NOTES = ROOT / "RELEASE_NOTES_PENDING.md"
 RELEASE_NOTES = ROOT / "RELEASE_NOTES.md"
 README = ROOT / "README.md"
-MANIFESTS = ROOT / "plugins"
+
+PLUGIN_GROUPS = (
+    ("MediaHub", ROOT / "plugins"),
+    ("AI-Node", ROOT / "ai_node_plugins"),
+)
 
 
 def read_pending_notes() -> str:
@@ -36,16 +41,77 @@ def without_commit_section(text: str) -> str:
     return "\n".join(output).strip()
 
 
-def current_plugin_versions() -> list[tuple[str, str]]:
-    result: list[tuple[str, str]] = []
+def iter_plugin_manifests() -> Iterator[tuple[str, Path, dict]]:
+    """Liefert alle normalen MediaHub- und AI-Node-Plugin-Manifeste."""
+    for group_name, root in PLUGIN_GROUPS:
+        if not root.exists():
+            continue
 
-    for manifest_path in sorted(MANIFESTS.glob("*/plugin.json")):
-        import json
+        for manifest_path in sorted(root.glob("*/plugin.json")):
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            yield group_name, manifest_path, manifest
 
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        result.append((str(manifest["name"]), str(manifest["version"])))
+
+def current_plugin_versions() -> dict[str, list[tuple[str, str]]]:
+    result: dict[str, list[tuple[str, str]]] = {
+        group_name: [] for group_name, _ in PLUGIN_GROUPS
+    }
+
+    for group_name, _manifest_path, manifest in iter_plugin_manifests():
+        result[group_name].append(
+            (str(manifest["name"]), str(manifest["version"]))
+        )
 
     return result
+
+
+def _version_section(
+    title: str,
+    versions: list[tuple[str, str]],
+) -> str:
+    lines = [f"### {title}", ""]
+
+    if versions:
+        lines.extend(
+            f"- **{name} {version}**" for name, version in versions
+        )
+    else:
+        lines.append("- Keine Plugins gefunden.")
+
+    return "\n".join(lines)
+
+
+def _compatibility_lines() -> str:
+    lines: list[str] = []
+
+    for group_name, _manifest_path, manifest in iter_plugin_manifests():
+        name = str(manifest["name"])
+        version = str(manifest["version"])
+
+        if group_name == "MediaHub":
+            minimum = str(
+                manifest.get("minimum_mediahub_version")
+                or manifest.get("minimum_mediahub")
+                or "nicht angegeben"
+            )
+            lines.append(
+                f"- **{name} {version}** – mindestens MediaHub v{minimum}"
+            )
+            continue
+
+        targets = manifest.get("targets") or []
+        platforms = manifest.get("platforms") or []
+
+        details: list[str] = []
+        if targets:
+            details.append("Ziele: " + ", ".join(map(str, targets)))
+        if platforms:
+            details.append("Plattformen: " + ", ".join(map(str, platforms)))
+
+        suffix = "; ".join(details) if details else "Ziel/Plattform nicht angegeben"
+        lines.append(f"- **{name} {version}** – {suffix}")
+
+    return "\n".join(lines) or "- Keine Plugin-Manifeste gefunden."
 
 
 def update_readme(notes: str) -> None:
@@ -58,25 +124,21 @@ def update_readme(notes: str) -> None:
     ).strip()
 
     versions = current_plugin_versions()
-    version_lines = "\n".join(
-        f"- **{name} {version}**" for name, version in versions
+    version_sections = "\n\n".join(
+        (
+            _version_section("MediaHub-Plugins", versions["MediaHub"]),
+            _version_section("AI-Node-Plugins", versions["AI-Node"]),
+        )
     )
-
-    compatibility_lines = []
-    for manifest_path in sorted(MANIFESTS.glob("*/plugin.json")):
-        import json
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        minimum = str(manifest.get("minimum_mediahub_version") or manifest.get("minimum_mediahub") or "nicht angegeben")
-        compatibility_lines.append(f"- **{manifest['name']} {manifest['version']}** – mindestens MediaHub v{minimum}")
-    compatibility = "\n".join(compatibility_lines)
+    compatibility = _compatibility_lines()
 
     text = f"""# MediaHub Plugins
 
-Offizielles Erweiterungs-Repository für MediaHub.
+Offizielles Erweiterungs-Repository für die MediaHub-Produktfamilie.
 
 ## Aktueller Stand
 
-{version_lines}
+{version_sections}
 
 {body}
 
@@ -86,43 +148,34 @@ Offizielles Erweiterungs-Repository für MediaHub.
 
 ## Projektaufbau
 
-- `plugins/` – getrennte, einzeln installierbare Plugins
+- `plugins/` – normale MediaHub-Plugins (`.mhplugin`)
+- `ai_node_plugins/` – AI-Node-/Compute-Node-Plugins (`.mhaiplugin`)
 - `shared/` – gemeinsam genutzte Laufzeiten, APIs und Design-Bausteine
 - `catalog/` – Plugin-Store- und Updatekataloge
 - `docs/` – Architektur-, Design- und Entwicklungsunterlagen
 - `tools/dev/` – dauerhaft nützliche Entwickler- und Diagnosetools
 - `release/` – lokal und in GitHub Actions erzeugte Plugin-Pakete
 
-Jedes Plugin bleibt optional und kann einzeln installiert, aktualisiert und entfernt werden.
+Beide Plugin-Gruppen bleiben technisch getrennt. Jedes Plugin bleibt optional
+und kann einzeln installiert, aktualisiert und entfernt werden.
 
 ## Plugins bauen
 
-Alle Plugins sauber neu erstellen:
+Alle normalen MediaHub- und AI-Node-Plugins sauber neu erstellen:
 
 ```powershell
 python build_plugins.py all --clean
 ```
 
-Nur den KI-Assistenten erstellen:
-
-```powershell
-python build_plugins.py ai_assistant --clean
-```
-
-Die fertigen `.mhplugin`-Dateien und `.sha256`-Prüfsummen liegen anschließend unter `release/`.
+Die fertigen `.mhplugin`- und `.mhaiplugin`-Dateien sowie ihre
+`.sha256`-Prüfsummen liegen anschließend unter `release/`.
 
 ## Tests
 
-Alle Tests des KI-Assistenten ausführen:
+Den vollständigen repositoryweiten Testlauf ausführen:
 
 ```powershell
-python -m pytest plugins/ai_assistant/tests -q
-```
-
-Python-Dateien zusätzlich kompilieren:
-
-```powershell
-python -m compileall plugins/ai_assistant
+python -m pytest -q
 ```
 
 ## Release vorbereiten
@@ -134,6 +187,13 @@ python prepare_plugin_release.py
 Dieser Befehl übernimmt `RELEASE_NOTES_PENDING.md` in die verfolgte Datei
 `RELEASE_NOTES.md` und aktualisiert diese README. Die temporäre Pending-Datei
 bleibt lokal und wird nicht in Git aufgenommen.
+
+Vor der Veröffentlichung anschließend erneut vollständig prüfen:
+
+```powershell
+python -m pytest -q
+python build_plugins.py all --clean
+```
 """
 
     README.write_text(text, encoding="utf-8")
@@ -148,10 +208,9 @@ def main() -> int:
 
     print(f"Aktualisiert: {RELEASE_NOTES}")
     print(f"Aktualisiert: {README}")
-    print(
-        "Danach alle Plugins bauen: "
-        "python build_plugins.py all --clean"
-    )
+    print("Danach vollständig prüfen:")
+    print("  python -m pytest -q")
+    print("  python build_plugins.py all --clean")
     return 0
 
 
