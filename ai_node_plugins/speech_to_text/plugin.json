@@ -1,0 +1,48 @@
+{
+  "id": "mediahub.speech_to_text",
+  "name": "MediaHub Speech-to-Text",
+  "version": "0.1.1",
+  "type": "worker",
+  "entrypoint": "plugin:MediaHubSpeechToTextPlugin",
+  "api_version": "1",
+  "description": "Lokale Speech-to-Text-Ausführung für MediaHub AI- und Compute-Nodes.",
+  "author": "Master0701",
+  "license": "MIT",
+  "enabled_by_default": true,
+  "permissions": [],
+  "capabilities": [
+    "speech_to_text"
+  ],
+  "job_types": [
+    "speech_to_text"
+  ],
+  "dependencies": [],
+  "required_tools": [],
+  "targets": [
+    "raspberry_pi",
+    "windows_compute"
+  ],
+  "platforms": [
+    "linux-aarch64",
+    "windows-amd64"
+  ],
+  "required_capabilities": [],
+  "execution": {
+    "modes": [
+      "auto",
+      "cpu",
+      "gpu"
+    ],
+    "cpu_threads_configurable": true,
+    "accelerator_selection": true
+  },
+  "runtime": {
+    "isolated": true,
+    "engine": "faster-whisper",
+    "dependencies": [
+      "faster-whisper"
+    ],
+    "models_directory": "models",
+    "cache_directory": "cache"
+  }
+}

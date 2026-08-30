@@ -1,40 +1,46 @@
-# MediaHub Plugins v0.5.13 – vollständiges Release
+# MediaHub Plugins v0.5.14 – vollständiges Release
 
 ## MediaHub KI-Assistent v7.0.8
 
-- Funktionsstand unverändert.
-- Wird mit dem vollständigen Release erneut gebaut und validiert.
+- Funktionsstand dieses Releases unverändert.
+- Unfertige lokale KI-Entwicklungsarbeiten sind nicht Bestandteil dieses Releases.
 
 ## MediaHub Audio Metadata Editor v0.0.1
 
 - Funktionsstand unverändert.
-- Wird mit dem vollständigen Release erneut gebaut und validiert.
 
 ## MediaHub Metadata Editor v0.4.4
 
 - Funktionsstand unverändert.
-- Wird mit dem vollständigen Release erneut gebaut und validiert.
 
 ## MediaHub Mobile Dashboard v0.1.7
 
 - Funktionsstand unverändert.
-- Wird mit dem vollständigen Release erneut gebaut und validiert.
 
 ## MediaHub Smart Renamer v0.5.17
 
 - Funktionsstand unverändert.
-- Wird mit dem vollständigen Release erneut gebaut und validiert.
 
 ## MediaHub WebRemote v0.13.7
 
 - Funktionsstand unverändert.
-- Wird mit dem vollständigen Release erneut gebaut und validiert.
 
 ## MediaHub AI Test Provider v1.0.0
 
 - AI-Node-Plugin.
 - Funktionsstand unverändert.
-- Wird gemeinsam mit den MediaHub-Plugins validiert und veröffentlicht.
+
+## MediaHub Speech-to-Text v0.1.1
+
+- Neues gemeinsames AI-Node-/Compute-Node-Worker-Plugin für lokale Speech-to-Text-Ausführung.
+- Unterstützt Raspberry Pi / Linux ARM64 und Windows Compute Node / Windows AMD64.
+- Verwendet eine isolierte `faster-whisper`-Laufzeit statt der zentralen MediaHub- bzw. AI-Node-Python-Umgebung.
+- Unterstützt CPU- und GPU-Ausführung sowie automatische Backend-Auswahl.
+- Raspberry-Pi-Ausführung mit realer Videodatei erfolgreich geprüft.
+- Windows-Compute-Node-Ausführung mit NVIDIA CUDA und realer Videodatei erfolgreich geprüft.
+- Worker-Status ermittelt die Verfügbarkeit von `faster-whisper` jetzt aus der isolierten Plugin-Laufzeit.
+- Behebt dadurch die falsche Anzeige `engine.available = false` bei bereits einsatzbereiter isolierter Laufzeit.
+- Paket enthält README, Changelog, Lizenz und Requirements-Datei.
 
 ## Gemeinsamer Release-Stand
 

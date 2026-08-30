@@ -25,6 +25,28 @@
         "windows-amd64"
       ],
       "required_capabilities": []
+    },
+    {
+      "id": "mediahub.speech_to_text",
+      "name": "MediaHub Speech-to-Text",
+      "version": "0.1.1",
+      "type": "worker",
+      "api_version": "1",
+      "description": "Lokale Speech-to-Text-Ausführung für MediaHub AI- und Compute-Nodes.",
+      "visible": true,
+      "project_page": "https://github.com/Master0701/MediaHub_Plugins/tree/main/ai_node_plugins/speech_to_text",
+      "package_asset": "MediaHub_Speech-to-Text_v0.1.1.mhaiplugin",
+      "release_asset": "MediaHub_Speech-to-Text_v0.1.1.mhaiplugin",
+      "sha256_asset": "MediaHub_Speech-to-Text_v0.1.1.mhaiplugin.sha256",
+      "targets": [
+        "raspberry_pi",
+        "windows_compute"
+      ],
+      "platforms": [
+        "linux-aarch64",
+        "windows-amd64"
+      ],
+      "required_capabilities": []
     }
   ]
 }
