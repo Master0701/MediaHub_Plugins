@@ -1,4 +1,4 @@
-"""Python runtime selection for Speech-to-Text."""
+﻿"""Python runtime selection for Speech-to-Text."""
 
 from __future__ import annotations
 
@@ -137,10 +137,15 @@ def launcher_candidates() -> list[Path]:
     candidates: list[Path] = []
 
     if os.name == "nt":
+        launcher = shutil.which("py")
+
+        if not launcher:
+            return candidates
+
         for minor in SUPPORTED_MINORS:
             completed = subprocess.run(
                 [
-                    "py",
+                    launcher,
                     f"-3.{minor}",
                     "-c",
                     (
@@ -271,3 +276,4 @@ def require_python() -> Path:
     return Path(
         result["python"]["executable"]
     )
+

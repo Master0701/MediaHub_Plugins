@@ -154,3 +154,206 @@ def test_speech_build_package_contains_expected_files(
         or name.endswith(".pyc")
         for name in names
     )
+
+def test_speech_engine_respects_max_segments(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import importlib.util
+    import sys
+    from types import SimpleNamespace
+
+    engine_path = (
+        PLUGIN_DIR
+        / "engine.py"
+    )
+
+    spec = importlib.util.spec_from_file_location(
+        "speech_engine_limit_test",
+        engine_path,
+    )
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    media_file = (
+        tmp_path
+        / "sample.avi"
+    )
+    media_file.write_bytes(b"fake")
+
+    segments = [
+        SimpleNamespace(
+            start=0.0,
+            end=1.0,
+            text="eins",
+        ),
+        SimpleNamespace(
+            start=1.0,
+            end=2.0,
+            text="zwei",
+        ),
+        SimpleNamespace(
+            start=2.0,
+            end=3.0,
+            text="drei",
+        ),
+    ]
+
+    class FakeModel:
+        def __init__(
+            self,
+            *args,
+            **kwargs,
+        ) -> None:
+            pass
+
+        def transcribe(
+            self,
+            *args,
+            **kwargs,
+        ):
+            return (
+                iter(segments),
+                SimpleNamespace(
+                    language="de",
+                    language_probability=0.99,
+                ),
+            )
+
+    fake_module = SimpleNamespace(
+        WhisperModel=FakeModel
+    )
+
+    monkeypatch.setitem(
+        sys.modules,
+        "faster_whisper",
+        fake_module,
+    )
+
+    result = (
+        module._faster_whisper_transcribe(
+            path=media_file,
+            execution={
+                "backend": "cpu",
+                "cpu_threads": 2,
+            },
+            options={
+                "max_segments": 2,
+            },
+        )
+    )
+
+    assert len(result["segments"]) == 2
+    assert result["text"] == "eins zwei"
+    assert result["truncated"] is True
+    assert (
+        result["truncation_reason"]
+        == "max_segments"
+    )
+    assert (
+        result["limits"]["max_segments"]
+        == 2
+    )
+
+def test_speech_engine_respects_max_audio_seconds(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import importlib.util
+    import sys
+    from types import SimpleNamespace
+
+    engine_path = (
+        PLUGIN_DIR
+        / "engine.py"
+    )
+
+    spec = importlib.util.spec_from_file_location(
+        "speech_engine_time_limit_test",
+        engine_path,
+    )
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    media_file = (
+        tmp_path
+        / "sample.avi"
+    )
+    media_file.write_bytes(b"fake")
+
+    segments = [
+        SimpleNamespace(
+            start=0.0,
+            end=10.0,
+            text="eins",
+        ),
+        SimpleNamespace(
+            start=10.0,
+            end=20.0,
+            text="zwei",
+        ),
+        SimpleNamespace(
+            start=25.0,
+            end=30.0,
+            text="drei",
+        ),
+    ]
+
+    class FakeModel:
+        def __init__(
+            self,
+            *args,
+            **kwargs,
+        ) -> None:
+            pass
+
+        def transcribe(
+            self,
+            *args,
+            **kwargs,
+        ):
+            return (
+                iter(segments),
+                SimpleNamespace(
+                    language="de",
+                    language_probability=0.99,
+                ),
+            )
+
+    fake_module = SimpleNamespace(
+        WhisperModel=FakeModel
+    )
+
+    monkeypatch.setitem(
+        sys.modules,
+        "faster_whisper",
+        fake_module,
+    )
+
+    result = (
+        module._faster_whisper_transcribe(
+            path=media_file,
+            execution={
+                "backend": "cpu",
+                "cpu_threads": 2,
+            },
+            options={
+                "max_audio_seconds": 20,
+            },
+        )
+    )
+
+    assert len(result["segments"]) == 2
+    assert result["text"] == "eins zwei"
+    assert result["truncated"] is True
+    assert (
+        result["truncation_reason"]
+        == "max_audio_seconds"
+    )
+    assert (
+        result["limits"]["max_audio_seconds"]
+        == 20.0
+    )
+

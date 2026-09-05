@@ -96,7 +96,16 @@ class SearchVariantReasoner:
             expanded.extend(self._expand_candidate(value, score, source, reasons, media_type))
 
         expanded.extend(self._ocr_variants(analysis, media_type))
-        knowledge_matches = self._knowledge_matches([item.title for item in expanded])
+        expanded.extend(
+            self._speech_variants(
+                analysis,
+                media_type,
+            )
+        )
+
+        knowledge_matches = self._knowledge_matches(
+            [item.title for item in expanded]
+        )
         for entity, matched_value in knowledge_matches:
             canonical = str(entity.get("title") or "").strip()
             aliases = [str(x).strip() for x in entity.get("aliases") or [] if str(x).strip()]
@@ -122,20 +131,124 @@ class SearchVariantReasoner:
                 item.source.startswith("knowledge_")
                 or item.source == "identity_hint"
             )
+
+            speech_identity = (
+                item.source == "speech_identity"
+            )
             quality_source = (
                 "ocr"
                 if item.source == "ocr"
                 else (
-                    "fallback"
-                    if "Fallback" in item.reasons
-                    else item.source
+                    "speech"
+                    if speech_identity
+                    else (
+                        "fallback"
+                        if "Fallback" in item.reasons
+                        else item.source
+                    )
                 )
             )
             quality = evaluate_text(item.title, source=quality_source, known_alias=known)
-            adjusted_score = item.score * (0.45 + 0.55 * quality.score)
-            adjusted = SearchVariant(item.title, round(adjusted_score, 3), item.source, item.reasons, item.media_type, quality.score, quality.reasons)
+            adjusted_score = (
+                item.score
+                * (0.45 + 0.55 * quality.score)
+            )
+
+            extra_reasons: tuple[str, ...] = ()
+
+            # Klar ausgesprochene Akronyme wie NCIS, CSI
+            # oder FBI sind starke Identitätshinweise.
+            # Sie dürfen nicht von kurzen, kryptischen
+            # OCR-Fragmenten verdrängt werden.
+            if (
+                speech_identity
+                and 3 <= len(item.title) <= 8
+                and item.title.isalpha()
+                and item.title.upper() == item.title
+            ):
+                adjusted_score *= 1.85
+                extra_reasons += (
+                    "Klares Speech-Akronym als "
+                    "starker Identitätshinweis",
+                )
+
+            # Sehr kurze OCR-Fragmente mit ungewöhnlicher
+            # Groß-/Kleinschreibung und mehreren Tokens
+            # sind häufig Texterkennungsartefakte.
+            if item.source == "ocr":
+                words = item.title.split()
+
+                mixed_case_words = sum(
+                    1
+                    for word in words
+                    if (
+                        any(char.islower() for char in word)
+                        and any(char.isupper() for char in word)
+                    )
+                )
+
+                short_ocr_fragment = (
+                    len(item.title) <= 12
+                    and len(words) >= 2
+                    and (
+                        mixed_case_words > 0
+                        or any(
+                            not (
+                                char.isalnum()
+                                or char.isspace()
+                            )
+                            for char in item.title
+                        )
+                    )
+                )
+
+                if short_ocr_fragment:
+                    adjusted_score *= 0.55
+                    extra_reasons += (
+                        "Kurzes kryptisches "
+                        "OCR-Fragment abgewertet",
+                    )
+
+            adjusted = SearchVariant(
+                item.title,
+                round(adjusted_score, 3),
+                item.source,
+                item.reasons + extra_reasons,
+                item.media_type,
+                quality.score,
+                quality.reasons,
+            )
             if len(key.split()) == 1:
-                adjusted = SearchVariant(adjusted.title, round(adjusted.score * self._single_word_factor(key), 3), adjusted.source, adjusted.reasons + ("Einzelwort-Suche vorsichtig gewichtet",), adjusted.media_type, adjusted.quality_score, adjusted.quality_reasons)
+                factor = (
+                    self._speech_single_word_factor(
+                        adjusted.title
+                    )
+                    if speech_identity
+                    else self._single_word_factor(key)
+                )
+
+                adjusted = SearchVariant(
+                    adjusted.title,
+                    round(
+                        adjusted.score * factor,
+                        3,
+                    ),
+                    adjusted.source,
+                    adjusted.reasons
+                    + (
+                        (
+                            "Speech-Einzelwort als "
+                            "Identitätshinweis gewichtet"
+                        )
+                        if speech_identity
+                        else
+                        "Einzelwort-Suche vorsichtig "
+                        "gewichtet"
+                    ,),
+                    adjusted.media_type,
+                    adjusted.quality_score,
+                    adjusted.quality_reasons,
+                )
             is_fallback = any("Fallback" in reason for reason in item.reasons)
             fallback_too_weak = is_fallback and not known and (len(key.split()) < 3 or quality.score < 0.82)
             if (not quality.accepted or fallback_too_weak) and not known:
@@ -202,11 +315,53 @@ class SearchVariantReasoner:
         cleaned = self._clean_title(value)
         if not cleaned:
             return []
-        variants = [SearchVariant(cleaned, round(score, 3), source, reasons, media_type)]
+        variants = [
+            SearchVariant(
+                cleaned,
+                round(score, 3),
+                source,
+                reasons,
+                media_type,
+            )
+        ]
+
         split = self._split_compounds(cleaned)
-        if self._variant_key(split) != self._variant_key(cleaned):
-            variants.append(SearchVariant(split, round(score * 0.96, 3), source, reasons + ("Zusammengeklebte Wörter oder Zahlen getrennt",), media_type))
-        tokens = split.split()
+
+        split_changed = (
+            self._variant_key(split)
+            != self._variant_key(cleaned)
+        )
+
+        suspicious_compact_code = (
+            self._looks_like_compact_code(cleaned)
+        )
+
+        if (
+            split_changed
+            and not suspicious_compact_code
+        ):
+            variants.append(
+                SearchVariant(
+                    split,
+                    round(score * 0.96, 3),
+                    source,
+                    reasons
+                    + (
+                        "Zusammengeklebte Wörter "
+                        "oder Zahlen getrennt",
+                    ),
+                    media_type,
+                )
+            )
+
+        # Bei einem verdächtigen kompakten Code dürfen
+        # auch keine daraus erzeugten gekürzten oder
+        # Einzelwort-Fallbacks entstehen.
+        tokens = (
+            [cleaned]
+            if suspicious_compact_code
+            else split.split()
+        )
         if len(tokens) >= 3:
             for width in range(len(tokens) - 1, 1, -1):
                 short = " ".join(tokens[:width])
@@ -216,6 +371,91 @@ class SearchVariantReasoner:
             if len(self._variant_key(token)) >= 4 and not token.isdigit():
                 variants.append(SearchVariant(token, round(score * 0.32, 3), source, reasons + ("Schwacher Einzelwort-Fallback",), media_type))
         return variants
+
+    def _speech_variants(
+        self,
+        analysis: dict[str, Any],
+        media_type: str | None,
+    ) -> list[SearchVariant]:
+        speech = (
+            analysis.get("speech_identity_evidence")
+            or {}
+        )
+
+        terms = speech.get("identity_terms") or []
+        result: list[SearchVariant] = []
+        seen: set[str] = set()
+
+        for value in terms[:20]:
+            text = self._clean_title(
+                str(value or "").strip()
+            )
+
+            key = self._variant_key(text)
+
+            if not key or key in seen:
+                continue
+
+            seen.add(key)
+
+            # Keine langen Sprachfragmente als Titel suchen.
+            if len(text) > 80:
+                continue
+
+            # Einbuchstabige bzw. extrem kurze Fragmente
+            # sind keine brauchbaren Identitätshinweise.
+            if len(key.replace(" ", "")) < 3:
+                continue
+
+            quality = evaluate_text(
+                text,
+                source="speech",
+            )
+
+            if not quality.accepted:
+                continue
+
+            result.append(
+                SearchVariant(
+                    title=text,
+                    score=round(
+                        0.84 * quality.score,
+                        3,
+                    ),
+                    source="speech_identity",
+                    reasons=(
+                        "Identitätshinweis aus "
+                        "Spracherkennung",
+                        "Speech-Qualitätsprüfung "
+                        "bestanden",
+                    ),
+                    media_type=media_type,
+                    quality_score=quality.score,
+                    quality_reasons=quality.reasons,
+                )
+            )
+
+        return result
+
+    @staticmethod
+    def _speech_single_word_factor(
+        value: str,
+    ) -> float:
+        text = str(value or "").strip()
+
+        # Akronyme wie NCIS, CSI oder FBI sind als
+        # Medien-/Franchise-Hinweis deutlich wertvoller
+        # als gewöhnliche kurze Einzelwörter.
+        if (
+            3 <= len(text) <= 8
+            and text.isalpha()
+            and text.upper() == text
+        ):
+            return 0.92
+
+        # Andere vom Speech-Agent extrahierte Einzelwörter
+        # bleiben vorsichtig gewichtet.
+        return 0.58
 
     def _ocr_variants(self, analysis: dict[str, Any], media_type: str | None) -> list[SearchVariant]:
         findings = (((analysis.get("in_video") or {}).get("agents") or {}).get("ocr_agent") or {}).get("findings") or []
@@ -285,6 +525,52 @@ class SearchVariantReasoner:
                 continue
             tokens.append(token)
         return self._normalize_spaces(" ".join(tokens))
+
+    @staticmethod
+    def _looks_like_compact_code(
+        value: str,
+    ) -> bool:
+        text = re.sub(
+            r"[^A-Za-z0-9]",
+            "",
+            str(value or ""),
+        )
+
+        if len(text) < 6:
+            return False
+
+        letters = sum(
+            char.isalpha()
+            for char in text
+        )
+
+        digits = sum(
+            char.isdigit()
+            for char in text
+        )
+
+        if not letters or not digits:
+            return False
+
+        letter_ratio = letters / len(text)
+        digit_ratio = digits / len(text)
+
+        transitions = sum(
+            left.isdigit() != right.isdigit()
+            for left, right in zip(
+                text,
+                text[1:],
+            )
+        )
+
+        # Typische Zufalls-/Hash-/Code-Struktur:
+        # deutliche Mischung aus Buchstaben und Zahlen
+        # mit mehreren Wechseln zwischen beiden Gruppen.
+        return (
+            letter_ratio < 0.60
+            and digit_ratio >= 0.30
+            and transitions >= 3
+        )
 
     @staticmethod
     def _split_compounds(value: str) -> str:

@@ -39,6 +39,38 @@ def evaluate_text(value: str, *, source: str = "unknown", known_alias: bool = Fa
     meaningful = [w for w in words if len(w) >= 2 and w.casefold() not in _COMMON_SHORT]
     avg_len = sum(len(w) for w in words) / max(1, len(words))
 
+    short_fragments = [
+        word
+        for word in words
+        if len(word) <= 2
+    ]
+
+    short_fragment_ratio = (
+        len(short_fragments) / len(words)
+        if words
+        else 0.0
+    )
+
+    # OCR-Zeichensalat besteht häufig aus vielen formal gültigen
+    # Buchstabenfragmenten wie:
+    #
+    #   "ET id ur eo ... N owl ... BR N UN ..."
+    #
+    # Dadurch können Buchstabenanteil und Wortanzahl irreführend gut
+    # aussehen. Dieser Filter gilt nur für längere OCR-Ausgaben.
+    # Kurze echte Titel bleiben ausdrücklich unberührt.
+    ocr_fragment_noise = bool(
+        source == "ocr"
+        and len(words) >= 8
+        and (
+            short_fragment_ratio >= 0.55
+            or (
+                len(words) >= 12
+                and avg_len < 2.35
+            )
+        )
+    )
+
     score = 0.0
     reasons: list[str] = []
     if known_alias:
@@ -74,8 +106,22 @@ def evaluate_text(value: str, *, source: str = "unknown", known_alias: bool = Fa
     threshold = 0.58 if source == "ocr" else 0.48
     if source == "fallback":
         threshold = 0.62
+
+    if ocr_fragment_noise:
+        score -= 0.45
+        reasons.append(
+            "OCR enthält zu viele kurze Textfragmente"
+        )
+
     score = max(0.0, min(1.0, score))
-    accepted = known_alias or score >= threshold
+
+    accepted = (
+        known_alias
+        or (
+            score >= threshold
+            and not ocr_fragment_noise
+        )
+    )
     if accepted:
         reasons.append("Qualitätsgrenze erreicht")
     else:
@@ -83,5 +129,8 @@ def evaluate_text(value: str, *, source: str = "unknown", known_alias: bool = Fa
     return TextQuality(round(score, 4), accepted, tuple(dict.fromkeys(reasons)), {
         "word_count": len(words), "meaningful_words": len(meaningful),
         "alpha_ratio": round(alpha_ratio, 4), "special_ratio": round(special_ratio, 4),
-        "average_word_length": round(avg_len, 2), "source": source,
+        "average_word_length": round(avg_len, 2),
+        "short_fragment_ratio": round(short_fragment_ratio, 4),
+        "ocr_fragment_noise": ocr_fragment_noise,
+        "source": source,
     })

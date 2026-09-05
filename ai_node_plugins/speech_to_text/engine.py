@@ -196,29 +196,85 @@ def _faster_whisper_transcribe(
         )
     )
 
-    segments = []
+    max_segments_value = options.get(
+        "max_segments"
+    )
+    max_audio_seconds_value = options.get(
+        "max_audio_seconds"
+    )
 
+    max_segments = (
+        int(max_segments_value)
+        if max_segments_value is not None
+        else None
+    )
+    max_audio_seconds = (
+        float(max_audio_seconds_value)
+        if max_audio_seconds_value is not None
+        else None
+    )
+
+    if (
+        max_segments is not None
+        and max_segments <= 0
+    ):
+        max_segments = None
+
+    if (
+        max_audio_seconds is not None
+        and max_audio_seconds <= 0
+    ):
+        max_audio_seconds = None
+
+    segments = []
     text_parts = []
+    truncated = False
+    truncation_reason = None
 
     for segment in segments_iter:
+        segment_start = float(
+            segment.start
+        )
+        segment_end = float(
+            segment.end
+        )
+
+        if (
+            max_audio_seconds is not None
+            and segment_start
+            >= max_audio_seconds
+        ):
+            truncated = True
+            truncation_reason = (
+                "max_audio_seconds"
+            )
+            break
+
         text = str(
             segment.text
         ).strip()
 
         segments.append(
             {
-                "start": float(
-                    segment.start
-                ),
-                "end": float(
-                    segment.end
-                ),
+                "start": segment_start,
+                "end": segment_end,
                 "text": text,
             }
         )
 
         if text:
             text_parts.append(text)
+
+        if (
+            max_segments is not None
+            and len(segments)
+            >= max_segments
+        ):
+            truncated = True
+            truncation_reason = (
+                "max_segments"
+            )
+            break
 
     detected_language = getattr(
         info,
@@ -247,4 +303,14 @@ def _faster_whisper_transcribe(
         "segments": segments,
         "execution": execution,
         "input": str(path),
+        "truncated": truncated,
+        "truncation_reason": (
+            truncation_reason
+        ),
+        "limits": {
+            "max_segments": max_segments,
+            "max_audio_seconds": (
+                max_audio_seconds
+            ),
+        },
     }

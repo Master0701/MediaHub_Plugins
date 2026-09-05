@@ -589,6 +589,12 @@ class MetadataAIReviewProvider:
             analysis = dict(
                 analyzer.analyze(
                     media_path,
+                    force=bool(
+                        item.get("_force_analysis")
+                    ),
+                    require_in_video=bool(
+                        item.get("_require_in_video")
+                    ),
                     identity_hint=identity_hint,
                 )
                 or {}

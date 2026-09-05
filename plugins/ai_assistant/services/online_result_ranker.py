@@ -42,8 +42,35 @@ class OnlineResultRanker:
                     try:
                         diff = abs(int(query_year)-int(match["year"])); year_score = 1 if diff==0 else .7 if diff==1 else .2 if diff<=3 else 0
                     except (TypeError, ValueError): pass
-                candidate_type = str(match.get("media_type") or match.get("type") or "").lower()
-                type_score = .5 if not query_type or not candidate_type else (1 if query_type == candidate_type else 0)
+                candidate_type = str(
+                    match.get("media_type")
+                    or match.get("type")
+                    or ""
+                ).strip().lower()
+
+                known_media_types = {
+                    "movie",
+                    "series",
+                }
+
+                query_type_known = (
+                    query_type
+                    in known_media_types
+                )
+                candidate_type_known = (
+                    candidate_type
+                    in known_media_types
+                )
+
+                if (
+                    not query_type_known
+                    or not candidate_type_known
+                ):
+                    type_score = 0.5
+                elif query_type == candidate_type:
+                    type_score = 1.0
+                else:
+                    type_score = 0.0
                 season_episode = _number_score(query.get("season"), match.get("season"))*.45 + _number_score(query.get("episodes"), match.get("episodes") or match.get("episode"))*.55
                 runtime_score = .5
                 if query.get("duration_seconds") and match.get("duration_seconds"):
@@ -56,7 +83,15 @@ class OnlineResultRanker:
                 penalties = []
                 if weak_single: score *= .42; penalties.append("weak_single_word_variant")
                 if title_score < .55: score *= .35; penalties.append("low_title_similarity")
-                if query_type and candidate_type and query_type != candidate_type: score *= .45; penalties.append("media_type_conflict")
+                if (
+                    query_type_known
+                    and candidate_type_known
+                    and query_type != candidate_type
+                ):
+                    score *= .45
+                    penalties.append(
+                        "media_type_conflict"
+                    )
                 if evidence < 2 and not exact_alias: score *= .55; penalties.append("insufficient_combined_evidence")
                 score = min(max(score,0),1)
                 ranked.append({**match, "provider_id": provider.get("provider_id"), "provider_name": provider.get("provider_name"), "score": round(score,4), "score_percent": round(score*100,1), "evidence_count": evidence, "penalties": penalties, "score_details": {"title":round(title_score,4),"variant":round(variant_weight,4),"year":round(year_score,4),"media_type":round(type_score,4),"season_episode":round(season_episode,4),"runtime":round(runtime_score,4),"provider":round(provider_score,4),"exact_alias":exact_alias,"weights":dict(self.WEIGHTS)}})

@@ -6,7 +6,7 @@
     {
       "id": "mediahub.ai_assistant",
       "name": "MediaHub KI-Assistent",
-      "version": "7.0.8",
+      "version": "7.0.9",
       "status": "available",
       "category": "KI und Analyse",
       "visible": true,
@@ -16,8 +16,8 @@
       "minimum_mediahub_version": "1.0.17",
       "project_page": "https://github.com/Master0701/MediaHub_Plugins/tree/main/plugins/ai_assistant",
       "manual_install_message": "",
-      "release_asset": "MediaHub_KI-Assistent_v7.0.8.mhplugin",
-      "sha256_asset": "MediaHub_KI-Assistent_v7.0.8.mhplugin.sha256"
+      "release_asset": "MediaHub_KI-Assistent_v7.0.9.mhplugin",
+      "sha256_asset": "MediaHub_KI-Assistent_v7.0.9.mhplugin.sha256"
     },
     {
       "id": "mediahub.audio_metadata_editor",

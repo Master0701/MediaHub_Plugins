@@ -78,3 +78,16 @@ _smart_renamer_*_backup_*/
 
 # Lokale Smart-Renamer-Webruntime-Konfiguration
 /plugins/smart_renamer/config/plugins/mediahub_web_runtime.json
+
+tools/dev/acceptance_results/
+
+
+# Lokale KI-/Vision-Testmodelle
+/.vision-test-model/
+
+# Lokale Plugin-Laufzeitdaten
+/plugin_data/
+
+# Lokale Release-Precheck-Ausgaben
+/release_precheck_*.txt
+/release_assistant_safety_check.txt

@@ -55,5 +55,10 @@ def test_existing_persistent_file_wins_over_legacy(tmp_path):
 
 
 def test_source_manager_still_uses_plugin_path_constructor():
-    text = (ROOT / "services" / "source_manager.py").read_text(encoding="utf-8")
-    assert "ProviderCredentialStore(self.plugin_path)" in text
+    text = (
+        ROOT / "services" / "source_manager.py"
+    ).read_text(encoding="utf-8")
+
+    assert "ProviderCredentialStore(" in text
+    assert "self.plugin_path," in text
+    assert "data_base_dir=base_dir," in text

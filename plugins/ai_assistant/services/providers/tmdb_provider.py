@@ -162,9 +162,94 @@ class TmdbProvider(BaseProvider):
                 "language": item.get("original_language"),
                 "popularity": item.get("popularity"),
                 "provider_confidence": min(float(item.get("vote_average") or 0.0) / 10.0, 1.0),
-                "raw": {"id": item.get("id"), "poster_path": item.get("poster_path")},
+                "raw": {
+                    "id": item.get("id"),
+                    "poster_path": item.get("poster_path"),
+                    "backdrop_path": item.get("backdrop_path"),
+                },
             })
         return ProviderResult(self.id, self.name, "ok", matches, f"{len(matches)} TMDb-Treffer geladen.")
+
+    def get_images(
+        self,
+        media_type: str,
+        external_id: str | int,
+        *,
+        limit: int = 12,
+    ) -> list[dict[str, Any]]:
+        """Lädt geeignete TMDb-Backdrops für visuelle Verifikation."""
+
+        credential = self._credential()
+
+        if not self.enabled or credential is None:
+            return []
+
+        item_id = str(external_id or "").strip()
+
+        if not item_id:
+            return []
+
+        normalized_type = str(
+            media_type or ""
+        ).strip().casefold()
+
+        endpoint_type = (
+            "tv"
+            if normalized_type in {"series", "tv"}
+            else "movie"
+        )
+
+        params: dict[str, Any] = {
+            "include_image_language": "null,en,de",
+        }
+
+        headers: dict[str, str] = {}
+
+        if credential[0] == "bearer":
+            headers["Authorization"] = (
+                f"Bearer {credential[1]}"
+            )
+        else:
+            params["api_key"] = credential[1]
+
+        data = request_json(
+            f"{self.API_BASE}/{endpoint_type}/{item_id}/images",
+            params=params,
+            headers=headers,
+        )
+
+        rows = [
+            dict(item)
+            for item in (data.get("backdrops") or [])
+            if isinstance(item, dict)
+            and str(item.get("file_path") or "").strip()
+        ]
+
+        # Hochauflösende und von TMDb-Nutzern gut bewertete
+        # Backdrops bevorzugen. vote_count verhindert, dass eine
+        # einzelne hohe Bewertung automatisch alles überstimmt.
+        rows.sort(
+            key=lambda item: (
+                int(item.get("vote_count") or 0),
+                float(item.get("vote_average") or 0.0),
+                int(item.get("width") or 0)
+                * int(item.get("height") or 0),
+            ),
+            reverse=True,
+        )
+
+        selected = rows[:max(1, int(limit))]
+
+        return [
+            {
+                **item,
+                "url": (
+                    "https://image.tmdb.org/t/p/w780"
+                    + str(item.get("file_path"))
+                ),
+            }
+            for item in selected
+        ]
 
     @staticmethod
     def _normalized_title(value: Any) -> str:
@@ -172,6 +257,314 @@ class TmdbProvider(BaseProvider):
             ch for ch in str(value or "").casefold()
             if ch.isalnum()
         )
+
+    def list_episode_candidates(
+        self,
+        query: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        """Load normalized episode candidates for one identified series."""
+
+        if not self.enabled:
+            return []
+
+        credential = self._credential()
+
+        if credential is None:
+            return []
+
+        title = str(
+            query.get("title")
+            or ""
+        ).strip()
+
+        if not title:
+            return []
+
+        search_result = self.search(
+            {
+                **dict(query or {}),
+                "title": title,
+                "media_type": "series",
+            }
+        )
+
+        if search_result.status not in {
+            "ok",
+            "success",
+        }:
+            return []
+
+        matches = list(
+            search_result.matches
+            or []
+        )
+
+        if not matches:
+            return []
+
+        wanted = self._normalized_title(
+            title
+        )
+
+        exact = [
+            item
+            for item in matches
+            if (
+                self._normalized_title(
+                    item.get("title")
+                )
+                == wanted
+                or self._normalized_title(
+                    item.get("original_title")
+                )
+                == wanted
+            )
+        ]
+
+        series = (
+            exact
+            or matches
+        )[0]
+
+        series_id = str(
+            series.get("external_id")
+            or ""
+        ).strip()
+
+        if not series_id:
+            return []
+
+        params: dict[str, Any] = {
+            "language": self.config.get(
+                "language",
+                "de-DE",
+            ),
+        }
+
+        headers: dict[str, str] = {}
+
+        if credential[0] == "bearer":
+            headers["Authorization"] = (
+                f"Bearer {credential[1]}"
+            )
+        else:
+            params["api_key"] = credential[1]
+
+        requested_season = query.get(
+            "season"
+        )
+
+        season_numbers: list[int] = []
+
+        if requested_season not in (
+            None,
+            "",
+        ):
+            try:
+                season_numbers = [
+                    int(requested_season)
+                ]
+            except (
+                TypeError,
+                ValueError,
+            ):
+                return []
+        else:
+            details = request_json(
+                f"{self.API_BASE}/tv/{series_id}",
+                params=params,
+                headers=headers,
+            )
+
+            for season_row in (
+                details.get("seasons")
+                or []
+            ):
+                if not isinstance(
+                    season_row,
+                    dict,
+                ):
+                    continue
+
+                try:
+                    season_number = int(
+                        season_row.get(
+                            "season_number"
+                        )
+                    )
+                except (
+                    TypeError,
+                    ValueError,
+                ):
+                    continue
+
+                # Staffel 0 enthält normalerweise
+                # Specials. Für die normale automatische
+                # Episodenidentifikation zunächst auslassen.
+                if (
+                    season_number == 0
+                    and not bool(
+                        query.get(
+                            "include_specials",
+                            False,
+                        )
+                    )
+                ):
+                    continue
+
+                season_numbers.append(
+                    season_number
+                )
+
+        max_candidates = int(
+            query.get(
+                "max_candidates",
+                1000,
+            )
+            or 1000
+        )
+
+        max_candidates = max(
+            1,
+            min(
+                max_candidates,
+                5000,
+            ),
+        )
+
+        candidates: list[
+            dict[str, Any]
+        ] = []
+
+        for season_number in sorted(
+            set(season_numbers)
+        ):
+            season_data = request_json(
+                (
+                    f"{self.API_BASE}/tv/"
+                    f"{series_id}/season/"
+                    f"{season_number}"
+                ),
+                params=params,
+                headers=headers,
+            )
+
+            for episode_row in (
+                season_data.get("episodes")
+                or []
+            ):
+                if not isinstance(
+                    episode_row,
+                    dict,
+                ):
+                    continue
+
+                try:
+                    episode_number = int(
+                        episode_row.get(
+                            "episode_number"
+                        )
+                    )
+                except (
+                    TypeError,
+                    ValueError,
+                ):
+                    continue
+
+                try:
+                    actual_season = int(
+                        episode_row.get(
+                            "season_number",
+                            season_number,
+                        )
+                    )
+                except (
+                    TypeError,
+                    ValueError,
+                ):
+                    actual_season = (
+                        season_number
+                    )
+
+                episode_title = str(
+                    episode_row.get("name")
+                    or ""
+                ).strip()
+
+                overview = str(
+                    episode_row.get(
+                        "overview"
+                    )
+                    or ""
+                ).strip()
+
+                air_date = str(
+                    episode_row.get(
+                        "air_date"
+                    )
+                    or ""
+                ).strip()
+
+                candidates.append(
+                    {
+                        "provider": (
+                            self.provider_type
+                        ),
+                        "provider_name": (
+                            self.name
+                        ),
+                        "series_title": str(
+                            series.get("title")
+                            or title
+                        ),
+                        "series_original_title":
+                            str(
+                                series.get(
+                                    "original_title"
+                                )
+                                or ""
+                            ),
+                        "series_external_id":
+                            series_id,
+                        "episode_external_id":
+                            str(
+                                episode_row.get(
+                                    "id"
+                                )
+                                or ""
+                            ),
+                        "season": (
+                            actual_season
+                        ),
+                        "episode": (
+                            episode_number
+                        ),
+                        "episode_title": (
+                            episode_title
+                        ),
+                        "overview": overview,
+                        "air_date": air_date,
+                        "vote_average": (
+                            episode_row.get(
+                                "vote_average"
+                            )
+                        ),
+                        "language": (
+                            self.config.get(
+                                "language",
+                                "de-DE",
+                            )
+                        ),
+                    }
+                )
+
+                if (
+                    len(candidates)
+                    >= max_candidates
+                ):
+                    return candidates
+
+        return candidates
 
     def resolve_episode(self, query: dict[str, Any]) -> dict[str, Any]:
         """Resolve one concrete series episode using the existing TMDb provider."""

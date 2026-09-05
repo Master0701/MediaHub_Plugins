@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from services.agent_costs import AgentCostModel
+from services.decision_engine import DecisionEngine
 
 
 class SupervisorAgent:
@@ -14,6 +15,7 @@ class SupervisorAgent:
 
     def __init__(self):
         self.costs = AgentCostModel()
+        self.decision_engine = DecisionEngine()
 
     def evaluate(self, analysis: dict[str, Any]) -> dict[str, Any]:
         identification = analysis.get("identification") or {}
@@ -22,10 +24,34 @@ class SupervisorAgent:
         external_lookup = bool(identification.get("requires_external_lookup", False))
         online = analysis.get("online") or {}
         ranking = online.get("ranking") or {}
-        online_confidence = float(ranking.get("confidence") or 0.0)
-        ranking_decision = str(ranking.get("decision") or "").strip().lower()
-        online_identity_confirmed = ranking_decision in {"probable_match", "strong_match"}
-        effective_online_confidence = online_confidence if online_identity_confirmed else 0.0
+        online_confidence = float(
+            ranking.get("confidence") or 0.0
+        )
+        ranking_decision = str(
+            ranking.get("decision") or ""
+        ).strip().lower()
+
+        online_identity = (
+            self.decision_engine.evaluate_online_identity(
+                analysis
+            )
+        )
+
+        online_identity_confirmed = bool(
+            online_identity.get("supported")
+        )
+
+        effective_online_confidence = (
+            float(
+                online_identity.get(
+                    "candidate_confidence",
+                    online_confidence,
+                )
+                or 0.0
+            )
+            if online_identity_confirmed
+            else 0.0
+        )
         decision = analysis.get("decision") or {}
         decision_confidence = float(decision.get("confidence") or 0.0)
         combined_confidence = max(local_confidence, effective_online_confidence, decision_confidence)
@@ -51,8 +77,33 @@ class SupervisorAgent:
                 ),
             }))
 
-        required_by_score = unusable_name or max(local_confidence, effective_online_confidence) < self.IN_VIDEO_THRESHOLD
-        if online.get("executed") and ranking.get("decision") in {"no_match", "ambiguous"}:
+        # Ein starkes Online-Ranking allein darf eine unsichere lokale
+        # Identität nicht als ausreichend behandeln. Gerade bei kryptischen
+        # Release-Namen kann ein Provider einen plausiblen, aber falschen
+        # Treffer hoch bewerten.
+        #
+        # In-Video wird deshalb weiterhin verlangt, wenn die lokale
+        # Identität unterhalb der Tiefenanalyse-Schwelle liegt und die
+        # Online-Identität noch nicht durch genügend unabhängige Belege
+        # abgesichert ist.
+        online_sufficiently_supported = (
+            online_identity_confirmed
+            and effective_online_confidence
+            >= self.IN_VIDEO_THRESHOLD
+        )
+
+        required_by_score = (
+            unusable_name
+            or (
+                local_confidence < self.IN_VIDEO_THRESHOLD
+                and not online_sufficiently_supported
+            )
+        )
+
+        if (
+            online.get("executed")
+            and ranking.get("decision") in {"no_match", "ambiguous"}
+        ):
             required_by_score = True
 
         if in_video_completed:

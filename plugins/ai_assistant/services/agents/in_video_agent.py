@@ -8,23 +8,28 @@ from services.agents.fingerprint_agent import FingerprintAgent
 from services.agents.frame_agent import FrameAgent
 from services.agents.ocr_agent import OCRAgent
 from services.agents.scene_agent import SceneAgent
+from services.agents.speech_recognition_agent import SpeechRecognitionAgent
 from services.agents.subtitle_agent import SubtitleAgent
 from services.visual_intelligence import VisualIntelligenceEngine
 
 
 class InVideoAgent:
     """Führt eine begrenzte, echte Inhaltsanalyse mit zentral verwalteten Werkzeugen aus."""
-    def __init__(self, tools=None):
+    def __init__(
+        self,
+        tools=None,
+        worker_provider=None,
+    ):
         self.tools=tools
-        self.frame=FrameAgent(); self.subtitle=SubtitleAgent(); self.audio=AudioAgent(); self.ocr=OCRAgent(); self.fingerprint=FingerprintAgent(); self.scene=SceneAgent(); self.visual=VisualIntelligenceEngine()
+        self.frame=FrameAgent(); self.subtitle=SubtitleAgent(); self.audio=AudioAgent(); self.speech=SpeechRecognitionAgent(worker_provider=worker_provider); self.ocr=OCRAgent(); self.fingerprint=FingerprintAgent(); self.scene=SceneAgent(); self.visual=VisualIntelligenceEngine()
 
     def capabilities(self)->dict[str,Any]:
         return {"schema_version":3,"implemented":True,"implementation_level":"bounded_real_analysis","agents":[
             {"id":"frame","state":"active","purpose":"Reale Frame-Messwerte"},{"id":"subtitle","state":"active","purpose":"Textbeweise aus Untertiteln"},
-            {"id":"ocr","state":"active_if_tesseract","purpose":"Titelkarten und Einblendungen"},{"id":"audio","state":"active","purpose":"Lautheit, Dynamik und Clipping"},
+            {"id":"ocr","state":"active_if_tesseract","purpose":"Titelkarten und Einblendungen"},{"id":"audio","state":"active","purpose":"Lautheit, Dynamik und Clipping"},{"id":"speech_recognition","state":"active_if_provider_available","purpose":"Sprachbasierte Identitätsevidenz"},
             {"id":"fingerprint","state":"active","purpose":"Reproduzierbarer Bildfingerprint"},{"id":"scene","state":"active","purpose":"Szenenwechsel-Stichprobe"},
             {"id":"quality","state":"active","purpose":"Technische und gemessene Bild-/Tonqualität"},{"id":"smart_frame_selection","state":"active","purpose":"Gezielte Auswahl scharfer Intro-, Handlungs- und Abspannbilder"},{"id":"visual_fingerprint","state":"active","purpose":"Toleranter Mehrbild-Fingerprint für lokale Inhaltsvergleiche"},{"id":"scene_signature","state":"active","purpose":"Normalisierte Szenenrhythmus-Signatur mit Intro-, Inhalt- und Outro-Verteilung"},{"id":"ocr_logo_fusion","state":"active","purpose":"Gemeinsame Bewertung von OCR-Text, Framequalität und Titelkartenposition"},{"id":"character_preparation","state":"active","purpose":"Anonyme Gruppierung wiederkehrender Zentralmotive ohne Gesichtserkennung oder Namenszuordnung"},{"id":"intro_outro_detection","state":"active","purpose":"Lokale multimodale Erkennung wahrscheinlicher Vorspann- und Abspannbereiche"},{"id":"visual_knowledge","state":"active_after_confirmation","purpose":"Bestätigte visuelle Signaturen dauerhaft mit Medienidentitäten verknüpfen"},{"id":"online_visual_provider","state":"disabled_by_default","purpose":"Optionale Suche mit ausdrücklich freigegebenen Einzelbildern; niemals komplettes Video"},{"id":"visual_pipeline_validation","state":"active","purpose":"Automatische Konsistenz-, Datenschutz- und Integrationsprüfung der vollständigen Visual-Pipeline"}],
-            "shared_analysis":["ffprobe","mediainfo","frame_metrics","audio_metrics","subtitles","ocr","fingerprints"],
+            "shared_analysis":["ffprobe","mediainfo","frame_metrics","audio_metrics","speech_transcript","subtitles","ocr","fingerprints"],
             "edition_targets":["Uncut","Extended","Director's Cut","Theatrical Cut","Remastered"]}
 
     @staticmethod
@@ -101,6 +106,7 @@ class InVideoAgent:
         results={"frame_agent":self.frame.run(path,ffmpeg,pts),
                  "subtitle_agent":self.subtitle.run(path,ffmpeg,int(summary.get("subtitle_tracks") or 0)),
                  "audio_agent":self.audio.run(path,ffmpeg,duration),
+                 "speech_recognition_agent":self.speech.run(path,ffmpeg,duration),
                  "ocr_agent":self.ocr.run(path,ffmpeg,tess,pts),
                  "fingerprint_agent":self.fingerprint.run(path,ffmpeg,duration),
                  "scene_agent":self.scene.run(path,ffmpeg,duration)}

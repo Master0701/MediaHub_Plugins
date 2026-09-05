@@ -65,6 +65,13 @@ def _subprocess_environment(
 
     environment = os.environ.copy()
 
+    # Der isolierte Speech-Prozess muss auf Windows
+    # unabhängig von der System-Codepage UTF-8 für
+    # stdout/stderr verwenden. Die Bridge dekodiert
+    # die JSON-Antwort ebenfalls ausdrücklich als UTF-8.
+    environment["PYTHONIOENCODING"] = "utf-8"
+    environment["PYTHONUTF8"] = "1"
+
     backend = str(
         execution.get(
             "backend",

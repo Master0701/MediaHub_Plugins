@@ -168,7 +168,7 @@ class WebFileDialogBridge(QObject):
 
 
 class MediaHubAIAssistantPlugin:
-    VERSION = "7.0.5"
+    VERSION = "7.0.9"
 
     def __init__(self, plugin_path: str | Path, mediahub_api: Any = None, **kwargs: Any):
         self.plugin_path = Path(plugin_path)
@@ -199,10 +199,25 @@ class MediaHubAIAssistantPlugin:
         self.agent_manager = AgentManager(
             self.capability_manager,
         )
+        speech_worker_provider = None
+
+        if self.mediahub_api is not None:
+            resolver = getattr(
+                self.mediahub_api,
+                "resolve_capability",
+                None,
+            )
+
+            if callable(resolver):
+                speech_worker_provider = resolver(
+                    "speech_to_text"
+                )
+
         self.media_analyzer = MediaAnalyzer(
             self.base_dir,
             self.knowledge_db_path,
             self.plugin_path,
+            worker_provider=speech_worker_provider,
         )
         self.metadata_review_provider = MetadataAIReviewProvider(
             self.batch_rename_review_provider,

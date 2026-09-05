@@ -1,7 +1,7 @@
 {
   "id": "mediahub.speech_to_text",
   "name": "MediaHub Speech-to-Text",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "worker",
   "entrypoint": "plugin:MediaHubSpeechToTextPlugin",
   "api_version": "1",

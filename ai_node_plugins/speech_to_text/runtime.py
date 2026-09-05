@@ -47,6 +47,68 @@ def _load_python_runtime_provider():
     return module
 
 
+def _load_python_provisioner():
+    provider_file = (
+        Path(__file__).resolve().parent
+        / "python_provisioner.py"
+    )
+
+    spec = importlib.util.spec_from_file_location(
+        "mediahub_speech_python_provisioner",
+        provider_file,
+    )
+
+    if (
+        spec is None
+        or spec.loader is None
+    ):
+        raise RuntimeError(
+            "Speech Python-Provisioner "
+            "konnte nicht geladen werden."
+        )
+
+    module = importlib.util.module_from_spec(
+        spec
+    )
+
+    spec.loader.exec_module(
+        module
+    )
+
+    return module
+
+
+def _load_pip_bootstrap():
+    provider_file = (
+        Path(__file__).resolve().parent
+        / "pip_bootstrap.py"
+    )
+
+    spec = importlib.util.spec_from_file_location(
+        "mediahub_speech_pip_bootstrap",
+        provider_file,
+    )
+
+    if (
+        spec is None
+        or spec.loader is None
+    ):
+        raise RuntimeError(
+            "Speech pip-Bootstrap "
+            "konnte nicht geladen werden."
+        )
+
+    module = importlib.util.module_from_spec(
+        spec
+    )
+
+    spec.loader.exec_module(
+        module
+    )
+
+    return module
+
+
 def runtime_base_python() -> Path:
     provider = (
         _load_python_runtime_provider()
@@ -65,6 +127,7 @@ def default_runtime_root() -> Path:
     if override:
         return (
             Path(override)
+            / "plugin_runtimes"
             / RUNTIME_NAME
         )
 
@@ -175,7 +238,12 @@ def inspect_runtime(
 ) -> dict[str, Any]:
     paths = runtime_paths(root)
 
-    python_path = venv_python(root)
+    try:
+        python_path = venv_python(root)
+        runtime_error = None
+    except Exception as exc:  # noqa: BLE001
+        python_path = _venv_python_path(root)
+        runtime_error = str(exc)
 
     result = {
         "runtime": RUNTIME_NAME,
@@ -189,6 +257,7 @@ def inspect_runtime(
         "python": str(python_path),
         "packages": {},
         "ready": False,
+        "error": runtime_error,
     }
 
     if not python_path.is_file():
@@ -239,7 +308,14 @@ def create_runtime(
         exist_ok=True,
     )
 
-    base_python = runtime_base_python()
+    try:
+        base_python = runtime_base_python()
+    except RuntimeError:
+        provisioner = _load_python_provisioner()
+        provisioned = provisioner.provision_private_python()
+        base_python = Path(
+            provisioned["python"]
+        )
 
     if not base_python.is_file():
         raise RuntimeError(
@@ -308,11 +384,36 @@ def create_runtime(
 def install_dependencies(
     root: Path | None = None,
 ) -> dict[str, Any]:
+    paths = runtime_paths(root)
     status = create_runtime(root)
 
     python_path = Path(
         status["python"]
     )
+
+    pip_bootstrap = _load_pip_bootstrap()
+    pip_status = pip_bootstrap.inspect_pip(
+        python_path
+    )
+
+    if not pip_status.get("pip"):
+        bootstrap_file = (
+            paths["root"]
+            / "get-pip.py"
+        )
+
+        pip_bootstrap.download_get_pip(
+            bootstrap_file
+        )
+
+        try:
+            pip_bootstrap.bootstrap_pip(
+                python_path,
+                bootstrap_file,
+            )
+        finally:
+            if bootstrap_file.exists():
+                bootstrap_file.unlink()
 
     subprocess.run(
         [

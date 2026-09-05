@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from services.episode_identity_resolver import EpisodeIdentityResolver
+
 import json
 import subprocess
 from pathlib import Path
@@ -12,6 +14,7 @@ from services.decision_planner import DecisionPlanner
 from services.filename_identifier import FilenameIdentifier
 from services.fingerprint_store import FingerprintReferenceStore
 from services.integration_api import AssistantIntegrationAPI
+from services.online_visual_reference import OnlineVisualReferenceMatcher
 from services.semantic_identity import (
     IdentityCandidateBuilder,
     IdentityEvidenceCollector,
@@ -38,13 +41,25 @@ class MediaAnalyzer:
         mediahub_base: Path,
         knowledge_database_path: Path | None = None,
         plugin_path: Path | None = None,
+        worker_provider: Any = None,
     ):
         self.tools = ToolResolver(mediahub_base, plugin_path)
         self.filename_identifier = FilenameIdentifier()
         self.decision_planner = DecisionPlanner()
-        self.source_manager = SourceManager(plugin_path, knowledge_database_path) if plugin_path is not None else None
+        self.source_manager = (
+            SourceManager(
+                plugin_path,
+                knowledge_database_path,
+                data_base_dir=mediahub_base,
+            )
+            if plugin_path is not None
+            else None
+        )
         self.supervisor = SupervisorAgent()
-        self.in_video_agent = InVideoAgent(self.tools)
+        self.in_video_agent = InVideoAgent(
+            self.tools,
+            worker_provider=worker_provider,
+        )
         self.quality_engine = QualityEngine(QualityProfileStore(knowledge_database_path))
         self.fingerprint_store = FingerprintReferenceStore(knowledge_database_path)
         self.decision_engine = DecisionEngine(self.fingerprint_store)
@@ -55,6 +70,7 @@ class MediaAnalyzer:
         self.identity_decision_explainer = IdentityDecisionExplainer()
         self.semantic_identity_engine = SemanticIdentityEngine()
         self.online_agent = OnlineAgent(self.source_manager) if self.source_manager is not None else None
+        self.online_visual_matcher = OnlineVisualReferenceMatcher()
         self.cache = (
             AnalysisCache(knowledge_database_path)
             if knowledge_database_path is not None
@@ -181,6 +197,64 @@ class MediaAnalyzer:
             in_video_required,
         )
         self._append_in_video_evidence(result)
+
+        speech_identity = (
+            result.get("speech_identity_evidence")
+            or {}
+        )
+
+        if (
+            self.source_manager is not None
+            and speech_identity.get("identity_terms")
+        ):
+            previous_plan = result.get("source_plan") or {}
+            previous_query = previous_plan.get("query") or {}
+
+            refreshed_plan = self.source_manager.plan(
+                result
+            )
+
+            refreshed_query = (
+                refreshed_plan.get("query")
+                or {}
+            )
+
+            result["source_plan"] = refreshed_plan
+
+            query_changed = (
+                refreshed_query != previous_query
+            )
+
+            has_refreshed_sources = bool(
+                refreshed_plan.get(
+                    "candidate_sources"
+                )
+            )
+
+            has_search_variants = bool(
+                refreshed_query.get(
+                    "search_variants"
+                )
+            )
+
+            should_retry_online = (
+                query_changed
+                and has_refreshed_sources
+                and has_search_variants
+                and self.online_agent is not None
+            )
+
+            if should_retry_online:
+                result["online"] = self.online_agent.run(
+                    result
+                )
+                result["source_plan"]["executed"] = True
+                result["source_plan"]["reason"] = (
+                    "Online-Abgleich wurde nach neuer "
+                    "In-Video-/Speech-Evidenz erneut ausgeführt."
+                )
+
+        self._apply_online_visual_verification(result)
         result["quality"] = self.quality_engine.evaluate(result)
         semantic_candidates = self.identity_candidate_builder.build(result)
         semantic_evidence = self.identity_evidence_collector.collect(
@@ -203,6 +277,26 @@ class MediaAnalyzer:
             semantic_explanation,
             result,
         )
+
+        if self.source_manager is not None:
+            result["episode_identity"] = (
+                EpisodeIdentityResolver(
+                    self.source_manager
+                ).resolve(
+                    result
+                )
+            )
+        else:
+            result["episode_identity"] = {
+                "schema_version": 1,
+                "status": "unavailable",
+                "reason": (
+                    "Keine Quellenverwaltung für "
+                    "Episodenidentifikation verfügbar."
+                ),
+                "decision_authority": False,
+            }
+
         result["decision"] = self.decision_engine.evaluate(result)
         result["supervisor"] = self.supervisor.evaluate(result)
         result["change_plan"] = self.decision_planner.build(result)
@@ -210,6 +304,278 @@ class MediaAnalyzer:
         if self.cache is not None:
             self.cache.put(path, result)
         return result
+
+
+    def _apply_online_visual_verification(
+        self,
+        result: dict[str, Any],
+    ) -> None:
+        """Verifiziert den besten Online-Kandidaten mit TMDb-Bildevidenz."""
+
+        online = result.get("online") or {}
+        ranking = online.get("ranking") or {}
+        best = ranking.get("best_match")
+
+        if not isinstance(best, dict):
+            return
+
+        selected_frames = (
+            (result.get("in_video") or {})
+            .get("agents", {})
+            .get("frame_agent", {})
+            .get("samples", [])
+        )
+
+        if not selected_frames:
+            return
+
+        # Der beste Gesamttreffer kann z. B. von Wikipedia stammen.
+        # Für visuelle Evidenz suchen wir deshalb separat den
+        # inhaltlich passenden TMDb-Treffer.
+        target_title = str(
+            best.get("title") or ""
+        ).strip().casefold()
+
+        target_variant = str(
+            best.get("search_variant") or ""
+        ).strip().casefold()
+
+        tmdb_candidates = []
+
+        for provider in online.get("provider_results") or []:
+            if str(
+                provider.get("provider_id") or ""
+            ).casefold() != "tmdb":
+                continue
+
+            for match in provider.get("matches") or []:
+                if isinstance(match, dict):
+                    tmdb_candidates.append(match)
+
+        if not tmdb_candidates:
+            return
+
+        def normalized_title(value: Any) -> str:
+            return (
+                str(value or "")
+                .strip()
+                .casefold()
+                .replace(":", "")
+                .replace("–", "-")
+                .replace("—", "-")
+            )
+
+        target_titles = {
+            normalized_title(target_title),
+            normalized_title(target_variant),
+        }
+
+        target_titles.discard("")
+
+        tmdb_match = None
+
+        # 1. Exakter Titel-/Variantenabgleich.
+        for candidate in tmdb_candidates:
+            candidate_titles = {
+                normalized_title(candidate.get("title")),
+                normalized_title(
+                    candidate.get("original_title")
+                ),
+            }
+
+            candidate_titles.discard("")
+
+            if target_titles & candidate_titles:
+                tmdb_match = candidate
+                break
+
+        # 2. Fallback: deutliche Titelüberschneidung.
+        if tmdb_match is None:
+            best_overlap = 0.0
+
+            for candidate in tmdb_candidates:
+                candidate_title = normalized_title(
+                    candidate.get("title")
+                )
+
+                if not candidate_title:
+                    continue
+
+                target_words = set(
+                    normalized_title(
+                        best.get("title")
+                    ).split()
+                )
+
+                candidate_words = set(
+                    candidate_title.split()
+                )
+
+                if not target_words or not candidate_words:
+                    continue
+
+                overlap = (
+                    len(target_words & candidate_words)
+                    / len(target_words | candidate_words)
+                )
+
+                if overlap > best_overlap:
+                    best_overlap = overlap
+                    tmdb_match = candidate
+
+            if best_overlap < 0.50:
+                tmdb_match = None
+
+        if tmdb_match is None:
+            return
+
+        raw = tmdb_match.get("raw") or {}
+
+        if not isinstance(raw, dict):
+            return
+
+        candidate_id = (
+            tmdb_match.get("external_id")
+            or raw.get("id")
+        )
+
+        if not candidate_id:
+            return
+
+        ffmpeg = self.tools.find("ffmpeg")
+
+        if not ffmpeg:
+            result.setdefault("warnings", []).append(
+                "Online-Bildvergleich übersprungen: "
+                "ffmpeg wurde nicht gefunden."
+            )
+            return
+
+        # Bevorzugt mehrere echte Szenenbilder von TMDb.
+        # Falls das nicht möglich ist, bleibt die bisherige
+        # Poster-/Backdrop-Einzelreferenz als Fallback erhalten.
+        references = []
+
+        tmdb_provider = (
+            self.source_manager.get_provider("tmdb")
+            if self.source_manager is not None
+            else None
+        )
+
+        if tmdb_provider is not None:
+            try:
+                media_type = (
+                    tmdb_match.get("media_type")
+                    or best.get("media_type")
+                    or (
+                        result.get("identification")
+                        or {}
+                    ).get("media_type")
+                    or "movie"
+                )
+
+                references = tmdb_provider.get_images(
+                    media_type,
+                    candidate_id,
+                    limit=12,
+                )
+
+            except Exception as exc:
+                result.setdefault("warnings", []).append(
+                    "TMDb-Backdrop-Abfrage fehlgeschlagen: "
+                    f"{exc}"
+                )
+
+        try:
+            if references:
+                visual = (
+                    self.online_visual_matcher
+                    .compare_references_to_frames(
+                        references,
+                        selected_frames,
+                        ffmpeg,
+                    )
+                )
+
+                visual["reference_mode"] = (
+                    "tmdb_multi_backdrop"
+                )
+
+            else:
+                reference_url = (
+                    self.online_visual_matcher
+                    .tmdb_reference_url(raw)
+                )
+
+                if not reference_url:
+                    return
+
+                image_bytes = (
+                    self.online_visual_matcher
+                    .download_reference(
+                        reference_url
+                    )
+                )
+
+                reference_hashes = (
+                    self.online_visual_matcher
+                    .reference_hashes(
+                        image_bytes,
+                        ffmpeg,
+                    )
+                )
+
+                if not reference_hashes:
+                    return
+
+                visual = (
+                    self.online_visual_matcher
+                    .compare_reference_to_frames(
+                        reference_hashes,
+                        selected_frames,
+                    )
+                )
+
+                visual["reference_url"] = (
+                    reference_url
+                )
+                visual["reference_mode"] = (
+                    "single_reference_fallback"
+                )
+
+        except Exception as exc:
+            result.setdefault("warnings", []).append(
+                f"Online-Bildvergleich fehlgeschlagen: {exc}"
+            )
+            return
+
+        if not visual.get("executed", True):
+            result.setdefault("warnings", []).append(
+                "Online-Bildvergleich lieferte keine "
+                "auswertbare Referenz."
+            )
+            return
+
+        visual["provider_id"] = "tmdb"
+        visual["candidate_id"] = (
+            tmdb_match.get("external_id")
+            or raw.get("id")
+        )
+        visual["candidate_title"] = (
+            tmdb_match.get("title")
+        )
+        visual["ranking_best_title"] = (
+            best.get("title")
+        )
+        visual["ranking_best_provider"] = (
+            best.get("provider_id")
+        )
+
+        best["visual_verification"] = visual
+        ranking["visual_verification"] = visual
+
+        online["ranking"] = ranking
+        result["online"] = online
 
 
     def _refresh_cached_reasoning(
@@ -429,18 +795,126 @@ class MediaAnalyzer:
 
 
     @staticmethod
-    def _append_in_video_evidence(result: dict[str, Any]) -> None:
-        agents = ((result.get("in_video") or {}).get("agents") or {})
-        labels = {"frame_agent":"Frames", "subtitle_agent":"Untertitel", "audio_agent":"Audio", "ocr_agent":"OCR", "fingerprint_agent":"Fingerprint", "scene_agent":"Szenen"}
+    def _append_in_video_evidence(
+        result: dict[str, Any],
+    ) -> None:
+        agents = (
+            (result.get("in_video") or {})
+            .get("agents")
+            or {}
+        )
+
+        labels = {
+            "frame_agent": "Frames",
+            "subtitle_agent": "Untertitel",
+            "audio_agent": "Audio",
+            "speech_recognition_agent": "Spracherkennung",
+            "ocr_agent": "OCR",
+            "fingerprint_agent": "Fingerprint",
+            "scene_agent": "Szenen",
+        }
+
         for key, label in labels.items():
             data = agents.get(key) or {}
             state = data.get("state")
+
             if state == "completed":
-                result.setdefault("evidence", []).append({"source": label, "status": "Bestätigt", "detail": "Inhaltsanalyse erfolgreich ausgeführt"})
-                method = key.removesuffix("_agent")
-                if method not in result.setdefault("methods_used", []): result["methods_used"].append(method)
-            elif state in {"unavailable", "failed", "unsupported"}:
-                result.setdefault("warnings", []).append(f"{label}: {data.get('reason') or state}")
+                result.setdefault(
+                    "evidence",
+                    [],
+                ).append(
+                    {
+                        "source": label,
+                        "status": "Bestätigt",
+                        "detail": (
+                            "Inhaltsanalyse erfolgreich "
+                            "ausgeführt"
+                        ),
+                    }
+                )
+
+                method = key.removesuffix(
+                    "_agent"
+                )
+
+                if method not in result.setdefault(
+                    "methods_used",
+                    [],
+                ):
+                    result["methods_used"].append(
+                        method
+                    )
+
+            elif state in {
+                "unavailable",
+                "failed",
+                "unsupported",
+            }:
+                result.setdefault(
+                    "warnings",
+                    [],
+                ).append(
+                    f"{label}: "
+                    f"{data.get('reason') or state}"
+                )
+
+        speech = (
+            agents.get(
+                "speech_recognition_agent"
+            )
+            or {}
+        )
+
+        if speech.get("state") == "completed":
+            identity_terms = [
+                str(value).strip()
+                for value in (
+                    speech.get(
+                        "identity_terms"
+                    )
+                    or []
+                )
+                if str(value).strip()
+            ]
+
+            transcript = str(
+                speech.get("transcript")
+                or ""
+            ).strip()
+
+            result[
+                "speech_identity_evidence"
+            ] = {
+                "schema_version": 1,
+                "source": "speech_recognition",
+                "provider": speech.get(
+                    "provider"
+                ),
+                "model": speech.get("model"),
+                "identity_terms": identity_terms,
+                "transcript": transcript,
+                "decision_authority": False,
+            }
+
+            if identity_terms:
+                result.setdefault(
+                    "evidence",
+                    [],
+                ).append(
+                    {
+                        "source": "Spracherkennung",
+                        "status": "Identitätshinweis",
+                        "detail": (
+                            "Im gesprochenen Inhalt "
+                            "wurden mögliche "
+                            "Identitätshinweise erkannt: "
+                            + ", ".join(
+                                identity_terms[:10]
+                            )
+                        ),
+                    }
+                )
+
 
     def register_fingerprint_reference(self, analysis: dict[str, Any]) -> dict[str, Any]:
         agents = ((analysis.get("in_video") or {}).get("agents") or {})

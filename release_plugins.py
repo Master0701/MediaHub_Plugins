@@ -177,7 +177,11 @@ def validate_repository_text_encoding() -> None:
         if not candidate.is_file():
             continue
 
-        if any(part in skip_dirs for part in candidate.parts):
+        if any(
+            part in skip_dirs
+            or part.endswith("-venv")
+            for part in candidate.parts
+        ):
             continue
 
         if candidate.suffix.lower() not in extensions:
@@ -1039,12 +1043,49 @@ def ensure_clean_before_publish() -> None:
 
 
 def update_tag(tag: str) -> None:
-    existing = git("tag", "--list", tag, capture=True)
-    if existing:
-        run("git", "tag", "-d", tag)
-        run("git", "push", "origin", f":refs/tags/{tag}")
-    run("git", "tag", "-a", tag, "-m", f"MediaHub Plugins {tag}")
-    run("git", "push", "origin", tag)
+    local_existing = git(
+        "tag",
+        "--list",
+        tag,
+        capture=True,
+    )
+
+    if local_existing:
+        raise RuntimeError(
+            f"Release-Tag {tag} existiert lokal bereits. "
+            "Bestehende Release-Tags werden niemals gelöscht, "
+            "verschoben oder neu erstellt."
+        )
+
+    remote_existing = git(
+        "ls-remote",
+        "--tags",
+        "origin",
+        f"refs/tags/{tag}",
+        capture=True,
+    )
+
+    if remote_existing:
+        raise RuntimeError(
+            f"Release-Tag {tag} existiert auf origin bereits. "
+            "Bestehende Release-Tags werden niemals gelöscht, "
+            "verschoben oder neu erstellt."
+        )
+
+    run(
+        "git",
+        "tag",
+        "-a",
+        tag,
+        "-m",
+        f"MediaHub Plugins {tag}",
+    )
+    run(
+        "git",
+        "push",
+        "origin",
+        tag,
+    )
 
 
 

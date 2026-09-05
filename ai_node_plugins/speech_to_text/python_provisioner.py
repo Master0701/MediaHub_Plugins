@@ -467,3 +467,54 @@ def inspect_private_python(
             executable.is_file()
         ),
     }
+
+def provision_private_python(
+    root: Path | None = None,
+) -> dict[str, Any]:
+    """Ensure that the managed private Python runtime exists."""
+    target_root = Path(
+        root or default_private_root()
+    )
+
+    current = inspect_private_python(
+        target_root
+    )
+
+    if current["installed"]:
+        return current
+
+    target_root.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    package_path = (
+        target_root.parent
+        / PYTHON_FILENAME
+    )
+
+    download_package(
+        package_path
+    )
+
+    try:
+        extract_package(
+            package_path,
+            target_root,
+            verify=True,
+        )
+    finally:
+        if package_path.exists():
+            package_path.unlink()
+
+    result = inspect_private_python(
+        target_root
+    )
+
+    if not result["installed"]:
+        raise PythonProvisionError(
+            "Private Python-Runtime wurde nicht korrekt installiert."
+        )
+
+    return result
+

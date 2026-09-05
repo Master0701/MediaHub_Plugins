@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 import sys
 
 PLUGIN_DIR = Path(__file__).resolve().parents[1]
@@ -78,4 +78,78 @@ def test_probable_online_match_can_confirm_identity():
     online = next(item for item in result["all_evidence"] if item["source"] == "online")
     assert online["supports"] is True
 
+def test_supervisor_requires_in_video_for_weak_local_identity_with_single_online_evidence():
+    from services.agents.supervisor_agent import SupervisorAgent
+
+    analysis = {
+        "identification": {
+            "title_candidate": "Pso-aqua2-ts-1080p",
+            "confidence": 0.23,
+            "requires_external_lookup": True,
+        },
+        "online": {
+            "executed": True,
+            "ranking": {
+                "decision": "probable_match",
+                "confidence": 0.84,
+                "best_match": {
+                    "title": "Aquaman and the Lost Kingdom",
+                    "score": 0.84,
+                    "evidence_count": 1,
+                },
+            },
+        },
+        "in_video": {
+            "state": "deferred",
+        },
+    }
+
+    result = SupervisorAgent().evaluate(analysis)
+
+    in_video_step = next(
+        step
+        for step in result["next_steps"]
+        if step["agent"] == "in_video"
+    )
+
+    assert in_video_step["required"] is True
+    assert in_video_step["state"] == "pending"
+
+
+def test_supervisor_can_defer_in_video_when_online_identity_has_multiple_evidence():
+    from services.agents.supervisor_agent import SupervisorAgent
+
+    analysis = {
+        "identification": {
+            "title_candidate": "Chappie",
+            "confidence": 0.40,
+            "requires_external_lookup": True,
+        },
+        "online": {
+            "executed": True,
+            "ranking": {
+                "decision": "strong_match",
+                "confidence": 0.82,
+                "best_match": {
+                    "title": "Chappie",
+                    "score": 0.82,
+                    "evidence_count": 3,
+                },
+            },
+        },
+        "in_video": {
+            "state": "deferred",
+        },
+    }
+
+    result = SupervisorAgent().evaluate(analysis)
+
+    in_video_step = next(
+        step
+        for step in result["next_steps"]
+        if step["agent"] == "in_video"
+    )
+
+    assert in_video_step["required"] is False
+    assert in_video_step["state"] == "deferred"
 

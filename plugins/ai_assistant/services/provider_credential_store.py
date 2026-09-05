@@ -14,11 +14,23 @@ class ProviderCredentialStore:
         "tvdb": ("MEDIAHUB_TVDB_API_KEY", "MEDIAHUB_TVDB_SUBSCRIBER_PIN"),
     }
 
-    def __init__(self, plugin_path: Path):
+    def __init__(
+        self,
+        plugin_path: Path,
+        data_base_dir: Path | None = None,
+    ):
         plugin_path = Path(plugin_path).resolve()
-        self.legacy_path = plugin_path / "config" / "provider_credentials.dat"
+        self.legacy_path = (
+            plugin_path
+            / "config"
+            / "provider_credentials.dat"
+        )
 
-        if plugin_path.parent.name.casefold() == "plugins":
+        if data_base_dir is not None:
+            base_dir = Path(
+                data_base_dir
+            ).resolve()
+        elif plugin_path.parent.name.casefold() == "plugins":
             base_dir = plugin_path.parent.parent
         else:
             plugins_parent = next(

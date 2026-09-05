@@ -27,11 +27,24 @@ from services.providers import (
 class SourceManager:
     """Lädt feste und frei definierbare Online-Quellen aus einer JSON-Datei."""
 
-    def __init__(self, plugin_path: Path, knowledge_database_path: Path | None = None):
+    def __init__(
+        self,
+        plugin_path: Path,
+        knowledge_database_path: Path | None = None,
+        data_base_dir: Path | None = None,
+    ):
         self.plugin_path = Path(plugin_path).resolve()
-        self.default_config_path = self.plugin_path / "config" / "sources.json"
+        self.default_config_path = (
+            self.plugin_path
+            / "config"
+            / "sources.json"
+        )
 
-        if self.plugin_path.parent.name.casefold() == "plugins":
+        if data_base_dir is not None:
+            base_dir = Path(
+                data_base_dir
+            ).resolve()
+        elif self.plugin_path.parent.name.casefold() == "plugins":
             base_dir = self.plugin_path.parent.parent
         else:
             plugins_parent = next(
@@ -56,7 +69,10 @@ class SourceManager:
         )
         self._ensure_persistent_config()
 
-        self.credential_store = ProviderCredentialStore(self.plugin_path)
+        self.credential_store = ProviderCredentialStore(
+            self.plugin_path,
+            data_base_dir=base_dir,
+        )
         self.credential_store.apply_to_environment()
         self.registry = self._build_registry()
         self.query_reasoner = SearchVariantReasoner(knowledge_database_path)
@@ -173,6 +189,23 @@ class SourceManager:
     def _read_config(self) -> dict[str, Any]:
         return self._load_json_file(self.config_path)
 
+
+    def get_provider(self, provider_id: str):
+        """Gibt eine bereits konfigurierte Provider-Instanz zurück."""
+        wanted = str(provider_id or "").strip().casefold()
+
+        for provider in self._providers:
+            identifiers = {
+                str(getattr(provider, "id", "") or "").strip().casefold(),
+                str(
+                    getattr(provider, "provider_type", "") or ""
+                ).strip().casefold(),
+            }
+
+            if wanted in identifiers:
+                return provider
+
+        return None
 
     def provider_config(self, provider_id: str) -> dict[str, Any] | None:
         data = self._read_config()
@@ -373,6 +406,79 @@ class SourceManager:
         }
         return results
 
+
+    def list_episode_candidates(
+        self,
+        query: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        """Load episode candidates from all capable configured providers."""
+
+        episode_query = {
+            **dict(query or {}),
+            "media_type": "series",
+        }
+
+        candidates: list[
+            dict[str, Any]
+        ] = []
+
+        for provider in self.eligible_providers(
+            episode_query
+        ):
+            loader = getattr(
+                provider,
+                "list_episode_candidates",
+                None,
+            )
+
+            if not callable(loader):
+                continue
+
+            try:
+                rows = loader(
+                    episode_query
+                )
+            except Exception:
+                # Ein einzelner Provider darf die
+                # Episodenidentifikation nicht vollständig
+                # blockieren. Fehlerbewertung folgt später
+                # in der Resolver-Evidence.
+                continue
+
+            if not isinstance(
+                rows,
+                list,
+            ):
+                continue
+
+            for row in rows:
+                if not isinstance(
+                    row,
+                    dict,
+                ):
+                    continue
+
+                item = dict(row)
+
+                item.setdefault(
+                    "provider",
+                    getattr(
+                        provider,
+                        "provider_type",
+                        provider.id,
+                    ),
+                )
+
+                item.setdefault(
+                    "provider_name",
+                    provider.name,
+                )
+
+                candidates.append(
+                    item
+                )
+
+        return candidates
 
     def resolve_episode_candidates(
         self,

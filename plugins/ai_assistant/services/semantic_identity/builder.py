@@ -234,11 +234,34 @@ class IdentityCandidateBuilder:
         lookup_terms = []
         if filename_title:
             lookup_terms.append(str(filename_title))
+
         lookup_terms.extend(
             str(item.get("text") or "")
             for item in (fusion.get("candidates") or [])[:5]
             if item.get("text")
         )
+
+        # Speech liefert ausschließlich Suchhinweise.
+        # Die Begriffe werden nicht direkt als bestätigte
+        # Medienidentitäten übernommen.
+        speech = (
+            analysis.get("speech_identity_evidence")
+            or {}
+        )
+
+        speech_terms = [
+            str(value).strip()
+            for value in (
+                speech.get("identity_terms")
+                or []
+            )
+            if str(value).strip()
+        ]
+
+        lookup_terms.extend(
+            speech_terms[:20]
+        )
+
         if self.knowledge is not None:
             seen = set()
             for term in lookup_terms:
@@ -256,10 +279,49 @@ class IdentityCandidateBuilder:
                         season=learned.get("season"), episode=learned.get("episode"), edition=learned.get("edition"),
                         external_ids=learned.get("external_ids") or {},
                         evidence=IdentityEvidence(
-                            source="learned_knowledge", value=term,
-                            confidence=float(learned.get("confidence") or 1.0),
-                            detail="Lokaler Treffer über bestätigten Titel oder Alias.",
-                            independent_group="knowledge", metadata={"identity_id": learned.get("id")},
+                            source=(
+                                "speech_knowledge"
+                                if term in speech_terms
+                                else "learned_knowledge"
+                            ),
+                            value=term,
+                            confidence=(
+                                min(
+                                    float(
+                                        learned.get(
+                                            "confidence"
+                                        )
+                                        or 1.0
+                                    ),
+                                    0.82,
+                                )
+                                if term in speech_terms
+                                else float(
+                                    learned.get(
+                                        "confidence"
+                                    )
+                                    or 1.0
+                                )
+                            ),
+                            detail=(
+                                "Lokaler Knowledge-Treffer über "
+                                "einen gesprochenen Identitätshinweis."
+                                if term in speech_terms
+                                else
+                                "Lokaler Treffer über bestätigten "
+                                "Titel oder Alias."
+                            ),
+                            independent_group=(
+                                "speech_knowledge"
+                                if term in speech_terms
+                                else "knowledge"
+                            ),
+                            metadata={
+                                "identity_id": learned.get("id"),
+                                "speech_triggered": (
+                                    term in speech_terms
+                                ),
+                            },
                         ),
                     )
 
@@ -278,7 +340,7 @@ class IdentityCandidateBuilder:
             "candidate_count": len(output),
             "candidates": output,
             "best_candidate": output[0] if output else None,
-            "sources_considered": ["filename", "online", "visual_ocr", "fingerprint", "visual_knowledge", "learned_knowledge"],
+            "sources_considered": ["filename", "online", "visual_ocr", "fingerprint", "visual_knowledge", "learned_knowledge", "speech_knowledge"],
             "limitations": [
                 "Die Evidence Bridge übernimmt nur identitätsgebundene Treffer; rohe Fingerprints oder beliebige Bildmerkmale erhöhen die Sicherheit nicht.",
                 "Audio- und objektbasierte Bildmodelle werden in späteren Semantic-Identity-Stufen ergänzt.",

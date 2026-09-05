@@ -1,0 +1,45 @@
+{
+  "schema_version": 2,
+  "media_root": "D:/eigenes program/test videos",
+  "mediahub_root": "D:/eigenes program/MediaHub",
+  "installed_plugin_path": "D:/eigenes program/MediaHub/plugins/mediahub.ai_assistant",
+  "cases": [
+    {
+      "name": "Chappie Kopie",
+      "file": "Chappie - Kopie.mp4",
+      "expected": {
+        "media_type": "movie",
+        "title": "Chappie",
+        "year": 2015,
+        "minimum_confidence": 0.6
+      }
+    },
+    {
+      "name": "Live Die Repeat Alias",
+      "file": "Live Die Repeat - Kopie.mkv",
+      "expected": {
+        "media_type": "movie",
+        "title": "Live Die Repeat",
+        "aliases": [
+          "Edge of Tomorrow"
+        ],
+        "year": 2014,
+        "minimum_confidence": 0.7
+      }
+    },
+    {
+      "name": "Edge of Tomorrow Release Name",
+      "file": "Edge.of.Tomorrow.2014.German.TS.AVC.MD-BST.mkv",
+      "expected": {
+        "media_type": "movie",
+        "title": "Edge of Tomorrow",
+        "aliases": [
+          "Live Die Repeat",
+          "Live Die Repeat: Edge of Tomorrow"
+        ],
+        "year": 2014,
+        "minimum_confidence": 0.65
+      }
+    }
+  ]
+}

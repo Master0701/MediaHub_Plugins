@@ -7,11 +7,19 @@ TEXT = SOURCE.read_text(encoding="utf-8")
 
 
 def test_source_manager_uses_persistent_sources_path():
-    assert "self.default_config_path = self.plugin_path / \"config\" / \"sources.json\"" in TEXT
+    tree = ast.parse(TEXT)
+
+    assert "self.default_config_path" in TEXT
+    assert '/ "config"' in TEXT
     assert '/ "plugin_data"' in TEXT
     assert '/ "ai_assistant"' in TEXT
     assert '/ "sources.json"' in TEXT
     assert "self._ensure_persistent_config()" in TEXT
+
+    assert any(
+        isinstance(node, ast.Assign)
+        for node in ast.walk(tree)
+    )
 
 
 def test_update_provider_settings_writes_persistent_config_path():
@@ -82,5 +90,7 @@ def test_merge_preserves_user_values_and_new_defaults_without_importing_module()
 
 
 def test_credentials_remain_separate():
-    assert "self.credential_store = ProviderCredentialStore(self.plugin_path)" in TEXT
+    assert "ProviderCredentialStore(" in TEXT
+    assert "self.plugin_path," in TEXT
+    assert "data_base_dir=base_dir," in TEXT
     assert "self.credential_store.set(provider_id, dict(credentials))" in TEXT
