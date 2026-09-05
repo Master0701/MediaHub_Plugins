@@ -1,4 +1,4 @@
-# MediaHub Plugins v0.5.14 – vollständiges Release
+# MediaHub Plugins v0.5.15 – vollständiges Release
 
 ## MediaHub KI-Assistent v7.0.9
 

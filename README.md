@@ -14,7 +14,7 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - **MediaHub AI Test Provider 1.0.0**
 - **MediaHub Speech-to-Text 0.1.2**
 
-# MediaHub Plugins v0.5.14 – vollständiges Release
+# MediaHub Plugins v0.5.15 – vollständiges Release
 
 ## MediaHub KI-Assistent v7.0.9
 
