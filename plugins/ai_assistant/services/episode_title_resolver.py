@@ -109,15 +109,86 @@ class EpisodeTitleResolver:
             min(1.0, float(field.get("confidence") or 0.0)),
         )
         sources = list(field.get("sources") or [])
-        accepted = bool(value and confidence >= self.min_confidence)
+        accepted = bool(
+            value
+            and confidence >= self.min_confidence
+        )
+
+        # Zusatzmetadaten aus den bereits erfolgreich
+        # aufgelösten Episoden-Providern übernehmen.
+        #
+        # Dabei haben echte Episodendaten Vorrang vor
+        # allgemeinen Serieninformationen.
+        overview = ""
+        published_at = ""
+        image_url = ""
+
+        for item in successful:
+            evidence = dict(
+                item.get("evidence") or {}
+            )
+
+            episode_overview = str(
+                evidence.get("overview")
+                or ""
+            ).strip()
+
+            air_date = str(
+                evidence.get("air_date")
+                or ""
+            ).strip()
+
+            if (
+                not overview
+                and episode_overview
+            ):
+                overview = episode_overview
+
+            if (
+                not published_at
+                and air_date
+            ):
+                published_at = air_date
+
+            series_match = dict(
+                evidence.get("series_match")
+                or {}
+            )
+
+            raw = dict(
+                series_match.get("raw")
+                or {}
+            )
+
+            candidate_image = str(
+                raw.get("image_url")
+                or raw.get("poster_url")
+                or ""
+            ).strip()
+
+            if (
+                not image_url
+                and candidate_image
+            ):
+                image_url = candidate_image
 
         return {
             "available": True,
             "accepted": accepted,
-            "episode_title": value if accepted else "",
+            "episode_title": (
+                value
+                if accepted
+                else ""
+            ),
             "candidate_title": value,
             "confidence": confidence,
             "sources": sources,
+            "overview": overview,
+            "description": overview,
+            "air_date": published_at,
+            "published_at": published_at,
+            "image_url": image_url,
+            "poster_url": image_url,
             "provider_results": provider_results,
             "fusion": fused,
             "reason": (

@@ -4,7 +4,7 @@ Offizielles Erweiterungs-Repository für MediaHub.
 
 ## Aktueller Stand
 
-- **MediaHub KI-Assistent 7.0.9**
+- **MediaHub KI-Assistent 7.0.10**
 - **MediaHub Audio Metadata Editor 0.0.1**
 - **MediaHub Listen & Export 0.0.0**
 - **MediaHub Metadata Editor 0.4.4**
@@ -14,25 +14,28 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - **MediaHub AI Test Provider 1.0.0**
 - **MediaHub Speech-to-Text 0.1.2**
 
-# MediaHub Plugins v0.5.15 – vollständiges Release
+# MediaHub Plugins v0.5.16 – vollständiges Release
 
-## MediaHub KI-Assistent v7.0.9
+## MediaHub KI-Assistent v7.0.10
 
-- Echte Speech-to-Text-Evidenz kann jetzt über den gemeinsamen Node-Worker-Provider auf geeigneten Windows-Compute- oder Raspberry-Pi-AI-Nodes ausgeführt werden.
+- Echte Speech-to-Text-Evidenz kann über den gemeinsamen Node-Worker-Provider auf geeigneten Windows-Compute- oder Raspberry-Pi-AI-Nodes ausgeführt werden.
 - Remote Speech-to-Text besitzt weiterhin einen lokalen Fallback; nicht verfügbare Backends werden sauber gemeldet.
-- In-Video-/Speech-Evidenz löst nach der Analyse einen erneuten Quellen- und Suchplan aus, sodass erkannte Identitätshinweise tatsächlich für den Online-Abgleich verwendet werden.
-- Klare gesprochene Akronyme wie NCIS werden gegenüber schwachen OCR-Fragmenten korrekt priorisiert.
-- Unbrauchbare kompakte Datei-Codes wie `6n76g68r` werden durch das Identitäts-Quality-Gate verworfen und können nicht mehr als finale Medienidentität zurückkehren.
-- Online- und Semantic-Evidenz können bei verworfenem Dateinamen den effektiven Titel und Medientyp übernehmen.
-- TMDb-Zugangsdaten und Provider-Konfiguration verwenden auch im Entwicklungsbetrieb den echten MediaHub-Laufzeitpfad.
-- TMDb kann jetzt Episodenkandidaten einer erkannten Serie inklusive Staffel, Episodennummer, Titel, Beschreibung, Airdate und Provider-ID bereitstellen.
-- Neuer `EpisodeIdentityResolver`: konkrete Serienepisoden werden anhand von In-Video-/Speech-Handlungskonzepten und Beziehungen gegen Provider-Episodendaten bewertet.
-- Episoden werden nur bei ausreichend hoher Evidenz und eindeutigem Abstand zum zweitbesten Kandidaten automatisch bestätigt.
-- Bestätigte Episoden werden als eigene starke Evidence in die Decision Engine übernommen.
-- Eine starke unabhängige Online-Serienbestätigung zusammen mit einer bestätigten In-Video-Episode kann die finale Medienidentität auf `confirmed` setzen.
-- Der anonymisierte Test `6n76g68r.avi` wird vollständig als `NCIS`, Serie, Staffel 8, Episode 3 `Rache ist bitter` erkannt.
-- Neue Regressionstests sichern Episode-Evidence, Medientyp, Staffel/Folge, Decision Authority und Compact-Code-Schutz ab.
-- Aktueller Regressionstest dieses Erkennungswegs: 7 Tests erfolgreich.
+- Unbrauchbare kompakte Dateinamen wie `6n76g68r` werden vom zentralen Input-Quality-Gate verworfen und erzwingen bei Bedarf eine In-Video-/Speech-Verifikation.
+- Ein Analyse-Cache ohne abgeschlossene In-Video-Analyse wird bei `require_in_video=True` nicht mehr fälschlich wiederverwendet.
+- Der Provider-Cache verwendet einen zentralen MediaHub-Laufzeitpfad unter `plugin_data`, statt Cache-Dateien innerhalb des installierten Plugin-Verzeichnisses anzulegen.
+- Speech-Evidenz kann einen erneuten Quellen- und Suchplan auslösen; klare gesprochene Akronyme wie `NCIS` werden gegenüber schwachen OCR- oder Dateinamenfragmenten priorisiert.
+- Der `EpisodeIdentityResolver` kann bei starker Speech-Evidenz einen explorativen Serienabgleich starten, ohne vorher fälschlich auf einem Film-Medientyp festzuhängen.
+- Eine bestätigte Episodenidentität mit `decision_authority=True` besitzt Vorrang vor älteren falschen Film-, Integration- oder Semantic-Treffern.
+- Die finale Decision Engine übernimmt bei bestätigten Episoden korrekt den Medientyp `series`, Staffel und Episode, während Serien- und Episodentitel getrennt erhalten bleiben.
+- Der Metadata-Review übernimmt bestätigte Serienidentitäten jetzt vollständig: Serie, Staffel, Episode und Episodentitel werden nicht mehr durch ältere Batch- oder Dateinamendaten überschrieben.
+- Alte widersprüchliche Film-Cover, Beschreibungen und Veröffentlichungsdaten werden bei einer bestätigten Serienepisode nicht mehr als Fallback verwendet.
+- Ein bereits vorhandener lokaler oder bestätigter Episodentitel bleibt maßgeblich, während der Online-Resolver trotzdem zur Metadaten-Anreicherung ausgeführt wird.
+- Der EpisodeTitleResolver reicht Online-Zusatzdaten wie Episodenbeschreibung, Air-Date und Bildvorschlag an den Metadata-Review weiter.
+- Die bereits verifizierte Serienidentität wird vor dem Batch-/Online-Schritt in das Batch-Item übernommen, sodass die Episoden-Anreicherung tatsächlich als Serie ausgeführt wird.
+- TMDb und TheTVDB bestätigen den anonymisierten Test `6n76g68r.avi` gemeinsam als `NCIS`, Staffel 8, Episode 3 `Rache ist bitter`.
+- Für den NCIS-Test werden zusätzlich die deutsche Episodenbeschreibung, das Ausstrahlungsdatum `2010-10-05` und ein passendes NCIS-Cover geliefert.
+- Der vollständige Metadata-Editor-Test zeigt nun `series`, `NCIS`, Staffel 8, Episode 3, `Rache ist bitter`, korrekte Beschreibung, Datum und Cover mit rund 98 % Confidence.
+- Die relevanten Regressionstests für Batch-Online-Enrichment und Episode-Decision laufen mit 9/9 Tests erfolgreich.
 
 ## MediaHub Audio Metadata Editor v0.0.1
 
@@ -60,14 +63,8 @@ Offizielles Erweiterungs-Repository für MediaHub.
 
 ## MediaHub Speech-to-Text v0.1.2
 
+- Unveränderter Plugin-Stand in diesem Release.
 - Gemeinsames `.mhaiplugin` für Windows Compute Node und Raspberry-Pi-/Linux-AI-Node bleibt erhalten.
-- Windows kann bei fehlendem `py.exe` eine verwaltete private Python-Runtime für Speech-to-Text verwenden.
-- Speech-Runtime wird persistent im verwalteten Node-/Plugin-Runtime-Bereich abgelegt.
-- UTF-8-Ausgabe des Speech-Subprozesses wird erzwungen, sodass deutsche Sonderzeichen keine fehlerhaften JSON-/Decode-Fehler mehr verursachen.
-- Unterstützt begrenzte Identitätsanalysen über `max_segments` und `max_audio_seconds`, ohne vollständige Transkriptionen unnötig auszuführen.
-- Windows-Ausführung wurde sowohl per CPU als auch per CUDA/GPU erfolgreich geprüft.
-- Raspberry-Pi-/Linux-Ausführung wurde erfolgreich per CPU geprüft.
-- Liefert Transcript, Segmente, Sprache, Confidence, Truncation-Informationen und Ausführungsdaten für die nachgelagerte MediaHub-KI.
 
 ## Gemeinsamer Release-Stand
 
@@ -78,7 +75,7 @@ Offizielles Erweiterungs-Repository für MediaHub.
 
 ## Kompatibilität
 
-- **MediaHub KI-Assistent 7.0.9** – mindestens MediaHub v1.0.17
+- **MediaHub KI-Assistent 7.0.10** – mindestens MediaHub v1.0.17
 - **MediaHub Audio Metadata Editor 0.0.1** – mindestens MediaHub v1.0.17
 - **MediaHub Listen & Export 0.0.0** – mindestens MediaHub v1.0.17
 - **MediaHub Metadata Editor 0.4.4** – mindestens MediaHub v1.0.5

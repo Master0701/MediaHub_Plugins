@@ -4,6 +4,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from services.input_quality import evaluate_text
+
 
 class MetadataAIReviewProvider:
     """Read-only structured metadata suggestion using existing AI intelligence."""
@@ -514,6 +516,64 @@ class MetadataAIReviewProvider:
     def _analysis_identity(
         analysis: dict[str, Any],
     ) -> dict[str, Any]:
+        # Eine vom EpisodeIdentityResolver bestätigte
+        # Episodenidentität besitzt Entscheidungsautorität
+        # über ältere Integration-/Semantic-Treffer.
+        #
+        # Wichtig: Nur "confirmed" UND
+        # decision_authority=True dürfen diesen Override
+        # auslösen.
+        episode_identity = dict(
+            analysis.get("episode_identity") or {}
+        )
+
+        episode_confirmed = (
+            str(
+                episode_identity.get("status")
+                or ""
+            ).strip().casefold()
+            == "confirmed"
+            and bool(
+                episode_identity.get(
+                    "decision_authority"
+                )
+            )
+        )
+
+        if episode_confirmed:
+            episode = episode_identity.get("episode")
+
+            episodes = list(
+                episode_identity.get("episodes")
+                or (
+                    [episode]
+                    if episode is not None
+                    else []
+                )
+            )
+
+            return {
+                "media_type": "series",
+                "series": (
+                    episode_identity.get("series_title")
+                ),
+                "title": (
+                    episode_identity.get("series_title")
+                ),
+                "episode_title": (
+                    episode_identity.get("episode_title")
+                ),
+                "season": (
+                    episode_identity.get("season")
+                ),
+                "episode": episode,
+                "episodes": episodes,
+                "confidence": (
+                    episode_identity.get("confidence")
+                ),
+                "status": "confirmed",
+            }
+
         integration = dict(
             analysis.get("integration") or {}
         )
@@ -705,6 +765,14 @@ class MetadataAIReviewProvider:
             or item.get("title")
         )
 
+        filename_quality = evaluate_text(
+            Path(original_name).stem,
+            source="filename",
+        )
+
+        if not filename_quality.accepted:
+            item["_require_in_video"] = True
+
         identity = self._filename_identity(original_name)
         movie_identity = self._movie_filename_identity(
             original_name
@@ -782,16 +850,125 @@ class MetadataAIReviewProvider:
             **item,
             "source_path": path,
             "original_name": original_name,
-            "metadata_read": source.get("metadata_read") or item.get("metadata_read") or {},
-            "metadata_review": source.get("metadata_review") or item.get("metadata_review") or {},
+            "metadata_read": (
+                source.get("metadata_read")
+                or item.get("metadata_read")
+                or {}
+            ),
+            "metadata_review": (
+                source.get("metadata_review")
+                or item.get("metadata_review")
+                or {}
+            ),
         }
 
+        # Bereits lokal bereinigte Serieninformationen
+        # müssen auch im Batch-Item den rohen Metadatenwert
+        # ersetzen.
+        #
+        # Beispiel:
+        # "Rsg-12-monkeys-s 01 E 07-sd"
+        # wird zu "12 Monkeys".
+        #
+        # Eine anschließend verifizierte Medienidentität
+        # darf diesen Wert weiterhin überschreiben.
         if series_candidate:
             batch_item["series"] = series_candidate
             batch_item["series_title"] = series_candidate
+
         if season_candidate not in (None, ""):
             batch_item["season"] = season_candidate
+
         if episode_candidate not in (None, ""):
+            batch_item["episode"] = episode_candidate
+
+        # Die bereits verifizierte Medienidentität muss
+        # auch in den nachfolgenden Batch-/Online-Schritt
+        # einfließen.
+        #
+        # Sonst kann der finale Metadata-Review zwar
+        # "NCIS / S08E03" anzeigen, während der
+        # Batch-Provider vorher noch mit dem alten
+        # movie-/Dateinamenzustand arbeitet und deshalb
+        # keinen EpisodeTitleResolver ausführt.
+        if verified_identity_trusted:
+            verified_media_type = self._clean(
+                verified_identity.get("media_type")
+            )
+
+            if verified_media_type:
+                batch_item["media_type"] = (
+                    verified_media_type
+                )
+
+            if verified_media_type == "series":
+                verified_series = self._clean(
+                    verified_identity.get("series")
+                    or verified_identity.get("title")
+                )
+
+                verified_season = (
+                    verified_identity.get("season")
+                )
+
+                verified_episode = (
+                    verified_identity.get("episode")
+                )
+
+                verified_episode_title = self._clean(
+                    verified_identity.get(
+                        "episode_title"
+                    )
+                )
+
+                if verified_series:
+                    batch_item["series"] = (
+                        verified_series
+                    )
+                    batch_item["series_title"] = (
+                        verified_series
+                    )
+
+                if verified_season not in (
+                    None,
+                    "",
+                ):
+                    batch_item["season"] = (
+                        verified_season
+                    )
+
+                if verified_episode not in (
+                    None,
+                    "",
+                ):
+                    batch_item["episode"] = (
+                        verified_episode
+                    )
+
+                if verified_episode_title:
+                    batch_item["episode_title"] = (
+                        verified_episode_title
+                    )
+
+        if (
+            not batch_item.get("series")
+            and series_candidate
+        ):
+            batch_item["series"] = series_candidate
+            batch_item["series_title"] = (
+                series_candidate
+            )
+
+        if (
+            batch_item.get("season") in (None, "")
+            and season_candidate not in (None, "")
+        ):
+            batch_item["season"] = season_candidate
+
+        if (
+            batch_item.get("episode") in (None, "")
+            and episode_candidate not in (None, "")
+        ):
             batch_item["episode"] = episode_candidate
 
         reference = dict(source.get("reference") or {})
@@ -843,25 +1020,71 @@ class MetadataAIReviewProvider:
 
         if media_type == "series":
             series = self._clean(
-                sf.get("series")
+                (
+                    verified_identity.get("series")
+                    if verified_identity_trusted
+                    else None
+                )
+                or sf.get("series")
                 or sf.get("series_title")
                 or series_candidate
                 or self._series_title_from_name(suggested_name)
             )
-            season, episode = self._episode_from_name(suggested_name)
+
+            season, episode = self._episode_from_name(
+                suggested_name
+            )
 
             if series:
                 fields["series"] = series
 
-            resolved_season = season if season is not None else season_candidate
-            resolved_episode = episode if episode is not None else episode_candidate
+            verified_season = (
+                verified_identity.get("season")
+                if verified_identity_trusted
+                else None
+            )
+
+            verified_episode = (
+                verified_identity.get("episode")
+                if verified_identity_trusted
+                else None
+            )
+
+            resolved_season = (
+                verified_season
+                if verified_season not in (None, "")
+                else (
+                    season
+                    if season is not None
+                    else season_candidate
+                )
+            )
+
+            resolved_episode = (
+                verified_episode
+                if verified_episode not in (None, "")
+                else (
+                    episode
+                    if episode is not None
+                    else episode_candidate
+                )
+            )
 
             if resolved_season not in (None, ""):
                 fields["season"] = int(resolved_season)
+
             if resolved_episode not in (None, ""):
                 fields["episode"] = int(resolved_episode)
 
-            episode_title = self._clean(result.get("episode_title"))
+            episode_title = self._clean(
+                (
+                    verified_identity.get("episode_title")
+                    if verified_identity_trusted
+                    else None
+                )
+                or result.get("episode_title")
+            )
+
             if episode_title:
                 fields["title"] = episode_title
                 fields["episode_title"] = episode_title
@@ -934,17 +1157,59 @@ class MetadataAIReviewProvider:
             verified_analysis.get("online") or {}
         )
 
-        poster_url = (
-            self._poster_candidate(episode_online)
-            or self._poster_candidate(analyzer_online)
+        # Sobald die In-Video-/Episodenanalyse eine
+        # Serienepisode verbindlich bestätigt hat, dürfen
+        # Cover, Beschreibung und Veröffentlichungsdatum
+        # nicht mehr aus einem früheren widersprüchlichen
+        # Filmfund übernommen werden.
+        episode_identity = dict(
+            verified_analysis.get("episode_identity")
+            or {}
         )
 
-        online_details = self._online_metadata_details(
-            {
-                "episode": episode_online,
-                "media_analysis": analyzer_online,
-            }
+        episode_identity_confirmed = (
+            str(
+                episode_identity.get("status")
+                or ""
+            ).strip().casefold()
+            == "confirmed"
+            and bool(
+                episode_identity.get(
+                    "decision_authority"
+                )
+            )
+            and media_type == "series"
         )
+
+        if episode_identity_confirmed:
+            poster_url = self._poster_candidate(
+                episode_online
+            )
+
+            online_details = (
+                self._online_metadata_details(
+                    episode_online
+                )
+            )
+        else:
+            poster_url = (
+                self._poster_candidate(
+                    episode_online
+                )
+                or self._poster_candidate(
+                    analyzer_online
+                )
+            )
+
+            online_details = (
+                self._online_metadata_details(
+                    {
+                        "episode": episode_online,
+                        "media_analysis":
+                            analyzer_online,
+                    }
+                )
+            )
 
         if (
             not fields.get("description")

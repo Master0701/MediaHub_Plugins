@@ -93,12 +93,30 @@ class MediaAnalyzer:
 
         if self.cache is not None and not force:
             cached = self.cache.get(path)
+
             if cached is not None:
-                return self._refresh_cached_reasoning(
-                    path,
-                    cached,
-                    identity_hint=identity_hint,
+                cached_in_video = dict(
+                    cached.get("in_video")
+                    or {}
                 )
+
+                cached_in_video_completed = (
+                    str(
+                        cached_in_video.get("state")
+                        or ""
+                    ).strip().casefold()
+                    == "completed"
+                )
+
+                if (
+                    not require_in_video
+                    or cached_in_video_completed
+                ):
+                    return self._refresh_cached_reasoning(
+                        path,
+                        cached,
+                        identity_hint=identity_hint,
+                    )
 
         result: dict[str, Any] = {
             "file": {

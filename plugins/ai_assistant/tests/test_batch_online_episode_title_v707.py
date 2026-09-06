@@ -52,4 +52,16 @@ def test_real_metadata_title_still_beats_online():
     x=r["items"][0]
     assert x["suggested_name"]=="12 Monkeys - S03E02 - Lokal.mkv"
     assert x["episode_title_source"]=="metadata_review"
-    assert calls==[]
+
+    # Lokaler Episodentitel bleibt maßgeblich,
+    # Online wird aber trotzdem zur
+    # Metadaten-Anreicherung abgefragt.
+    assert len(calls)==1
+    assert calls[0]["title"]=="12 Monkeys"
+    assert calls[0]["media_type"]=="series"
+    assert calls[0]["season"]==3
+    assert calls[0]["episode"]==2
+
+    assert x["episode_title"]=="Lokal"
+    assert x["episode_title_online"]["accepted"] is True
+    assert x["episode_title_online"]["episode_title"]=="Online"

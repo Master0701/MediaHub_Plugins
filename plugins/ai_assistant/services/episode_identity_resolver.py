@@ -202,13 +202,38 @@ class EpisodeIdentityResolver:
             or {}
         )
 
-        for value in (
-            online_best.get("original_title"),
-            online_best.get("title"),
-            semantic_best.get("original_title"),
-            semantic_best.get("title"),
-            source_reasoning.get("primary_title"),
-        ):
+        speech = (
+            analysis.get("speech_identity_evidence")
+            or {}
+        )
+
+        speech_terms = [
+            str(value).strip()
+            for value in (
+                speech.get("identity_terms")
+                or []
+            )
+            if str(value).strip()
+        ]
+
+        if speech_terms:
+            values = (
+                source_reasoning.get("primary_title"),
+                semantic_best.get("original_title"),
+                semantic_best.get("title"),
+                online_best.get("original_title"),
+                online_best.get("title"),
+            )
+        else:
+            values = (
+                online_best.get("original_title"),
+                online_best.get("title"),
+                semantic_best.get("original_title"),
+                semantic_best.get("title"),
+                source_reasoning.get("primary_title"),
+            )
+
+        for value in values:
             text = str(value or "").strip()
             if text:
                 return text
@@ -266,14 +291,6 @@ class EpisodeIdentityResolver:
         self,
         analysis: dict[str, Any],
     ) -> dict[str, Any]:
-        if not self._series_is_confirmed(analysis):
-            return {
-                "schema_version": 1,
-                "status": "not_applicable",
-                "reason": "Medientyp ist keine bestätigte Serie.",
-                "decision_authority": False,
-            }
-
         speech = (
             analysis.get(
                 "speech_identity_evidence"
@@ -285,6 +302,63 @@ class EpisodeIdentityResolver:
             speech.get("transcript")
             or ""
         ).strip()
+
+        speech_terms = [
+            str(value).strip()
+            for value in (
+                speech.get("identity_terms")
+                or []
+            )
+            if str(value).strip()
+        ]
+
+        source_reasoning = (
+            (
+                (
+                    analysis.get("source_plan")
+                    or {}
+                )
+                .get("query")
+                or {}
+            )
+            .get("query_reasoning")
+            or {}
+        )
+
+        exploratory_title = str(
+            source_reasoning.get(
+                "primary_title"
+            )
+            or ""
+        ).strip()
+
+        series_confirmed = (
+            self._series_is_confirmed(
+                analysis
+            )
+        )
+
+        exploratory_series_check = bool(
+            transcript
+            and speech_terms
+            and exploratory_title
+        )
+
+        if (
+            not series_confirmed
+            and not exploratory_series_check
+        ):
+            return {
+                "schema_version": 1,
+                "status": "not_applicable",
+                "reason": (
+                    "Medientyp ist keine bestätigte Serie "
+                    "und es liegt keine ausreichende "
+                    "Speech-Evidenz für einen explorativen "
+                    "Serienabgleich vor."
+                ),
+                "decision_authority": False,
+            }
 
         if not transcript:
             return {

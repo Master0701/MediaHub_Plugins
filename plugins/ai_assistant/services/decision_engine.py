@@ -1039,6 +1039,32 @@ class DecisionEngine:
         )
 
         if episode_confirmed:
+            # Eine bestätigte Episodenidentität besitzt
+            # Entscheidungsautorität über einen früheren
+            # Film-/Dateinamen-Treffer.
+            #
+            # Das ist absichtlich nur bei
+            # status=confirmed UND
+            # decision_authority=True erlaubt.
+            effective_media_type = "series"
+
+            episode_series_title = str(
+                episode_identity.get(
+                    "series_title"
+                )
+                or ""
+            ).strip()
+
+            episode_title = str(
+                episode_identity.get(
+                    "episode_title"
+                )
+                or ""
+            ).strip()
+
+            if episode_series_title:
+                title = episode_series_title
+
             effective_season = (
                 episode_identity.get(
                     "season"

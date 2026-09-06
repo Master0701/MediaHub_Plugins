@@ -288,119 +288,267 @@ class BatchRenameReviewProvider:
         }
 
     @classmethod
-    def _episode_title_info(cls, item, reference=None, online_resolver=None):
-        # 1) Metadata Editor review/read, including nested NFO-like data.
+    def _episode_title_info(
+        cls,
+        item,
+        reference=None,
+        online_resolver=None,
+    ):
+        selected = {}
+
+        # 1) Metadata Editor review/read, including
+        # nested NFO-like data.
         for source_key, source_label, confidence in (
             ("metadata_review", "metadata_review", 0.99),
             ("metadata_read", "metadata_read", 0.98),
         ):
-            source=item.get(source_key)
-            values=cls._deep_values(
+            source = item.get(source_key)
+
+            values = cls._deep_values(
                 source,
                 (
-                    "episode_title","episodetitle","episode_name","episodename",
-                    "title","name",
+                    "episode_title",
+                    "episodetitle",
+                    "episode_name",
+                    "episodename",
+                    "title",
+                    "name",
                 ),
             )
-            series_values=cls._deep_values(
+
+            series_values = cls._deep_values(
                 source,
-                ("series","series_title","show","show_title","tvshow"),
+                (
+                    "series",
+                    "series_title",
+                    "show",
+                    "show_title",
+                    "tvshow",
+                ),
             )
-            series_names={
-                str(v).strip().casefold()
-                for v in series_values
-                if str(v).strip()
+
+            series_names = {
+                str(value).strip().casefold()
+                for value in series_values
+                if str(value).strip()
             }
+
             for value in values:
-                if not isinstance(value,(str,int,float)):
+                if not isinstance(
+                    value,
+                    (str, int, float),
+                ):
                     continue
-                title=str(value).strip()
+
+                title = str(value).strip()
+
                 if (
                     title
-                    and not cls._is_placeholder_episode_title(title)
-                    and title.casefold() not in series_names
+                    and not cls._is_placeholder_episode_title(
+                        title
+                    )
+                    and title.casefold()
+                    not in series_names
                 ):
-                    return {
-                        "title":title,
-                        "source":source_label,
-                        "confidence":confidence,
+                    selected = {
+                        "title": title,
+                        "source": source_label,
+                        "confidence": confidence,
                     }
+                    break
+
+            if selected:
+                break
 
         # 2) Explicit item fields.
-        for key in ("episode_title","episode_name","episodetitle"):
-            value=str(item.get(key) or "").strip()
-            if value and not cls._is_placeholder_episode_title(value):
-                return {"title":value,"source":"item","confidence":0.92}
+        if not selected:
+            for key in (
+                "episode_title",
+                "episode_name",
+                "episodetitle",
+            ):
+                value = str(
+                    item.get(key)
+                    or ""
+                ).strip()
 
-        # 3) Existing local/single KI review as fallback.
-        local=dict(item.get("local_review") or item.get("single_review") or {})
-        structured=dict(local.get("structured_recommendation") or {})
-        fields=dict(structured.get("fields") or {})
-        value=str(fields.get("episode_title") or "").strip()
-        if value and not cls._is_placeholder_episode_title(value):
-            try:
-                confidence=max(
-                    0.0,
-                    min(
-                        1.0,
-                        float(
-                            structured.get("confidence")
-                            or local.get("confidence")
-                            or 0.85
-                        ),
-                    ),
-                )
-            except (TypeError,ValueError):
-                confidence=0.85
-            return {
-                "title":value,
-                "source":"local_ai_review",
-                "confidence":confidence,
-            }
-
-        if callable(online_resolver):
-            info=cls._episode_info(item)
-            series_title=cls._series_title(item, reference or {})
-            if info and series_title:
-                try:
-                    online=dict(online_resolver({
-                        "title":series_title,
-                        "media_type":"series",
-                        "season":info.get("season"),
-                        "episode":info.get("episode"),
-                        "year":item.get("year"),
-                    }) or {})
-                except Exception as exc:
-                    online={
-                        "available":False,
-                        "accepted":False,
-                        "episode_title":"",
-                        "confidence":0.0,
-                        "sources":[],
-                        "reason":f"Online-Episodentitelprüfung fehlgeschlagen: {exc}",
-                    }
-                title=str(online.get("episode_title") or "").strip()
                 if (
-                    online.get("accepted")
-                    and title
-                    and not cls._is_placeholder_episode_title(title)
+                    value
+                    and not cls._is_placeholder_episode_title(
+                        value
+                    )
                 ):
-                    return {
-                        "title":title,
-                        "source":"online_fusion",
-                        "confidence":max(
-                            0.0,min(1.0,float(online.get("confidence") or 0.0))
-                        ),
-                        "online":online,
+                    selected = {
+                        "title": value,
+                        "source": "item",
+                        "confidence": 0.92,
                     }
-                return {
-                    "title":"",
-                    "source":"",
-                    "confidence":0.0,
-                    "online":online,
+                    break
+
+        # 3) Existing local/single KI review.
+        if not selected:
+            local = dict(
+                item.get("local_review")
+                or item.get("single_review")
+                or {}
+            )
+
+            structured = dict(
+                local.get(
+                    "structured_recommendation"
+                )
+                or {}
+            )
+
+            fields = dict(
+                structured.get("fields")
+                or {}
+            )
+
+            value = str(
+                fields.get("episode_title")
+                or ""
+            ).strip()
+
+            if (
+                value
+                and not cls._is_placeholder_episode_title(
+                    value
+                )
+            ):
+                try:
+                    confidence = max(
+                        0.0,
+                        min(
+                            1.0,
+                            float(
+                                structured.get(
+                                    "confidence"
+                                )
+                                or local.get(
+                                    "confidence"
+                                )
+                                or 0.85
+                            ),
+                        ),
+                    )
+                except (
+                    TypeError,
+                    ValueError,
+                ):
+                    confidence = 0.85
+
+                selected = {
+                    "title": value,
+                    "source": "local_ai_review",
+                    "confidence": confidence,
                 }
 
-        return {"title":"","source":"","confidence":0.0,"online":{}}
+        # Online-Auflösung dient nicht nur als
+        # Episodentitel-Fallback, sondern auch als
+        # Metadata-Enrichment für bereits bestätigte
+        # lokale Episodentitel.
+        online = {}
+
+        if callable(online_resolver):
+            info = cls._episode_info(item)
+
+            series_title = cls._series_title(
+                item,
+                reference or {},
+            )
+
+            if info and series_title:
+                try:
+                    online = dict(
+                        online_resolver(
+                            {
+                                "title":
+                                    series_title,
+                                "media_type":
+                                    "series",
+                                "season":
+                                    info.get(
+                                        "season"
+                                    ),
+                                "episode":
+                                    info.get(
+                                        "episode"
+                                    ),
+                                "year":
+                                    item.get(
+                                        "year"
+                                    ),
+                            }
+                        )
+                        or {}
+                    )
+                except Exception as exc:
+                    online = {
+                        "available": False,
+                        "accepted": False,
+                        "episode_title": "",
+                        "confidence": 0.0,
+                        "sources": [],
+                        "reason": (
+                            "Online-Episodentitelprüfung "
+                            f"fehlgeschlagen: {exc}"
+                        ),
+                    }
+
+                online_title = str(
+                    online.get(
+                        "episode_title"
+                    )
+                    or ""
+                ).strip()
+
+                # Nur wenn lokal noch kein brauchbarer
+                # Episodentitel existiert, darf der
+                # Online-Titel zum eigentlichen Titel
+                # werden.
+                if (
+                    not selected
+                    and online.get("accepted")
+                    and online_title
+                    and not
+                    cls._is_placeholder_episode_title(
+                        online_title
+                    )
+                ):
+                    selected = {
+                        "title":
+                            online_title,
+                        "source":
+                            "online_fusion",
+                        "confidence":
+                            max(
+                                0.0,
+                                min(
+                                    1.0,
+                                    float(
+                                        online.get(
+                                            "confidence"
+                                        )
+                                        or 0.0
+                                    ),
+                                ),
+                            ),
+                    }
+
+        if selected:
+            return {
+                **selected,
+                "online": online,
+            }
+
+        return {
+            "title": "",
+            "source": "",
+            "confidence": 0.0,
+            "online": online,
+        }
+
 
     @classmethod
     def _episode_title(cls, item):

@@ -78,7 +78,11 @@ class SourceManager:
         self.query_reasoner = SearchVariantReasoner(knowledge_database_path)
         self.multi_query_runner = MultiQueryProviderRunner(self)
         self.cache = ProviderResultCache(
-            self.plugin_path / "cache" / "providers"
+            base_dir
+            / "plugin_data"
+            / "ai_assistant"
+            / "cache"
+            / "providers"
         )
         self.executor = ProviderExecutor(self.cache, max_workers=4)
         self._providers = []
