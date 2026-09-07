@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import shutil
 import sqlite3
 from datetime import datetime
@@ -226,6 +225,10 @@ class IdentityCleanupService:
                 "DELETE FROM ai_fingerprint_references "
                 "WHERE knowledge_identity_id=?",
                 "DELETE FROM ai_learned_aliases WHERE identity_id=?",
+                "DELETE FROM ai_learning_contribution_aliases "
+                "WHERE identity_id=?",
+                "DELETE FROM ai_learning_contributions "
+                "WHERE identity_id=?",
                 "DELETE FROM ai_learned_identities WHERE id=?",
             ):
                 try:

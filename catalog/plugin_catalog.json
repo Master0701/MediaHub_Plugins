@@ -6,18 +6,18 @@
     {
       "id": "mediahub.ai_assistant",
       "name": "MediaHub KI-Assistent",
-      "version": "7.0.10",
+      "version": "7.0.11",
       "status": "available",
       "category": "KI und Analyse",
       "visible": true,
       "auto_install": true,
       "manual_only": false,
-      "description": "Lokaler MediaHub-KI-Assistent mit Semantic Identity Candidate Builder, Semantic Query Pipeline, Knowledge Graph, bestätigtem Lernen, Visual Intelligence, erklärbarer Decision Engine und stabilen Übergabe-APIs.",
+      "description": "Lokaler MediaHub-KI-Assistent mit intelligenter Medienerkennung, In-Video- und Speech-Analyse, Semantic Identity Pipeline, Knowledge Graph, bestätigtem Lernen und neuer Lernroutine mit Review, manueller Korrektur, Lernhistorie und fallgenauem Rückgängig-System.",
       "minimum_mediahub_version": "1.0.17",
       "project_page": "https://github.com/Master0701/MediaHub_Plugins/tree/main/plugins/ai_assistant",
       "manual_install_message": "",
-      "release_asset": "MediaHub_KI-Assistent_v7.0.10.mhplugin",
-      "sha256_asset": "MediaHub_KI-Assistent_v7.0.10.mhplugin.sha256"
+      "release_asset": "MediaHub_KI-Assistent_v7.0.11.mhplugin",
+      "sha256_asset": "MediaHub_KI-Assistent_v7.0.11.mhplugin.sha256"
     },
     {
       "id": "mediahub.audio_metadata_editor",

@@ -9,7 +9,7 @@ from typing import Any
 
 from services.agents_runtime import AgentManager
 from services.backends import BackendManager
-from services.tasks import TaskManager, TaskState
+from services.tasks import TaskManager
 from services.capability_manager import CapabilityManager
 from services.rename_review_provider import RenameReviewProvider
 from services.batch_rename_review_provider import BatchRenameReviewProvider
@@ -81,16 +81,18 @@ from services.relationship_consistency_checker import RelationshipConsistencyChe
 from services.entity_proposal_quality_filter import EntityProposalQualityFilter
 from services.knowledge_engine.knowledge_graph_merge_validator import KnowledgeGraphMergeValidator
 from services.event_intelligence import EventIntelligence
-from services.knowledge_graph_builder import KnowledgeGraphBuilder
+
 from services.universe_franchise_builder import UniverseFranchiseBuilder
 from services.learning_status import LearningStatusService
+from services.learning_review import LearningReviewStore
+from services.learning_scanner import LearningScanner
 from services.media_analyzer import MediaAnalyzer
 from services.mediahub_reader import MediaHubDatabaseReader
 from services.paths import resolve_database_paths
 from services.tool_resolver import ToolResolver
 
 try:
-    from PySide6.QtCore import QObject, Qt, Signal, Slot
+    from PySide6.QtCore import QObject, QThread, Qt, Signal, Slot
     from PySide6.QtWidgets import (
         QApplication,
         QCheckBox,
@@ -123,6 +125,55 @@ except ImportError:
     WebRuntimeSettingsStore = None
     connection_info = None
 
+
+
+class LearningScanWorker(QObject):
+    """Führt den Lernscan außerhalb des GUI-Threads aus."""
+
+    progress = Signal(dict)
+    finished = Signal(dict)
+    failed = Signal(str)
+
+    def __init__(
+        self,
+        scanner,
+        folder,
+        recursive,
+        cancel_event,
+        pause_event,
+    ):
+        super().__init__()
+
+        self.scanner = scanner
+        self.folder = folder
+        self.recursive = bool(recursive)
+        self.cancel_event = cancel_event
+        self.pause_event = pause_event
+
+    @Slot()
+    def run(self):
+        try:
+            result = self.scanner.scan(
+                self.folder,
+                recursive=self.recursive,
+                skip_known=True,
+                cancel_event=self.cancel_event,
+                pause_event=self.pause_event,
+                progress_callback=self.progress.emit,
+            )
+        except Exception as exc:
+            self.failed.emit(str(exc))
+        else:
+            self.finished.emit(result)
+        finally:
+            # Wichtig beim Beenden von MediaHub:
+            # Der Worker beendet seinen eigenen Thread direkt.
+            # Dadurch sind wir nicht darauf angewiesen, dass
+            # der GUI-Eventloop noch thread.quit verarbeitet.
+            current_thread = QThread.currentThread()
+
+            if current_thread is not None:
+                current_thread.quit()
 
 
 class WebFileDialogBridge(QObject):
@@ -259,7 +310,7 @@ class MediaHubAIAssistantPlugin:
         self.relationship_intelligence = RelationshipIntelligence()
         self.character_relationship_engine = CharacterRelationshipEngine()
         self.event_intelligence = EventIntelligence()
-        self.knowledge_graph_builder = KnowledgeGraphBuilder()
+
         self.universe_franchise_builder = UniverseFranchiseBuilder()
         self.timeline_order_intelligence = TimelineOrderIntelligence()
         self.franchise_connection_intelligence = FranchiseConnectionIntelligence()
@@ -300,7 +351,27 @@ class MediaHubAIAssistantPlugin:
         self.relationship_consistency_checker = RelationshipConsistencyChecker()
         self.entity_proposal_quality_filter = EntityProposalQualityFilter()
         self.last_pipeline_debug_snapshot = None
-        self.learning_status = LearningStatusService(self.knowledge_db_path)
+        self.learning_status = LearningStatusService(
+            self.knowledge_db_path
+        )
+
+        # Lokale, manuell bestätigte Lernfälle.
+        #
+        # Rohdaten und lokale Dateipfade bleiben unter
+        # <MediaHub>/plugin_data/ai_assistant/learning.
+        # Sie werden niemals Bestandteil des Plugin-Pakets.
+        self.learning_review = LearningReviewStore(
+            self.base_dir
+        )
+
+        # Massenscan für die Lernroutine.
+        # Verwendet absichtlich denselben
+        # MetadataAIReviewProvider wie die normale
+        # MediaHub-KI-Erkennung.
+        self.learning_scanner = LearningScanner(
+            self.metadata_review_provider,
+            self.learning_review,
+        )
 
         if acquire_shared_server and WebRuntimeSettingsStore:
             settings = WebRuntimeSettingsStore(self.base_dir).load()
@@ -662,11 +733,18 @@ class MediaHubAIAssistantPlugin:
         """Speichert einen vom Benutzer bestätigten Fingerprint als lokale Referenz."""
         return self.media_analyzer.register_fingerprint_reference(analysis)
 
-    def confirm_and_learn_identity(self, analysis, corrected_identity=None):
+    def confirm_and_learn_identity(
+        self,
+        analysis,
+        corrected_identity=None,
+        *,
+        review_case_id=None,
+    ):
         """Speichert bestätigte Identität und übernimmt sie in den Knowledge Graph."""
         result = self.knowledge_learning.confirm(
             analysis,
             corrected_identity,
+            review_case_id=review_case_id,
         )
         identity = dict(corrected_identity or {})
         identity.update(
@@ -681,6 +759,26 @@ class MediaHubAIAssistantPlugin:
             source="user_confirmation",
             confirmed_by_user=True,
         )
+
+        if review_case_id:
+            graph_entity = dict(
+                (
+                    result.get("knowledge_graph")
+                    or {}
+                ).get("entity")
+                or {}
+            )
+
+            graph_entity_id = str(
+                graph_entity.get("id")
+                or ""
+            ).strip()
+
+            if graph_entity_id:
+                self.knowledge_learning.attach_graph_entity(
+                    review_case_id,
+                    graph_entity_id,
+                )
         result["missing_media_reconciliation"] = (
             self.missing_media_queue.reconcile_entity(
                 (result.get("knowledge_graph") or {}).get("entity") or {}
@@ -714,6 +812,147 @@ class MediaHubAIAssistantPlugin:
 
     def delete_knowledge_graph_relation(self, relation_id):
         return self.knowledge_engine.delete_relation(str(relation_id))
+
+    def undo_learning_review(
+        self,
+        review_case_id,
+    ):
+        """Nimmt exakt einen Lernfall zurück.
+
+        - wrong/deferred:
+          nur Review-History freigeben.
+
+        - correct/corrected mit neuer Contribution:
+          genau diesen Lernbeitrag deaktivieren.
+
+        - Nur wenn keine weitere Bestätigung dieselbe
+          Identität stützt, wird der zentrale sichere
+          Identity-Cleanup ausgeführt.
+
+        - Alte Legacy-Fälle ohne Contribution werden
+          niemals blind aus dem Knowledge-Lernen gelöscht.
+        """
+        case_id = str(
+            review_case_id
+            or ""
+        ).strip()
+
+        if not case_id:
+            raise ValueError(
+                "Lernfall-ID fehlt."
+            )
+
+        history = list(
+            self.learning_review.list_history()
+            or []
+        )
+
+        entry = next(
+            (
+                dict(item)
+                for item in history
+                if str(
+                    item.get("id")
+                    or ""
+                )
+                == case_id
+            ),
+            None,
+        )
+
+        if entry is None:
+            raise KeyError(
+                f"Lernfall nicht gefunden: {case_id}"
+            )
+
+        state = str(
+            entry.get("state")
+            or ""
+        ).strip().casefold()
+
+        result = {
+            "review_case_id": case_id,
+            "previous_state": state,
+            "knowledge_undo": None,
+            "cleanup": None,
+            "legacy_protected": False,
+        }
+
+        if state in {
+            "correct",
+            "corrected",
+        }:
+            undo = (
+                self.knowledge_learning
+                .undo_contribution(
+                    case_id
+                )
+            )
+
+            result["knowledge_undo"] = (
+                undo
+            )
+
+            if (
+                undo.get("status")
+                == "legacy_untracked"
+            ):
+                # Vor Einführung der fallgenauen
+                # Contribution-Zuordnung erzeugte Fälle
+                # dürfen nicht blind Wissen löschen.
+                result[
+                    "legacy_protected"
+                ] = True
+
+            elif bool(
+                undo.get(
+                    "cleanup_required"
+                )
+            ):
+                graph_entity_id = str(
+                    undo.get(
+                        "graph_entity_id"
+                    )
+                    or ""
+                ).strip()
+
+                if not graph_entity_id:
+                    raise RuntimeError(
+                        "Letzter Lernbeitrag wurde "
+                        "zurückgenommen, aber die "
+                        "zugehörige Graph-Entity-ID "
+                        "fehlt. Cleanup wurde aus "
+                        "Sicherheitsgründen abgebrochen."
+                    )
+
+                result["cleanup"] = (
+                    self.identity_cleanup.apply(
+                        graph_entity_id
+                    )
+                )
+
+        released = (
+            self.learning_review
+            .release_history_case(
+                case_id
+            )
+        )
+
+        result["released_case"] = {
+            "id": released.get("id"),
+            "state": released.get(
+                "state"
+            ),
+            "source_path": released.get(
+                "source_path"
+            ),
+        }
+
+        result["status"] = (
+            "released_for_rescan"
+        )
+
+        return result
 
     def delete_knowledge_graph_order(self, order_id):
         return self.knowledge_engine.delete_order(str(order_id))
@@ -925,7 +1164,7 @@ class MediaHubAIAssistantPlugin:
             "requires_confirmation": True,
         }
 
-    def get_knowledge_graph_status(self):
+    def get_knowledge_graph_builder_status(self):
         return {
             "strategy": "knowledge_graph_builder_v402",
             "phase": 1,
@@ -1080,18 +1319,6 @@ class MediaHubAIAssistantPlugin:
             node_type,
             year,
         )
-
-    def get_knowledge_graph_builder_status(self):
-        return {
-            "strategy": "knowledge_graph_builder_v290",
-            "supported_nodes": ["movie", "series", "character", "person", "universe", "event"],
-            "supported_edges": [
-                "sequel_of", "belongs_to", "directed_by",
-                "music_by", "cinematography_by", "ends_with"
-            ],
-            "automatic_import": False,
-            "requires_confirmation": True,
-        }
 
     def get_semantic_field_classifier_status(self):
         return {
@@ -3278,6 +3505,12 @@ class AIAssistantWidget(QWidget):
 
         tabs.addTab(capability_page, "Backends & Fähigkeiten")
 
+        # Manuell gestartete Lernroutine für größere
+        # Medienbestände. Analyseergebnisse werden zunächst
+        # ausschließlich in die Review-Warteschlange gelegt.
+        learning_page = self._build_learning_page()
+        tabs.addTab(learning_page, "Lernroutine")
+
         roadmap = QPlainTextEdit()
         roadmap.setReadOnly(True)
         roadmap.setPlainText(
@@ -4056,6 +4289,1720 @@ class AIAssistantWidget(QWidget):
 
         self.refresh_knowledge_graph()
         self.refresh_sources_gui()
+
+    def _build_learning_page(self):
+        page = QWidget()
+        layout = QVBoxLayout(page)
+
+        hint = QLabel(
+            "Analysiert einen ausgewählten Medienordner mit "
+            "der normalen MediaHub-KI. Ergebnisse werden nicht "
+            "automatisch übernommen, sondern zuerst zur "
+            "manuellen Prüfung vorgemerkt."
+        )
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+
+        folder_row = QHBoxLayout()
+
+        self.learning_folder = QLineEdit()
+        self.learning_folder.setPlaceholderText(
+            "Medienordner für Lernroutine auswählen"
+        )
+        folder_row.addWidget(
+            self.learning_folder,
+            1,
+        )
+
+        choose_button = QPushButton(
+            "Ordner auswählen"
+        )
+        choose_button.clicked.connect(
+            self.choose_learning_folder
+        )
+        folder_row.addWidget(choose_button)
+
+        layout.addLayout(folder_row)
+
+        self.learning_recursive = QCheckBox(
+            "Unterordner einbeziehen"
+        )
+        self.learning_recursive.setChecked(True)
+        layout.addWidget(self.learning_recursive)
+
+        button_row = QHBoxLayout()
+
+        self.learning_scan_button = QPushButton(
+            "Analyse starten"
+        )
+        self.learning_scan_button.clicked.connect(
+            self.start_learning_scan
+        )
+        button_row.addWidget(
+            self.learning_scan_button
+        )
+
+        self.learning_pause_button = QPushButton(
+            "Pause"
+        )
+        self.learning_pause_button.setEnabled(False)
+        self.learning_pause_button.clicked.connect(
+            self.toggle_learning_pause
+        )
+        button_row.addWidget(
+            self.learning_pause_button
+        )
+
+        self.learning_cancel_button = QPushButton(
+            "Abbrechen"
+        )
+        self.learning_cancel_button.setEnabled(False)
+        self.learning_cancel_button.clicked.connect(
+            self.cancel_learning_scan
+        )
+        button_row.addWidget(
+            self.learning_cancel_button
+        )
+
+        refresh_button = QPushButton(
+            "Warteschlange aktualisieren"
+        )
+        refresh_button.clicked.connect(
+            self.refresh_learning_review
+        )
+        button_row.addWidget(refresh_button)
+
+        status_button = QPushButton(
+            "Lernstatus"
+        )
+        status_button.clicked.connect(
+            self.show_learning_status
+        )
+        button_row.addWidget(status_button)
+
+        button_row.addStretch(1)
+        layout.addLayout(button_row)
+
+        self.learning_scan_status = QLabel(
+            "Noch kein Lernscan gestartet."
+        )
+        self.learning_scan_status.setWordWrap(True)
+        layout.addWidget(
+            self.learning_scan_status
+        )
+
+        review_title = QLabel(
+            "Manuelle Prüfung"
+        )
+        review_title.setStyleSheet(
+            "font-size: 16px; font-weight: 700;"
+        )
+        layout.addWidget(review_title)
+
+        self.learning_review_select = QComboBox()
+        self.learning_review_select.currentIndexChanged.connect(
+            self.load_learning_review
+        )
+        layout.addWidget(
+            self.learning_review_select
+        )
+
+        self.learning_review_text = QPlainTextEdit()
+        self.learning_review_text.setReadOnly(True)
+        layout.addWidget(
+            self.learning_review_text,
+            1,
+        )
+
+        review_buttons = QHBoxLayout()
+
+        correct_button = QPushButton(
+            "Richtig"
+        )
+        correct_button.clicked.connect(
+            self.accept_learning_review
+        )
+        review_buttons.addWidget(correct_button)
+
+        wrong_button = QPushButton(
+            "Falsch"
+        )
+        wrong_button.clicked.connect(
+            self.reject_learning_review
+        )
+        review_buttons.addWidget(wrong_button)
+
+        corrected_button = QPushButton(
+            "Korrigieren"
+        )
+        corrected_button.clicked.connect(
+            self.correct_learning_review
+        )
+        review_buttons.addWidget(corrected_button)
+
+        later_button = QPushButton(
+            "Später"
+        )
+        later_button.clicked.connect(
+            self.defer_learning_review
+        )
+        review_buttons.addWidget(later_button)
+
+        review_buttons.addStretch(1)
+        layout.addLayout(review_buttons)
+
+        # --------------------------------------------------------
+        # Bereits getroffene Lernentscheidungen
+        # --------------------------------------------------------
+
+        history_title = QLabel(
+            "Letzte Lernentscheidungen"
+        )
+        history_title.setStyleSheet(
+            "font-size: 14px; font-weight: 700;"
+        )
+        layout.addWidget(history_title)
+
+        self.learning_history_select = QComboBox()
+        self.learning_history_select.currentIndexChanged.connect(
+            self.load_learning_history
+        )
+        layout.addWidget(
+            self.learning_history_select
+        )
+
+        history_buttons = QHBoxLayout()
+
+        self.learning_history_refresh_button = QPushButton(
+            "Aktualisieren"
+        )
+        self.learning_history_refresh_button.clicked.connect(
+            self.refresh_learning_history
+        )
+        history_buttons.addWidget(
+            self.learning_history_refresh_button
+        )
+
+        self.learning_history_undo_button = QPushButton(
+            "Entscheidung zurücknehmen & neu prüfen"
+        )
+        self.learning_history_undo_button.clicked.connect(
+            self.undo_selected_learning_history
+        )
+        history_buttons.addWidget(
+            self.learning_history_undo_button
+        )
+
+        history_buttons.addStretch(1)
+        layout.addLayout(history_buttons)
+
+        self.learning_history_status = QLabel(
+            "Noch keine Lernentscheidung ausgewählt."
+        )
+        self.learning_history_status.setWordWrap(True)
+        layout.addWidget(
+            self.learning_history_status
+        )
+
+        self.refresh_learning_history()
+
+        app = QApplication.instance()
+
+        if app is not None:
+            app.aboutToQuit.connect(
+                self.shutdown_learning_scan
+            )
+
+        return page
+
+    def refresh_learning_history(self, *_args):
+        history = list(
+            self.plugin.learning_review.list_history()
+            or []
+        )
+
+        self.learning_history_select.blockSignals(
+            True
+        )
+
+        self.learning_history_select.clear()
+
+        state_labels = {
+            "correct": "Richtig",
+            "wrong": "Falsch",
+            "corrected": "Korrigiert",
+            "deferred": "Später",
+        }
+
+        # Neueste Entscheidungen zuerst.
+        for entry in reversed(history):
+            entry_id = str(
+                entry.get("id")
+                or ""
+            ).strip()
+
+            if not entry_id:
+                continue
+
+            source_path = str(
+                entry.get("source_path")
+                or ""
+            ).strip()
+
+            filename = (
+                Path(source_path).name
+                if source_path
+                else "Unbekannte Datei"
+            )
+
+            state = str(
+                entry.get("state")
+                or ""
+            ).strip().casefold()
+
+            state_text = state_labels.get(
+                state,
+                state or "Unbekannt",
+            )
+
+            self.learning_history_select.addItem(
+                f"{filename} — {state_text}",
+                entry_id,
+            )
+
+        self.learning_history_select.blockSignals(
+            False
+        )
+
+        count = self.learning_history_select.count()
+
+        self.learning_history_undo_button.setEnabled(
+            count > 0
+        )
+
+        if count == 0:
+            self.learning_history_status.setText(
+                "Noch keine abgeschlossenen "
+                "Lernentscheidungen vorhanden."
+            )
+            return
+
+        self.learning_history_select.setCurrentIndex(
+            0
+        )
+
+        self.load_learning_history()
+
+    def _selected_learning_history_id(self):
+        index = (
+            self.learning_history_select.currentIndex()
+        )
+
+        if index < 0:
+            return ""
+
+        return str(
+            self.learning_history_select.itemData(
+                index
+            )
+            or ""
+        ).strip()
+
+    def load_learning_history(self, *_args):
+        review_id = (
+            self._selected_learning_history_id()
+        )
+
+        if not review_id:
+            self.learning_history_status.setText(
+                "Keine Lernentscheidung ausgewählt."
+            )
+            return
+
+        history = list(
+            self.plugin.learning_review.list_history()
+            or []
+        )
+
+        entry = next(
+            (
+                item
+                for item in history
+                if str(
+                    item.get("id")
+                    or ""
+                )
+                == review_id
+            ),
+            None,
+        )
+
+        if not entry:
+            self.learning_history_status.setText(
+                "Die Lernentscheidung konnte "
+                "nicht geladen werden."
+            )
+            return
+
+        state_labels = {
+            "correct": "Richtig",
+            "wrong": "Falsch",
+            "corrected": "Korrigiert",
+            "deferred": "Später",
+        }
+
+        state = str(
+            entry.get("state")
+            or ""
+        ).strip().casefold()
+
+        state_text = state_labels.get(
+            state,
+            state or "Unbekannt",
+        )
+
+        source_path = str(
+            entry.get("source_path")
+            or ""
+        ).strip()
+
+        filename = (
+            Path(source_path).name
+            if source_path
+            else "-"
+        )
+
+        reviewed_at = str(
+            entry.get("reviewed_at")
+            or ""
+        ).strip()
+
+        self.learning_history_status.setText(
+            "Ausgewählt: "
+            f"{filename} | "
+            f"Entscheidung: {state_text}"
+            + (
+                f" | {reviewed_at}"
+                if reviewed_at
+                else ""
+            )
+        )
+
+    def undo_selected_learning_history(self):
+        review_id = (
+            self._selected_learning_history_id()
+        )
+
+        if not review_id:
+            QMessageBox.information(
+                self,
+                "Lernroutine",
+                "Keine Lernentscheidung ausgewählt.",
+            )
+            return
+
+        history = list(
+            self.plugin.learning_review.list_history()
+            or []
+        )
+
+        entry = next(
+            (
+                dict(item)
+                for item in history
+                if str(
+                    item.get("id")
+                    or ""
+                )
+                == review_id
+            ),
+            None,
+        )
+
+        if not entry:
+            QMessageBox.warning(
+                self,
+                "Lernroutine",
+                "Die ausgewählte Lernentscheidung "
+                "konnte nicht mehr geladen werden.",
+            )
+            self.refresh_learning_history()
+            return
+
+        source_path = str(
+            entry.get("source_path")
+            or ""
+        ).strip()
+
+        filename = (
+            Path(source_path).name
+            if source_path
+            else "Unbekannte Datei"
+        )
+
+        state_labels = {
+            "correct": "Richtig",
+            "wrong": "Falsch",
+            "corrected": "Korrigiert",
+            "deferred": "Später",
+        }
+
+        state = str(
+            entry.get("state")
+            or ""
+        ).strip().casefold()
+
+        state_text = state_labels.get(
+            state,
+            state or "Unbekannt",
+        )
+
+        answer = QMessageBox.question(
+            self,
+            "Lernentscheidung zurücknehmen",
+            "Diese Lernentscheidung wirklich "
+            "zurücknehmen?\n\n"
+            f"Datei: {filename}\n"
+            f"Entscheidung: {state_text}\n\n"
+            "Nur dieser ausgewählte Lernfall "
+            "wird zurückgesetzt.\n"
+            "Andere bestätigte Lernfälle bleiben "
+            "erhalten.\n\n"
+            "Die Datei kann danach beim nächsten "
+            "Lernscan erneut geprüft werden.",
+            QMessageBox.StandardButton.Yes
+            | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+
+        if (
+            answer
+            != QMessageBox.StandardButton.Yes
+        ):
+            return
+
+        self.learning_history_undo_button.setEnabled(
+            False
+        )
+
+        try:
+            result = self.plugin.undo_learning_review(
+                review_id
+            )
+
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "Lernentscheidung zurücknehmen",
+                "Die Lernentscheidung konnte "
+                "nicht zurückgenommen werden:\n\n"
+                + str(exc),
+            )
+
+            self.refresh_learning_history()
+            return
+
+        self.refresh_learning_review()
+        self.refresh_learning_history()
+
+        knowledge_undo = dict(
+            result.get("knowledge_undo")
+            or {}
+        )
+
+        cleanup = dict(
+            result.get("cleanup")
+            or {}
+        )
+
+        legacy_protected = bool(
+            result.get("legacy_protected")
+            or knowledge_undo.get(
+                "legacy_identity_protected"
+            )
+        )
+
+        aliases_removed = list(
+            knowledge_undo.get(
+                "aliases_removed"
+            )
+            or []
+        )
+
+        active_remaining = (
+            knowledge_undo.get(
+                "active_contributions_remaining"
+            )
+        )
+
+        lines = [
+            "Die ausgewählte Lernentscheidung "
+            "wurde zurückgenommen.",
+            "",
+            f"Datei: {filename}",
+            "",
+            "Die Datei ist für einen neuen "
+            "Lernscan wieder freigegeben.",
+        ]
+
+        if active_remaining not in (
+            None,
+            "",
+        ):
+            lines.extend(
+                [
+                    "",
+                    "Weitere aktive Bestätigungen "
+                    "für dieselbe Identität: "
+                    f"{active_remaining}",
+                ]
+            )
+
+        if aliases_removed:
+            lines.extend(
+                [
+                    "",
+                    "Entfernte fallbezogene Aliase:",
+                    *[
+                        f"- {alias}"
+                        for alias
+                        in aliases_removed
+                    ],
+                ]
+            )
+
+        if cleanup:
+            lines.extend(
+                [
+                    "",
+                    "Der letzte gültige Lernbeitrag "
+                    "wurde entfernt.",
+                    "Die zugehörige gelernte "
+                    "Identität wurde zentral "
+                    "bereinigt.",
+                ]
+            )
+
+        if legacy_protected:
+            lines.extend(
+                [
+                    "",
+                    "Hinweis:",
+                    "Bereits vor der fallgenauen "
+                    "Lernverwaltung vorhandenes "
+                    "Wissen wurde aus "
+                    "Sicherheitsgründen nicht "
+                    "automatisch gelöscht.",
+                ]
+            )
+
+        QMessageBox.information(
+            self,
+            "Lernentscheidung zurückgenommen",
+            "\n".join(lines),
+        )
+
+    def choose_learning_folder(self):
+        folder = QFileDialog.getExistingDirectory(
+            self,
+            "Medienordner für Lernroutine auswählen",
+            self.learning_folder.text().strip(),
+        )
+
+        if folder:
+            self.learning_folder.setText(folder)
+
+    def _learning_scan_is_running(self):
+        thread = getattr(
+            self,
+            "_learning_scan_thread",
+            None,
+        )
+
+        if thread is None:
+            return False
+
+        try:
+            return bool(thread.isRunning())
+        except RuntimeError:
+            # PySide-Wrapper existiert noch, das zugrunde
+            # liegende C++-QThread-Objekt aber nicht mehr.
+            self._learning_scan_thread = None
+            self._learning_scan_worker = None
+            self._learning_cancel_event = None
+            self._learning_pause_event = None
+            return False
+
+    def start_learning_scan(self):
+        folder = self.learning_folder.text().strip()
+
+        if not folder:
+            QMessageBox.warning(
+                self,
+                "Lernroutine",
+                "Bitte zuerst einen Medienordner auswählen.",
+            )
+            return
+
+        path = Path(folder)
+
+        if not path.is_dir():
+            QMessageBox.warning(
+                self,
+                "Lernroutine",
+                "Der ausgewählte Medienordner existiert nicht.",
+            )
+            return
+
+        if self._learning_scan_is_running():
+            QMessageBox.information(
+                self,
+                "Lernroutine",
+                "Ein Lernscan läuft bereits.",
+            )
+            return
+
+        self._learning_cancel_event = threading.Event()
+        self._learning_pause_event = threading.Event()
+
+        self._learning_scan_thread = QThread(self)
+
+        self._learning_scan_worker = LearningScanWorker(
+            self.plugin.learning_scanner,
+            str(path),
+            self.learning_recursive.isChecked(),
+            self._learning_cancel_event,
+            self._learning_pause_event,
+        )
+
+        self._learning_scan_worker.moveToThread(
+            self._learning_scan_thread
+        )
+
+        self._learning_scan_thread.started.connect(
+            self._learning_scan_worker.run
+        )
+
+        self._learning_scan_worker.progress.connect(
+            self.on_learning_scan_progress
+        )
+
+        self._learning_scan_worker.finished.connect(
+            self.on_learning_scan_finished
+        )
+
+        self._learning_scan_worker.failed.connect(
+            self.on_learning_scan_failed
+        )
+
+        self._learning_scan_worker.finished.connect(
+            self._learning_scan_thread.quit
+        )
+
+        self._learning_scan_worker.failed.connect(
+            self._learning_scan_thread.quit
+        )
+
+        self._learning_scan_thread.finished.connect(
+            self.on_learning_scan_thread_finished
+        )
+
+        self._learning_scan_thread.finished.connect(
+            self._learning_scan_worker.deleteLater
+        )
+
+        self._learning_scan_thread.finished.connect(
+            self._learning_scan_thread.deleteLater
+        )
+
+        self.learning_scan_button.setEnabled(False)
+        self.learning_pause_button.setEnabled(True)
+        self.learning_pause_button.setText("Pause")
+        self.learning_cancel_button.setEnabled(True)
+
+        self.learning_scan_status.setText(
+            "Lernscan läuft ..."
+        )
+
+        self._learning_scan_thread.start()
+
+    @Slot()
+    def on_learning_scan_thread_finished(self):
+        finished_thread = self.sender()
+
+        # Falls bereits ein neuer Scan gestartet wurde,
+        # darf ein verspätetes finished-Signal des alten
+        # Threads dessen Referenzen nicht löschen.
+        if (
+            getattr(
+                self,
+                "_learning_scan_thread",
+                None,
+            )
+            is finished_thread
+        ):
+            self._learning_scan_thread = None
+            self._learning_scan_worker = None
+            self._learning_cancel_event = None
+            self._learning_pause_event = None
+
+    @Slot()
+    def shutdown_learning_scan(self):
+        cancel_event = getattr(
+            self,
+            "_learning_cancel_event",
+            None,
+        )
+
+        if cancel_event is not None:
+            cancel_event.set()
+
+        pause_event = getattr(
+            self,
+            "_learning_pause_event",
+            None,
+        )
+
+        if pause_event is not None:
+            pause_event.clear()
+
+        thread = getattr(
+            self,
+            "_learning_scan_thread",
+            None,
+        )
+
+        if thread is None:
+            return
+
+        try:
+            running = thread.isRunning()
+        except RuntimeError:
+            self._learning_scan_thread = None
+            self._learning_scan_worker = None
+            self._learning_cancel_event = None
+            self._learning_pause_event = None
+            return
+
+        if running:
+            # Der Scanner prüft das Cancel-Event zwischen
+            # zwei Dateien. Eine gerade laufende Analyse
+            # wird deshalb noch sauber beendet.
+            #
+            # LearningScanWorker.run() beendet anschließend
+            # seinen eigenen QThread, daher kann wait()
+            # hier auch während des App-Shutdowns sicher
+            # zurückkehren.
+            thread.wait()
+
+    def toggle_learning_pause(self):
+        pause_event = getattr(
+            self,
+            "_learning_pause_event",
+            None,
+        )
+
+        if pause_event is None:
+            return
+
+        if not self._learning_scan_is_running():
+            return
+
+        if pause_event.is_set():
+            pause_event.clear()
+
+            self.learning_pause_button.setText(
+                "Pause"
+            )
+
+            self.learning_scan_status.setText(
+                "Lernscan wird fortgesetzt ..."
+            )
+        else:
+            pause_event.set()
+
+            self.learning_pause_button.setText(
+                "Fortsetzen"
+            )
+
+            self.learning_scan_status.setText(
+                "Pause angefordert – aktuelle Datei "
+                "wird noch beendet ..."
+            )
+
+    def cancel_learning_scan(self):
+        cancel_event = getattr(
+            self,
+            "_learning_cancel_event",
+            None,
+        )
+
+        if cancel_event is None:
+            return
+
+        cancel_event.set()
+
+        pause_event = getattr(
+            self,
+            "_learning_pause_event",
+            None,
+        )
+
+        if pause_event is not None:
+            pause_event.clear()
+
+        self.learning_pause_button.setEnabled(False)
+        self.learning_pause_button.setText("Pause")
+        self.learning_cancel_button.setEnabled(False)
+
+        self.learning_scan_status.setText(
+            "Abbruch angefordert – aktuelle Datei "
+            "wird noch beendet ..."
+        )
+
+    @Slot(dict)
+    def on_learning_scan_progress(self, progress):
+        index = int(
+            progress.get("index")
+            or 0
+        )
+
+        total = int(
+            progress.get("total")
+            or 0
+        )
+
+        status = str(
+            progress.get("status")
+            or ""
+        )
+
+        source_path = str(
+            progress.get("path")
+            or ""
+        )
+
+        filename = (
+            Path(source_path).name
+            if source_path
+            else ""
+        )
+
+        status_text = {
+            "queued": "analysiert",
+            "skipped": "bereits bekannt",
+            "failed": "Fehler",
+            "paused": "pausiert",
+        }.get(
+            status,
+            status or "läuft",
+        )
+
+        self.learning_scan_status.setText(
+            f"{index}/{total}: {filename} – {status_text}"
+        )
+
+    @Slot(dict)
+    def on_learning_scan_finished(self, result):
+        self.learning_scan_button.setEnabled(True)
+        self.learning_pause_button.setEnabled(False)
+        self.learning_pause_button.setText("Pause")
+        self.learning_cancel_button.setEnabled(False)
+
+        analyzed = int(
+            result.get("analyzed")
+            or 0
+        )
+
+        queued = int(
+            result.get("queued")
+            or 0
+        )
+
+        skipped = int(
+            result.get("skipped")
+            or 0
+        )
+
+        failed = int(
+            result.get("failed")
+            or 0
+        )
+
+        cancelled = bool(
+            result.get("cancelled")
+        )
+
+        prefix = (
+            "Lernscan abgebrochen."
+            if cancelled
+            else "Lernscan abgeschlossen."
+        )
+
+        self.learning_scan_status.setText(
+            f"{prefix} "
+            f"Analysiert: {analyzed}, "
+            f"zur Prüfung: {queued}, "
+            f"übersprungen: {skipped}, "
+            f"Fehler: {failed}."
+        )
+
+        self.refresh_learning_review()
+
+    @Slot(str)
+    def on_learning_scan_failed(self, error):
+        self.learning_scan_button.setEnabled(True)
+        self.learning_pause_button.setEnabled(False)
+        self.learning_pause_button.setText("Pause")
+        self.learning_cancel_button.setEnabled(False)
+
+        self.learning_scan_status.setText(
+            "Lernscan fehlgeschlagen."
+        )
+
+        QMessageBox.critical(
+            self,
+            "Lernroutine",
+            "Der Lernscan konnte nicht ausgeführt werden:\n\n"
+            + str(error),
+        )
+
+    def refresh_learning_review(self):
+        store = self.plugin.learning_review
+        queue = list(store.list_queue() or [])
+
+        self.learning_review_select.blockSignals(True)
+        self.learning_review_select.clear()
+
+        for entry in queue:
+            entry_id = str(
+                entry.get("id")
+                or entry.get("review_id")
+                or ""
+            )
+
+            source_path = str(
+                entry.get("source_path")
+                or entry.get("path")
+                or ""
+            )
+
+            label = (
+                Path(source_path).name
+                if source_path
+                else entry_id
+            )
+
+            self.learning_review_select.addItem(
+                label or "Unbenannter Eintrag",
+                entry_id,
+            )
+
+        self.learning_review_select.blockSignals(False)
+
+        self.learning_scan_status.setText(
+            f"{len(queue)} Einträge warten auf Prüfung."
+        )
+
+        self.load_learning_review()
+
+    def load_learning_review(self, *_args):
+        index = self.learning_review_select.currentIndex()
+
+        if index < 0:
+            self.learning_review_text.setPlainText(
+                "Keine Einträge in der Warteschlange."
+            )
+            return
+
+        review_id = self.learning_review_select.itemData(
+            index
+        )
+
+        queue = list(
+            self.plugin.learning_review.list_queue()
+            or []
+        )
+
+        entry = next(
+            (
+                item
+                for item in queue
+                if str(
+                    item.get("id")
+                    or item.get("review_id")
+                    or ""
+                )
+                == str(review_id)
+            ),
+            None,
+        )
+
+        if not entry:
+            self.learning_review_text.setPlainText(
+                "Eintrag konnte nicht geladen werden."
+            )
+            return
+
+        analysis = dict(
+            entry.get("analysis")
+            or {}
+        )
+
+        fields = dict(
+            analysis.get("fields")
+            or {}
+        )
+
+        sources = (
+            analysis.get("sources")
+            or fields.get("sources")
+            or []
+        )
+
+        if isinstance(sources, str):
+            sources = [sources]
+
+        confidence = (
+            analysis.get("confidence")
+            or fields.get("confidence")
+            or 0
+        )
+
+        try:
+            confidence_value = float(
+                confidence
+                or 0
+            )
+
+            if confidence_value <= 1.0:
+                confidence_value *= 100.0
+
+            confidence_text = (
+                f"{confidence_value:.0f}%"
+            )
+        except (
+            TypeError,
+            ValueError,
+        ):
+            confidence_text = "-"
+
+        source_path = str(
+            entry.get("source_path")
+            or ""
+        ).strip()
+
+        media_type = str(
+            fields.get("media_type")
+            or "-"
+        ).strip()
+
+        title = str(
+            fields.get("title")
+            or "-"
+        ).strip()
+
+        series = str(
+            fields.get("series")
+            or fields.get("series_title")
+            or "-"
+        ).strip()
+
+        season = fields.get("season")
+        episode = fields.get("episode")
+
+        episode_title = str(
+            fields.get("episode_title")
+            or ""
+        ).strip()
+
+        year = (
+            fields.get("year")
+            or "-"
+        )
+
+        description = str(
+            fields.get("description")
+            or fields.get("overview")
+            or analysis.get("description")
+            or analysis.get("overview")
+            or "-"
+        ).strip()
+
+        poster_url = str(
+            analysis.get("poster_url")
+            or fields.get("poster_url")
+            or "-"
+        ).strip()
+
+        rationale = str(
+            analysis.get("rationale")
+            or analysis.get("reason")
+            or "-"
+        ).strip()
+
+        source_text = (
+            ", ".join(
+                str(value)
+                for value in sources
+                if str(value).strip()
+            )
+            or "-"
+        )
+
+        lines = [
+            "=== Lernfall ===",
+            "",
+            f"Datei: {Path(source_path).name if source_path else '-'}",
+            f"Pfad: {source_path or '-'}",
+            "",
+            f"Medientyp: {media_type}",
+            f"Titel: {title}",
+        ]
+
+        if media_type == "series":
+            lines.extend(
+                [
+                    f"Serie: {series}",
+                    f"Staffel: {season if season not in (None, '') else '-'}",
+                    f"Episode: {episode if episode not in (None, '') else '-'}",
+                    f"Episodentitel: {episode_title or '-'}",
+                ]
+            )
+
+        lines.extend(
+            [
+                f"Jahr: {year}",
+                f"Confidence: {confidence_text}",
+                f"Quellen: {source_text}",
+                "",
+                "Beschreibung:",
+                description,
+                "",
+                f"Poster: {poster_url}",
+                "",
+                "Begründung:",
+                rationale,
+                "",
+                "Entscheidung:",
+                "Richtig | Falsch | Korrigieren | Später",
+            ]
+        )
+
+        self.learning_review_text.setPlainText(
+            "\n".join(lines)
+        )
+
+    def _selected_learning_review_id(self):
+        index = self.learning_review_select.currentIndex()
+
+        if index < 0:
+            return ""
+
+        return str(
+            self.learning_review_select.itemData(index)
+            or ""
+        ).strip()
+
+    def _learning_review_entry(self, review_id):
+        queue = list(
+            self.plugin.learning_review.list_queue()
+            or []
+        )
+
+        return next(
+            (
+                item
+                for item in queue
+                if str(
+                    item.get("id")
+                    or ""
+                )
+                == str(review_id)
+            ),
+            None,
+        )
+
+    @staticmethod
+    def _learning_identity_from_correction(
+        correction,
+    ):
+        corrected = dict(
+            correction
+            or {}
+        )
+
+        media_type = str(
+            corrected.get("media_type")
+            or ""
+        ).strip().casefold()
+
+        series = str(
+            corrected.get("series")
+            or ""
+        ).strip()
+
+        episode_title = str(
+            corrected.get("episode_title")
+            or ""
+        ).strip()
+
+        season = corrected.get("season")
+        episode = corrected.get("episode")
+
+        # Serienepisode:
+        # Der kanonische Lernschlüssel bleibt die Serie.
+        # Staffel/Folge unterscheiden die konkrete Episode.
+        # Der Episodentitel wird zusätzlich als Alias gelernt.
+        if (
+            media_type == "series"
+            and series
+            and season not in (None, "")
+            and episode not in (None, "")
+        ):
+            corrected["title"] = series
+
+            aliases = list(
+                corrected.get("aliases")
+                or []
+            )
+
+            if (
+                episode_title
+                and episode_title not in aliases
+            ):
+                aliases.append(
+                    episode_title
+                )
+
+            corrected["aliases"] = aliases
+
+        corrected["source"] = (
+            "learning_review_confirmation"
+        )
+        corrected["confidence"] = 1.0
+
+        return corrected
+
+    def accept_learning_review(self):
+        review_id = self._selected_learning_review_id()
+
+        if not review_id:
+            QMessageBox.information(
+                self,
+                "Lernroutine",
+                "Kein Lernfall ausgewählt.",
+            )
+            return
+
+        entry = self._learning_review_entry(
+            review_id
+        )
+
+        if not entry:
+            QMessageBox.warning(
+                self,
+                "Lernroutine",
+                "Der ausgewählte Lernfall "
+                "konnte nicht geladen werden.",
+            )
+            return
+
+        analysis = dict(
+            entry.get("analysis")
+            or {}
+        )
+
+        fields = dict(
+            analysis.get("fields")
+            or {}
+        )
+
+        # MetadataAIReviewProvider liefert seine
+        # bestätigte Vorschau hauptsächlich unter
+        # "fields". Der bestehende KnowledgeLearning-
+        # Service erwartet dagegen eine explizite
+        # bestätigte Identität.
+        #
+        # Deshalb wird auch bei "Richtig" dieselbe
+        # saubere Identitätsbrücke verwendet wie
+        # bei einer manuellen Korrektur.
+        learning_identity = (
+            self._learning_identity_from_correction(
+                fields
+            )
+        )
+
+        try:
+            # Erst wirklich lernen.
+            # Nur wenn das erfolgreich war,
+            # wird der Review-Fall abgeschlossen.
+            self.plugin.confirm_and_learn_identity(
+                analysis,
+                learning_identity,
+                review_case_id=review_id,
+            )
+
+            self.plugin.learning_review.review_case(
+                review_id,
+                "correct",
+                note=(
+                    "KI-Ergebnis vom Benutzer "
+                    "als korrekt bestätigt und gelernt."
+                ),
+            )
+
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "Lernroutine",
+                "Der Lernfall konnte nicht übernommen werden:\n\n"
+                + str(exc),
+            )
+            return
+
+        self.refresh_learning_review()
+
+    def reject_learning_review(self):
+        review_id = self._selected_learning_review_id()
+
+        if not review_id:
+            QMessageBox.information(
+                self,
+                "Lernroutine",
+                "Kein Lernfall ausgewählt.",
+            )
+            return
+
+        try:
+            self.plugin.learning_review.review_case(
+                review_id,
+                "wrong",
+            )
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "Lernroutine",
+                str(exc),
+            )
+            return
+
+        self.refresh_learning_review()
+
+    def correct_learning_review(self):
+        review_id = self._selected_learning_review_id()
+
+        if not review_id:
+            QMessageBox.information(
+                self,
+                "Lernroutine",
+                "Kein Lernfall ausgewählt.",
+            )
+            return
+
+        queue = list(
+            self.plugin.learning_review.list_queue()
+            or []
+        )
+
+        entry = next(
+            (
+                item
+                for item in queue
+                if str(
+                    item.get("id")
+                    or ""
+                )
+                == review_id
+            ),
+            None,
+        )
+
+        if not entry:
+            QMessageBox.warning(
+                self,
+                "Lernroutine",
+                "Der ausgewählte Lernfall "
+                "konnte nicht geladen werden.",
+            )
+            return
+
+        analysis = dict(
+            entry.get("analysis")
+            or {}
+        )
+
+        fields = dict(
+            analysis.get("fields")
+            or {}
+        )
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle(
+            "Lernfall korrigieren"
+        )
+
+        layout = QVBoxLayout(dialog)
+        form = QFormLayout()
+
+        media_type = QComboBox()
+
+        for label, value in (
+            ("Unbekannt", ""),
+            ("Film", "movie"),
+            ("Serie", "series"),
+            ("Episode", "episode"),
+            ("Hörbuch", "audiobook"),
+        ):
+            media_type.addItem(
+                label,
+                value,
+            )
+
+        current_media_type = str(
+            fields.get("media_type")
+            or ""
+        ).strip()
+
+        index = media_type.findData(
+            current_media_type
+        )
+
+        if index >= 0:
+            media_type.setCurrentIndex(index)
+
+        form.addRow(
+            "Medientyp:",
+            media_type,
+        )
+
+        title = QLineEdit(
+            str(
+                fields.get("title")
+                or ""
+            )
+        )
+        form.addRow(
+            "Titel:",
+            title,
+        )
+
+        series = QLineEdit(
+            str(
+                fields.get("series")
+                or fields.get("series_title")
+                or ""
+            )
+        )
+        form.addRow(
+            "Serie:",
+            series,
+        )
+
+        season = QSpinBox()
+        season.setRange(0, 999)
+        season.setSpecialValueText("-")
+        season.setValue(
+            int(
+                fields.get("season")
+                or 0
+            )
+        )
+        form.addRow(
+            "Staffel:",
+            season,
+        )
+
+        episode = QSpinBox()
+        episode.setRange(0, 9999)
+        episode.setSpecialValueText("-")
+        episode.setValue(
+            int(
+                fields.get("episode")
+                or 0
+            )
+        )
+        form.addRow(
+            "Episode:",
+            episode,
+        )
+
+        episode_title = QLineEdit(
+            str(
+                fields.get("episode_title")
+                or (
+                    fields.get("title")
+                    if current_media_type
+                    == "series"
+                    else ""
+                )
+                or ""
+            )
+        )
+        form.addRow(
+            "Episodentitel:",
+            episode_title,
+        )
+
+        year = QSpinBox()
+        year.setRange(0, 3000)
+        year.setSpecialValueText("-")
+
+        try:
+            year_value = int(
+                fields.get("year")
+                or 0
+            )
+        except (
+            TypeError,
+            ValueError,
+        ):
+            year_value = 0
+
+        year.setValue(year_value)
+
+        form.addRow(
+            "Jahr:",
+            year,
+        )
+
+        note = QLineEdit()
+        note.setPlaceholderText(
+            "Optional: Grund der Korrektur"
+        )
+        form.addRow(
+            "Notiz:",
+            note,
+        )
+
+        layout.addLayout(form)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok
+            | QDialogButtonBox.Cancel
+        )
+
+        buttons.accepted.connect(
+            dialog.accept
+        )
+        buttons.rejected.connect(
+            dialog.reject
+        )
+
+        layout.addWidget(buttons)
+
+        if dialog.exec() != QDialog.Accepted:
+            return
+
+        correction = {
+            "media_type":
+                str(
+                    media_type.currentData()
+                    or ""
+                ).strip(),
+            "title":
+                title.text().strip(),
+            "series":
+                series.text().strip(),
+            "season":
+                (
+                    season.value()
+                    if season.value() > 0
+                    else None
+                ),
+            "episode":
+                (
+                    episode.value()
+                    if episode.value() > 0
+                    else None
+                ),
+            "episode_title":
+                episode_title.text().strip(),
+            "year":
+                (
+                    year.value()
+                    if year.value() > 0
+                    else None
+                ),
+        }
+
+        correction = {
+            key: value
+            for key, value
+            in correction.items()
+            if value not in (
+                "",
+                None,
+            )
+        }
+
+        learning_identity = (
+            self._learning_identity_from_correction(
+                correction
+            )
+        )
+
+        try:
+            # Korrigierte Identität zuerst in das
+            # vorhandene bestätigte KI-Lernen und
+            # den Knowledge Graph übernehmen.
+            self.plugin.confirm_and_learn_identity(
+                analysis,
+                learning_identity,
+                review_case_id=review_id,
+            )
+
+            # Erst danach den Review-Fall abschließen.
+            self.plugin.learning_review.review_case(
+                review_id,
+                "corrected",
+                correction=correction,
+                note=(
+                    note.text().strip()
+                    or (
+                        "Identität vom Benutzer "
+                        "korrigiert und gelernt."
+                    )
+                ),
+            )
+
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "Lernroutine",
+                "Die korrigierte Identität konnte "
+                "nicht gelernt werden:\n\n"
+                + str(exc),
+            )
+            return
+
+        self.refresh_learning_review()
+
+    def defer_learning_review(self):
+        review_id = self._selected_learning_review_id()
+
+        if not review_id:
+            QMessageBox.information(
+                self,
+                "Lernroutine",
+                "Kein Lernfall ausgewählt.",
+            )
+            return
+
+        try:
+            self.plugin.learning_review.review_case(
+                review_id,
+                "deferred",
+            )
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "Lernroutine",
+                str(exc),
+            )
+            return
+
+        self.refresh_learning_review()
 
     def choose_media_file(self):
         path, _ = QFileDialog.getOpenFileName(

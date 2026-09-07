@@ -1,25 +1,30 @@
-# MediaHub Plugins v0.5.16 – vollständiges Release
+# MediaHub Plugins v0.5.17 – vollständiges Release
 
-## MediaHub KI-Assistent v7.0.10
+## MediaHub KI-Assistent v7.0.11
 
-- Echte Speech-to-Text-Evidenz kann über den gemeinsamen Node-Worker-Provider auf geeigneten Windows-Compute- oder Raspberry-Pi-AI-Nodes ausgeführt werden.
-- Remote Speech-to-Text besitzt weiterhin einen lokalen Fallback; nicht verfügbare Backends werden sauber gemeldet.
-- Unbrauchbare kompakte Dateinamen wie `6n76g68r` werden vom zentralen Input-Quality-Gate verworfen und erzwingen bei Bedarf eine In-Video-/Speech-Verifikation.
-- Ein Analyse-Cache ohne abgeschlossene In-Video-Analyse wird bei `require_in_video=True` nicht mehr fälschlich wiederverwendet.
-- Der Provider-Cache verwendet einen zentralen MediaHub-Laufzeitpfad unter `plugin_data`, statt Cache-Dateien innerhalb des installierten Plugin-Verzeichnisses anzulegen.
-- Speech-Evidenz kann einen erneuten Quellen- und Suchplan auslösen; klare gesprochene Akronyme wie `NCIS` werden gegenüber schwachen OCR- oder Dateinamenfragmenten priorisiert.
-- Der `EpisodeIdentityResolver` kann bei starker Speech-Evidenz einen explorativen Serienabgleich starten, ohne vorher fälschlich auf einem Film-Medientyp festzuhängen.
-- Eine bestätigte Episodenidentität mit `decision_authority=True` besitzt Vorrang vor älteren falschen Film-, Integration- oder Semantic-Treffern.
-- Die finale Decision Engine übernimmt bei bestätigten Episoden korrekt den Medientyp `series`, Staffel und Episode, während Serien- und Episodentitel getrennt erhalten bleiben.
-- Der Metadata-Review übernimmt bestätigte Serienidentitäten jetzt vollständig: Serie, Staffel, Episode und Episodentitel werden nicht mehr durch ältere Batch- oder Dateinamendaten überschrieben.
-- Alte widersprüchliche Film-Cover, Beschreibungen und Veröffentlichungsdaten werden bei einer bestätigten Serienepisode nicht mehr als Fallback verwendet.
-- Ein bereits vorhandener lokaler oder bestätigter Episodentitel bleibt maßgeblich, während der Online-Resolver trotzdem zur Metadaten-Anreicherung ausgeführt wird.
-- Der EpisodeTitleResolver reicht Online-Zusatzdaten wie Episodenbeschreibung, Air-Date und Bildvorschlag an den Metadata-Review weiter.
-- Die bereits verifizierte Serienidentität wird vor dem Batch-/Online-Schritt in das Batch-Item übernommen, sodass die Episoden-Anreicherung tatsächlich als Serie ausgeführt wird.
-- TMDb und TheTVDB bestätigen den anonymisierten Test `6n76g68r.avi` gemeinsam als `NCIS`, Staffel 8, Episode 3 `Rache ist bitter`.
-- Für den NCIS-Test werden zusätzlich die deutsche Episodenbeschreibung, das Ausstrahlungsdatum `2010-10-05` und ein passendes NCIS-Cover geliefert.
-- Der vollständige Metadata-Editor-Test zeigt nun `series`, `NCIS`, Staffel 8, Episode 3, `Rache ist bitter`, korrekte Beschreibung, Datum und Cover mit rund 98 % Confidence.
-- Die relevanten Regressionstests für Batch-Online-Enrichment und Episode-Decision laufen mit 9/9 Tests erfolgreich.
+- Neue Lernroutine zum kontrollierten Einlesen ganzer Medienordner mit Warteschlange für manuelle Prüfung.
+- Lernscan läuft außerhalb des GUI-Hauptthreads und blockiert MediaHub während längerer Analysen nicht mehr.
+- Lernscans können pausiert, fortgesetzt und sauber abgebrochen werden; beim Schließen von MediaHub wird ein laufender Scan kontrolliert beendet.
+- Bereits bekannte bzw. bereits entschiedene Dateien werden bei späteren Scans erkannt und können gezielt erneut freigegeben werden.
+- Lernfälle zeigen eine verständliche Metadatenansicht statt interner Rohdaten, unter anderem Medientyp, Titel, Serie, Staffel, Episode, Episodentitel, Jahr, Quellen und Confidence.
+- Entscheidungen `Richtig`, `Falsch`, `Korrigieren` und `Später` sind vollständig mit der persistenten Lernwarteschlange und Historie verbunden.
+- Manuelle Korrekturen unterstützen Medientyp, Titel, Serie, Staffel, Episode, Episodentitel und Jahr.
+- Bestätigte oder korrigierte Lernfälle werden in das bestehende bestätigte KI-Lernen und den Knowledge Graph übernommen.
+- Serienepisoden werden beim Lernen sauber auf die Serienidentität bezogen; Staffel, Episode und Episodentitel bleiben als konkrete Episodeninformationen erhalten.
+- Neue Historienansicht `Letzte Lernentscheidungen` zeigt bereits abgeschlossene Lernfälle mit verständlichem Entscheidungsstatus.
+- Eine einzelne Lernentscheidung kann mit `Entscheidung zurücknehmen & neu prüfen` gezielt zurückgenommen werden, ohne andere Lernfälle pauschal zu löschen.
+- `Falsch`- und `Später`-Entscheidungen können einzeln zurückgenommen werden; die betreffende Datei wird anschließend für einen neuen Lernscan freigegeben.
+- Bestätigte Lernbeiträge werden fallgenau über ihre Review-ID verfolgt und mit der zugehörigen Knowledge-Identität sowie Graph-Entität verbunden.
+- Mehrere bestätigende Dateien derselben Identität werden per Referenzzählung geschützt: Das Zurücknehmen eines einzelnen Falls löscht gemeinsam gestütztes Wissen nicht.
+- Beim Zurücknehmen des letzten ungeschützten Lernbeitrags wird die zugehörige gelernte Identität zentral über den bestehenden Identity-Cleanup bereinigt.
+- Bereits vor Einführung des fallgenauen Trackings vorhandenes Wissen wird durch einen späteren einzelnen Undo-Vorgang nicht versehentlich gelöscht.
+- Fallbezogene Dateinamen-Aliase werden beim Undo nur dann entfernt, wenn kein anderer aktiver Lernfall denselben Alias weiter bestätigt.
+- Bereits vorhandene Aliase bleiben geschützt.
+- Doppelte gelernte Filmidentitäten durch nullable Staffel-/Episodenfelder werden verhindert; vorhandene Identitäten werden jetzt direkt aktualisiert statt dupliziert.
+- Praktisch getestet: Ein einzelner bestätigter Serienfall wird vollständig zurückgenommen und zentral bereinigt.
+- Praktisch getestet: Bei mehreren Bestätigungen derselben Identität bleibt das gemeinsame Wissen erhalten, wenn nur ein Lernfall zurückgenommen wird.
+- Praktisch getestet: Chappie blieb bei Rücknahme eines einzelnen bestätigenden Falls erhalten, während nur der fallbezogene neue Alias entfernt wurde.
+- Die Plugin-Beschreibung wurde auf die aktuelle Medienerkennung mit In-Video-/Speech-Analyse, Knowledge Graph und kontrollierter Lernroutine aktualisiert.
 
 ## MediaHub Audio Metadata Editor v0.0.1
 

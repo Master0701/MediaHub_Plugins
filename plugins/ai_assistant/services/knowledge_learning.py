@@ -146,12 +146,109 @@ class KnowledgeLearningService:
                 details_json TEXT NOT NULL DEFAULT '{}',
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
-            CREATE INDEX IF NOT EXISTS idx_ai_alias_normalized ON ai_learned_aliases(normalized_alias);
-            CREATE INDEX IF NOT EXISTS idx_ai_identity_normalized ON ai_learned_identities(normalized_title);
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_identity_unique ON ai_learned_identities(normalized_title,media_type,release_year,season,episode);
+            CREATE TABLE IF NOT EXISTS ai_learning_contributions (
+                id INTEGER PRIMARY KEY,
+                review_case_id TEXT NOT NULL UNIQUE,
+                identity_id INTEGER NOT NULL
+                    REFERENCES ai_learned_identities(id)
+                    ON DELETE CASCADE,
+                graph_entity_id TEXT,
+                protect_existing_identity INTEGER NOT NULL DEFAULT 0,
+                state TEXT NOT NULL DEFAULT 'active',
+                source TEXT NOT NULL DEFAULT 'learning_review',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS ai_learning_contribution_aliases (
+                review_case_id TEXT NOT NULL,
+                identity_id INTEGER NOT NULL,
+                alias TEXT NOT NULL,
+                normalized_alias TEXT NOT NULL,
+                protect_existing_alias INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY(
+                    review_case_id,
+                    normalized_alias
+                ),
+                FOREIGN KEY(review_case_id)
+                    REFERENCES ai_learning_contributions(review_case_id)
+                    ON DELETE CASCADE,
+                FOREIGN KEY(identity_id)
+                    REFERENCES ai_learned_identities(id)
+                    ON DELETE CASCADE
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_ai_contribution_alias_identity
+                ON ai_learning_contribution_aliases(identity_id);
+
+            CREATE INDEX IF NOT EXISTS idx_ai_contribution_alias_normalized
+                ON ai_learning_contribution_aliases(normalized_alias);
+
+            CREATE INDEX IF NOT EXISTS idx_ai_alias_normalized
+                ON ai_learned_aliases(normalized_alias);
+
+            CREATE INDEX IF NOT EXISTS idx_ai_identity_normalized
+                ON ai_learned_identities(normalized_title);
+
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_identity_unique
+                ON ai_learned_identities(
+                    normalized_title,
+                    media_type,
+                    release_year,
+                    season,
+                    episode
+                );
+
+            CREATE INDEX IF NOT EXISTS idx_ai_learning_contribution_identity
+                ON ai_learning_contributions(identity_id);
+
+            CREATE INDEX IF NOT EXISTS idx_ai_learning_contribution_state
+                ON ai_learning_contributions(state);
             """)
 
-    def confirm(self, analysis: dict[str, Any], corrected_identity: dict[str, Any] | None = None) -> dict[str, Any]:
+            columns = {
+                str(row["name"])
+                for row in db.execute(
+                    "PRAGMA table_info("
+                    "ai_learning_contributions"
+                    ")"
+                ).fetchall()
+            }
+
+            if (
+                "graph_entity_id"
+                not in columns
+            ):
+                db.execute(
+                    """
+                    ALTER TABLE
+                        ai_learning_contributions
+                    ADD COLUMN
+                        graph_entity_id TEXT
+                    """
+                )
+
+            if (
+                "protect_existing_identity"
+                not in columns
+            ):
+                db.execute(
+                    """
+                    ALTER TABLE
+                        ai_learning_contributions
+                    ADD COLUMN
+                        protect_existing_identity
+                        INTEGER NOT NULL DEFAULT 0
+                    """
+                )
+
+    def confirm(
+        self,
+        analysis: dict[str, Any],
+        corrected_identity: dict[str, Any] | None = None,
+        *,
+        review_case_id: str | None = None,
+    ) -> dict[str, Any]:
         proposed = dict(corrected_identity or {})
         identification = analysis.get('identification') or {}
         decision = analysis.get('decision') or {}
@@ -180,15 +277,298 @@ class KnowledgeLearningService:
             for row in db.execute("""SELECT i.id,i.canonical_title,i.media_type FROM ai_learned_aliases a JOIN ai_learned_identities i ON i.id=a.identity_id WHERE a.normalized_alias IN (%s)""" % ','.join('?' for _ in aliases), tuple(normalize_text(a) for a in aliases)).fetchall() if aliases else []:
                 if normalize_text(row['canonical_title']) != normalized:
                     conflicts.append({'alias': next((a for a in aliases if normalize_text(a) in {normalize_text(x) for x in aliases}), ''), 'existing_title': row['canonical_title'], 'proposed_title': title})
-            db.execute("""INSERT INTO ai_learned_identities(media_type,canonical_title,normalized_title,original_title,release_year,season,episode,edition,external_ids_json,source,confidence)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?)
-                ON CONFLICT(normalized_title,media_type,release_year,season,episode) DO UPDATE SET canonical_title=excluded.canonical_title,original_title=COALESCE(excluded.original_title,ai_learned_identities.original_title),edition=COALESCE(excluded.edition,ai_learned_identities.edition),external_ids_json=excluded.external_ids_json,source=excluded.source,confidence=excluded.confidence,updated_at=CURRENT_TIMESTAMP""",
-                (media_type,title,normalized,original_title,year,season,episode,edition,json.dumps(external_ids,ensure_ascii=False),source,confidence))
-            identity_id=int(db.execute("SELECT id FROM ai_learned_identities WHERE normalized_title=? AND media_type=? AND COALESCE(release_year,-1)=COALESCE(?,-1) AND COALESCE(season,-1)=COALESCE(?,-1) AND COALESCE(episode,-1)=COALESCE(?,-1)",(normalized,media_type,year,season,episode)).fetchone()['id'])
+            preexisting_identity = db.execute(
+                """
+                SELECT id
+                FROM ai_learned_identities
+                WHERE
+                    normalized_title=?
+                    AND media_type=?
+                    AND COALESCE(release_year,-1)
+                        = COALESCE(?,-1)
+                    AND COALESCE(season,-1)
+                        = COALESCE(?,-1)
+                    AND COALESCE(episode,-1)
+                        = COALESCE(?,-1)
+                """,
+                (
+                    normalized,
+                    media_type,
+                    year,
+                    season,
+                    episode,
+                ),
+            ).fetchone()
+
+            protect_existing_identity = False
+
+            if preexisting_identity is not None:
+                preexisting_id = int(
+                    preexisting_identity["id"]
+                )
+
+                tracked_count = int(
+                    db.execute(
+                        """
+                        SELECT COUNT(*)
+                        FROM ai_learning_contributions
+                        WHERE identity_id=?
+                        """,
+                        (preexisting_id,),
+                    ).fetchone()[0]
+                )
+
+                # Die Identität existierte bereits vor
+                # Einführung bzw. vor Verwendung des
+                # fallgenauen Contribution-Trackings.
+                # Sie darf durch einen späteren einzelnen
+                # Review-Undo niemals gelöscht werden.
+                protect_existing_identity = (
+                    tracked_count == 0
+                )
+
+            if preexisting_identity is not None:
+                identity_id = int(
+                    preexisting_identity["id"]
+                )
+
+                db.execute(
+                    """
+                    UPDATE ai_learned_identities
+                    SET
+                        canonical_title=?,
+                        original_title=COALESCE(
+                            ?,
+                            original_title
+                        ),
+                        edition=COALESCE(
+                            ?,
+                            edition
+                        ),
+                        external_ids_json=?,
+                        source=?,
+                        confidence=?,
+                        updated_at=CURRENT_TIMESTAMP
+                    WHERE id=?
+                    """,
+                    (
+                        title,
+                        original_title,
+                        edition,
+                        json.dumps(
+                            external_ids,
+                            ensure_ascii=False,
+                        ),
+                        source,
+                        confidence,
+                        identity_id,
+                    ),
+                )
+            else:
+                cursor = db.execute(
+                    """
+                    INSERT INTO ai_learned_identities(
+                        media_type,
+                        canonical_title,
+                        normalized_title,
+                        original_title,
+                        release_year,
+                        season,
+                        episode,
+                        edition,
+                        external_ids_json,
+                        source,
+                        confidence
+                    )
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        media_type,
+                        title,
+                        normalized,
+                        original_title,
+                        year,
+                        season,
+                        episode,
+                        edition,
+                        json.dumps(
+                            external_ids,
+                            ensure_ascii=False,
+                        ),
+                        source,
+                        confidence,
+                    ),
+                )
+
+                identity_id = int(
+                    cursor.lastrowid
+                )
+            normalized_case_id = str(
+                review_case_id
+                or ""
+            ).strip()
+
+            alias_protection: dict[str, int] = {}
+
             for alias in sorted(aliases):
-                db.execute("INSERT OR IGNORE INTO ai_learned_aliases(identity_id,alias,normalized_alias,source,confidence) VALUES(?,?,?,?,?)",(identity_id,alias,normalize_text(alias),source,confidence))
+                normalized_alias = normalize_text(
+                    alias
+                )
+
+                if normalized_case_id:
+                    existing_alias = db.execute(
+                        """
+                        SELECT id
+                        FROM ai_learned_aliases
+                        WHERE
+                            identity_id=?
+                            AND normalized_alias=?
+                        LIMIT 1
+                        """,
+                        (
+                            identity_id,
+                            normalized_alias,
+                        ),
+                    ).fetchone()
+
+                    tracked_alias_count = int(
+                        db.execute(
+                            """
+                            SELECT COUNT(*)
+                            FROM ai_learning_contribution_aliases
+                            WHERE
+                                identity_id=?
+                                AND normalized_alias=?
+                            """,
+                            (
+                                identity_id,
+                                normalized_alias,
+                            ),
+                        ).fetchone()[0]
+                    )
+
+                    alias_protection[
+                        normalized_alias
+                    ] = int(
+                        existing_alias is not None
+                        and tracked_alias_count == 0
+                    )
+
+                db.execute(
+                    """
+                    INSERT OR IGNORE INTO ai_learned_aliases(
+                        identity_id,
+                        alias,
+                        normalized_alias,
+                        source,
+                        confidence
+                    )
+                    VALUES(?,?,?,?,?)
+                    """,
+                    (
+                        identity_id,
+                        alias,
+                        normalized_alias,
+                        source,
+                        confidence,
+                    ),
+                )
+
             for c in conflicts:
-                db.execute("INSERT INTO ai_knowledge_conflicts(normalized_key,conflict_type,existing_value,proposed_value,details_json) VALUES(?,?,?,?,?)",(normalize_text(c['alias']),'alias_identity',c['existing_title'],title,json.dumps(c,ensure_ascii=False)))
+                db.execute(
+                    "INSERT INTO ai_knowledge_conflicts("
+                    "normalized_key,conflict_type,"
+                    "existing_value,proposed_value,"
+                    "details_json"
+                    ") VALUES(?,?,?,?,?)",
+                    (
+                        normalize_text(c["alias"]),
+                        "alias_identity",
+                        c["existing_title"],
+                        title,
+                        json.dumps(
+                            c,
+                            ensure_ascii=False,
+                        ),
+                    ),
+                )
+
+            if normalized_case_id:
+                db.execute(
+                    """
+                    INSERT INTO ai_learning_contributions(
+                        review_case_id,
+                        identity_id,
+                        protect_existing_identity,
+                        state,
+                        source
+                    )
+                    VALUES(?, ?, ?, 'active', ?)
+                    ON CONFLICT(review_case_id)
+                    DO UPDATE SET
+                        identity_id=excluded.identity_id,
+                        protect_existing_identity=MAX(
+                            ai_learning_contributions
+                                .protect_existing_identity,
+                            excluded
+                                .protect_existing_identity
+                        ),
+                        state='active',
+                        source=excluded.source,
+                        updated_at=CURRENT_TIMESTAMP
+                    """,
+                    (
+                        normalized_case_id,
+                        identity_id,
+                        int(
+                            protect_existing_identity
+                        ),
+                        source,
+                    ),
+                )
+
+                for alias in sorted(aliases):
+                    normalized_alias = normalize_text(
+                        alias
+                    )
+
+                    db.execute(
+                        """
+                        INSERT INTO ai_learning_contribution_aliases(
+                            review_case_id,
+                            identity_id,
+                            alias,
+                            normalized_alias,
+                            protect_existing_alias
+                        )
+                        VALUES(?,?,?,?,?)
+                        ON CONFLICT(
+                            review_case_id,
+                            normalized_alias
+                        )
+                        DO UPDATE SET
+                            identity_id=excluded.identity_id,
+                            alias=excluded.alias,
+                            protect_existing_alias=MAX(
+                                ai_learning_contribution_aliases
+                                    .protect_existing_alias,
+                                excluded
+                                    .protect_existing_alias
+                            )
+                        """,
+                        (
+                            normalized_case_id,
+                            identity_id,
+                            alias,
+                            normalized_alias,
+                            int(
+                                alias_protection.get(
+                                    normalized_alias,
+                                    0,
+                                )
+                            ),
+                        ),
+                    )
 
         fingerprint, fingerprint_source = _find_video_fingerprint(analysis)
         fp_record=None
@@ -256,6 +636,258 @@ class KnowledgeLearningService:
             'conflicts':conflicts,
             'source':source,
             'confidence':confidence,
+            'review_case_id':str(
+                review_case_id
+                or ""
+            ).strip(),
+        }
+
+    def attach_graph_entity(
+        self,
+        review_case_id: str,
+        graph_entity_id: str,
+    ) -> bool:
+        case_id = str(
+            review_case_id
+            or ""
+        ).strip()
+
+        entity_id = str(
+            graph_entity_id
+            or ""
+        ).strip()
+
+        if not case_id or not entity_id:
+            return False
+
+        with self._connect() as db:
+            cursor = db.execute(
+                """
+                UPDATE ai_learning_contributions
+                SET
+                    graph_entity_id=?,
+                    updated_at=CURRENT_TIMESTAMP
+                WHERE review_case_id=?
+                """,
+                (
+                    entity_id,
+                    case_id,
+                ),
+            )
+
+            return bool(
+                cursor.rowcount
+            )
+
+    def contribution(
+        self,
+        review_case_id: str,
+    ) -> dict[str, Any] | None:
+        case_id = str(
+            review_case_id
+            or ""
+        ).strip()
+
+        if not case_id:
+            return None
+
+        with self._connect() as db:
+            row = db.execute(
+                """
+                SELECT
+                    c.*,
+                    i.media_type,
+                    i.canonical_title,
+                    i.release_year,
+                    i.season,
+                    i.episode
+                FROM ai_learning_contributions c
+                JOIN ai_learned_identities i
+                  ON i.id = c.identity_id
+                WHERE c.review_case_id=?
+                """,
+                (case_id,),
+            ).fetchone()
+
+        return (
+            dict(row)
+            if row is not None
+            else None
+        )
+
+    def undo_contribution(
+        self,
+        review_case_id: str,
+    ) -> dict[str, Any]:
+        case_id = str(
+            review_case_id
+            or ""
+        ).strip()
+
+        if not case_id:
+            raise ValueError(
+                "Review-Case-ID fehlt."
+            )
+
+        with self._connect() as db:
+            row = db.execute(
+                """
+                SELECT
+                    review_case_id,
+                    identity_id,
+                    graph_entity_id,
+                    state
+                FROM ai_learning_contributions
+                WHERE review_case_id=?
+                """,
+                (case_id,),
+            ).fetchone()
+
+            if row is None:
+                return {
+                    "status": "legacy_untracked",
+                    "review_case_id": case_id,
+                    "knowledge_removed": False,
+                    "reason": (
+                        "Für diesen älteren Lernfall "
+                        "existiert noch keine "
+                        "fallgenaue Lernzuordnung."
+                    ),
+                }
+
+            identity_id = int(
+                row["identity_id"]
+            )
+
+            db.execute(
+                """
+                UPDATE ai_learning_contributions
+                SET
+                    state='undone',
+                    updated_at=CURRENT_TIMESTAMP
+                WHERE review_case_id=?
+                """,
+                (case_id,),
+            )
+
+            contribution_aliases = db.execute(
+                """
+                SELECT
+                    alias,
+                    normalized_alias,
+                    protect_existing_alias
+                FROM ai_learning_contribution_aliases
+                WHERE review_case_id=?
+                """,
+                (case_id,),
+            ).fetchall()
+
+            removed_aliases = []
+
+            for alias_row in contribution_aliases:
+                if bool(
+                    alias_row[
+                        "protect_existing_alias"
+                    ]
+                ):
+                    continue
+
+                normalized_alias = str(
+                    alias_row[
+                        "normalized_alias"
+                    ]
+                    or ""
+                )
+
+                other_active_count = int(
+                    db.execute(
+                        """
+                        SELECT COUNT(*)
+                        FROM ai_learning_contribution_aliases a
+                        JOIN ai_learning_contributions c
+                          ON c.review_case_id
+                           = a.review_case_id
+                        WHERE
+                            a.identity_id=?
+                            AND a.normalized_alias=?
+                            AND c.state='active'
+                        """,
+                        (
+                            identity_id,
+                            normalized_alias,
+                        ),
+                    ).fetchone()[0]
+                )
+
+                if other_active_count == 0:
+                    db.execute(
+                        """
+                        DELETE FROM ai_learned_aliases
+                        WHERE
+                            identity_id=?
+                            AND normalized_alias=?
+                        """,
+                        (
+                            identity_id,
+                            normalized_alias,
+                        ),
+                    )
+
+                    removed_aliases.append(
+                        str(
+                            alias_row["alias"]
+                            or ""
+                        )
+                    )
+
+            active_count = int(
+                db.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM ai_learning_contributions
+                    WHERE
+                        identity_id=?
+                        AND state='active'
+                    """,
+                    (identity_id,),
+                ).fetchone()[0]
+            )
+
+            protected_count = int(
+                db.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM ai_learning_contributions
+                    WHERE
+                        identity_id=?
+                        AND protect_existing_identity=1
+                    """,
+                    (identity_id,),
+                ).fetchone()[0]
+            )
+
+            graph_entity_id = str(
+                row["graph_entity_id"]
+                or ""
+            ).strip()
+
+        return {
+            "status": "undone",
+            "review_case_id": case_id,
+            "identity_id": identity_id,
+            "graph_entity_id": graph_entity_id,
+            "active_contributions_remaining":
+                active_count,
+            "legacy_identity_protected": (
+                protected_count > 0
+            ),
+            "cleanup_required": (
+                active_count == 0
+                and protected_count == 0
+            ),
+            "knowledge_removed": False,
+            "aliases_removed":
+                removed_aliases,
         }
 
     def lookup(self, query: str) -> list[dict[str, Any]]:
