@@ -1425,6 +1425,83 @@ class MediaHubMetadataEditorPlugin:
             ),
         }
 
+    def _run_confirmed_rename_handoff(
+        self,
+        *,
+        original,
+        edited,
+        confirmation_source,
+    ):
+        if confirmation_source != "human_gui":
+            return {
+                "ok": False,
+                "skipped": True,
+                "reason": "missing_human_gui_confirmation",
+            }
+
+        provider = self._resolve_capability("rename.metadata_handoff")
+        if provider is None:
+            return {
+                "ok": True,
+                "skipped": True,
+                "reason": "smart_renamer_unavailable",
+            }
+
+        execute = getattr(
+            provider,
+            "execute_metadata_editor_handoff",
+            None,
+        )
+        if not callable(execute):
+            return {
+                "ok": True,
+                "skipped": True,
+                "reason": "handoff_method_unavailable",
+            }
+
+        path = str(
+            edited.get("path")
+            or original.get("path")
+            or edited.get("file_path")
+            or original.get("file_path")
+            or ""
+        ).strip()
+
+        if not path:
+            return {
+                "ok": False,
+                "skipped": True,
+                "reason": "media_path_missing",
+            }
+
+        metadata = dict(edited or {})
+
+        try:
+            result = execute(
+                [
+                    {
+                        "path": path,
+                        "metadata": metadata,
+                    }
+                ],
+                metadata_editor_confirmed=True,
+            )
+        except Exception as error:
+            return {
+                "ok": False,
+                "skipped": False,
+                "reason": "rename_handoff_failed",
+                "error": str(error),
+            }
+
+        if isinstance(result, dict):
+            return dict(result)
+
+        return {
+            "ok": bool(result),
+            "result": result,
+        }
+
     def write_metadata(self, payload=None):
         source = dict(payload or {})
         confirmed = source.get("confirmed") is True
@@ -1646,6 +1723,14 @@ class MediaHubMetadataEditorPlugin:
         result["prepared_recovery"] = str(prepared_recovery)
         result["human_confirmation_required"] = True
         result["automatic_apply_allowed"] = False
+
+        rename_handoff = self._run_confirmed_rename_handoff(
+            original=original,
+            edited=edited,
+            confirmation_source=confirmation_source,
+        )
+        result["rename_handoff"] = rename_handoff
+
         return result
 
     def get_plugin_settings(self):

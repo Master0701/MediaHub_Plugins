@@ -1148,6 +1148,11 @@ def main() -> int:
 
     run(sys.executable, "validate_plugins.py")
 
+    # Kataloge und Release-Artefakte vor den Tests aus den aktuellen
+    # Plugin-Manifesten neu erzeugen. Dadurch prüfen die Katalogtests
+    # immer die Versionen des aktuellen Release-Stands.
+    run(sys.executable, "build_plugins.py", "all", "--clean")
+
     if not args.skip_tests:
         run(sys.executable, "-m", "pytest", "-q")
         run(sys.executable, "-m", "compileall", str(PLUGINS_DIR))
@@ -1158,8 +1163,6 @@ def main() -> int:
                 "compileall",
                 str(AI_NODE_PLUGINS_DIR),
             )
-
-    run(sys.executable, "build_plugins.py", "all", "--clean")
 
     verify_document_versions(
         RELEASE_NOTES.read_text(encoding="utf-8"),

@@ -101,6 +101,23 @@ class MediaHubSmartRenamerPlugin:
         self._prepare_web_runtime()
         self._register_routes()
 
+    def get_runtime_capabilities(self):
+        return {
+            "rename.metadata_handoff": self,
+        }
+
+    def get_capability_contracts(self):
+        return {
+            "rename.metadata_handoff": {
+                "mode": "confirmed_handoff",
+                "available": True,
+                "execution_allowed": True,
+                "automatic_apply_allowed": True,
+                "human_confirmation_required": False,
+                "confirmation_source_required": "metadata_editor",
+            },
+        }
+
     def _prepare_web_runtime(self) -> None:
         try:
             from mediahub_web_core.server import acquire_shared_server
@@ -391,6 +408,88 @@ class MediaHubSmartRenamerPlugin:
                     "rollback_failed",
                 }
             ),
+        }
+
+
+    def execute_metadata_editor_handoff(
+        self,
+        items,
+        rules=None,
+        preferred_backend=None,
+        *,
+        metadata_editor_confirmed: bool = False,
+    ):
+        """Fuehrt einen bestaetigten Metadata-Editor-Rename-Handoff aus."""
+        if not metadata_editor_confirmed:
+            raise PermissionError(
+                "Automatische Umbenennung ueber den Metadata Editor erfordert "
+                "eine ausdruecklich bestaetigte Medienidentitaet."
+            )
+
+        handoff_items = []
+        for raw_item in list(items or []):
+            item = dict(raw_item or {})
+            metadata = dict(item.get("metadata") or {})
+
+            if not metadata:
+                raise ValueError(
+                    "Metadata-Editor-Handoff enthaelt keine bestaetigten Metadaten."
+                )
+
+            item["metadata"] = metadata
+            handoff_items.append(item)
+
+        if not handoff_items:
+            raise ValueError(
+                "Metadata-Editor-Handoff enthaelt keine Dateien."
+            )
+
+        preview = self.preview_rename(
+            handoff_items,
+            rules=rules,
+            preferred_backend=preferred_backend,
+        )
+
+        plan = self.rename_plan_service.create_from_preview(preview)
+
+        if not plan.executable:
+            return {
+                "ok": False,
+                "status": plan.status,
+                "confirmation_source": "metadata_editor",
+                "automatic_execution": False,
+                "execution_performed": False,
+                "requires_manual_review": True,
+                "plan": plan.to_dict(),
+                "preview": preview,
+            }
+
+        receipt = self.transaction_service.confirm(
+            plan,
+            user_confirmed=True,
+        )
+
+        execution = self.transaction_service.execute(
+            plan,
+            confirmation_token=receipt.confirmation_token,
+        )
+
+        return {
+            "ok": execution.ok,
+            "status": execution.status,
+            "confirmation_source": "metadata_editor",
+            "automatic_execution": True,
+            "execution_performed": (
+                execution.status
+                in {
+                    "completed",
+                    "rolled_back",
+                    "rollback_failed",
+                }
+            ),
+            "confirmation": receipt.to_dict(),
+            "execution": execution.to_dict(),
+            "plan": plan.to_dict(),
         }
 
     def rollback_rename_transaction(self, plan):

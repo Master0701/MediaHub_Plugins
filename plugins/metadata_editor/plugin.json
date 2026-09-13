@@ -1,7 +1,7 @@
 {
   "id": "mediahub.metadata_editor",
   "name": "MediaHub Metadata Editor",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "author": "Master0701",
   "description": "Lokaler Medienbrowser mit Metadaten-, NFO- und Bildeditor, Ordnerauswahl und integrierter Poster-Vorschau.",
   "type": "tool",
@@ -51,3 +51,4 @@
     "mediahub_metadata_core"
   ]
 }
+
