@@ -1,0 +1,49 @@
+{
+  "id": "mediahub.gliner",
+  "name": "MediaHub GLiNER",
+  "version": "0.1.0",
+  "type": "worker",
+  "entrypoint": "plugin:MediaHubGLiNERPlugin",
+  "api_version": "1",
+  "description": "Lokale semantische Entitaets- und Identitaetserkennung fuer den MediaHub-KI-Assistenten.",
+  "author": "Master0701",
+  "license": "MIT",
+  "enabled_by_default": true,
+  "permissions": [],
+  "capabilities": [
+    "text_entity_extraction",
+    "semantic_text_analysis"
+  ],
+  "job_types": [
+    "text_entity_extraction"
+  ],
+  "dependencies": [],
+  "required_tools": [],
+  "targets": [
+    "raspberry_pi",
+    "windows_compute"
+  ],
+  "platforms": [
+    "linux-aarch64",
+    "windows-amd64"
+  ],
+  "required_capabilities": [],
+  "execution": {
+    "modes": [
+      "auto",
+      "cpu",
+      "gpu"
+    ],
+    "cpu_threads_configurable": true,
+    "accelerator_selection": true
+  },
+  "runtime": {
+    "isolated": true,
+    "engine": "gliner",
+    "dependencies": [
+      "gliner"
+    ],
+    "models_directory": "models",
+    "cache_directory": "cache"
+  }
+}
