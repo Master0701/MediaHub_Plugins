@@ -1,0 +1,67 @@
+{
+    "id":  "mediahub.smolvlm2",
+    "name":  "MediaHub SmolVLM2 Vision",
+    "version":  "0.1.0",
+    "type":  "model",
+    "entrypoint":  "plugin:SmolVLM2Plugin",
+    "api_version":  "1",
+    "description":  "Lokale SmolVLM2 Vision- und Video-Frame-Analyse fuer MediaHub AI Nodes und Windows Compute Nodes.",
+    "author":  "Master0701",
+    "enabled_by_default":  true,
+    "targets":  [
+                    "raspberry_pi",
+                    "windows_compute"
+                ],
+    "platforms":  [
+                      "linux-aarch64",
+                      "windows-amd64"
+                  ],
+    "required_capabilities":  [
+
+                              ],
+    "capabilities":  [
+                         "vision_analysis",
+                         "video_frame_analysis"
+                     ],
+    "execution":  {
+                      "modes":  [
+                                    "auto",
+                                    "cpu",
+                                    "gpu"
+                                ],
+                      "accelerator_selection":  true,
+                      "cpu_threads_configurable":  true
+                  },
+    "runtime":  {
+                    "isolated":  true,
+                    "engine":  "smolvlm2",
+                    "model_id":  "HuggingFaceTB/SmolVLM2-500M-Video-Instruct",
+                    "model_storage":  "mediahub_tools",
+                    "models_bundled":  false,
+                    "model_tool_id":  "smolvlm2-model",
+                    "model_package_version":  "0.1.0"
+                },
+    "license":  "MIT",
+    "permissions":  [
+
+                    ],
+    "job_types":  [
+                      "vision_analysis",
+                      "video_frame_analysis"
+                  ],
+    "dependencies":  [
+
+                     ],
+    "required_tools":  [
+                           {
+                               "id":  "smolvlm2-model",
+                               "version":  "0.1.0",
+                               "source":  "mediahub_tools",
+                               "required":  true,
+                               "targets":  [
+                                               "raspberry_pi",
+                                               "windows_compute"
+                                           ]
+                           }
+                       ]
+}

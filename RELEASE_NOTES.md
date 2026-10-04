@@ -1,4 +1,4 @@
-# MediaHub Plugins v0.5.18 – vollständiges Release
+# MediaHub Plugins v0.5.19 – vollständiges Release
 
 ## MediaHub KI-Assistent v7.0.11
 
@@ -10,11 +10,7 @@
 
 ## MediaHub Metadata Editor v0.4.5
 
-- Bestätigter Rename-Handoff zum MediaHub Smart Renamer ergänzt.
-- Der Handoff wird ausschließlich nach bestätigter Medienidentität aus der menschlichen GUI-Bestätigung ausgelöst.
-- Fehlt der Smart Renamer oder seine Handoff-Capability, wird der Metadata-Write-Vorgang sauber fortgesetzt und der Rename-Handoff übersprungen.
-- Der Medienpfad und die bestätigten Metadaten werden kontrolliert an den Smart Renamer übergeben.
-- Fehler im Rename-Handoff werden strukturiert an das Ergebnis des Metadata-Write-Vorgangs angehängt.
+- Unveränderter Plugin-Stand in diesem Release.
 
 ## MediaHub Mobile Dashboard v0.1.7
 
@@ -22,20 +18,33 @@
 
 ## MediaHub Smart Renamer v0.5.18
 
-- Neue Runtime-Capability `rename.metadata_handoff` für die Zusammenarbeit mit dem Metadata Editor ergänzt.
-- Bestätigte Metadata-Editor-Ergebnisse können jetzt über die bestehende Vorschau-, Rename-Plan-, Bestätigungs- und Transaktionspipeline ausgeführt werden.
-- Automatische Ausführung ist nur bei ausdrücklich bestätigtem Metadata-Editor-Handoff erlaubt.
-- Nicht ausführbare oder prüfpflichtige Rename-Pläne werden nicht automatisch ausgeführt.
-- Fehlende bestätigte Metadaten oder leere Handoff-Dateilisten werden abgewiesen.
-- Neue Tests für Bestätigungspflicht, sichere Transaktionsausführung, blockierte Pläne, fehlende Metadaten und Capability-Vertrag ergänzt.
+- Unveränderter Plugin-Stand in diesem Release.
 
 ## MediaHub WebRemote v0.13.7
 
 - Unveränderter Plugin-Stand in diesem Release.
 
+## MediaHub GLiNER v0.1.0
+
+- Neues AI-Node-Plugin für lokale semantische Entitäts- und Identitätserkennung.
+- Stellt die Capability `semantic_text_analysis` für den MediaHub-KI-Assistenten bereit.
+- Unterstützt die gemeinsame GLiNER-Runtime aus dem MediaHub-Tools-Repository.
+- Unterstützt Windows Compute Node sowie Linux ARM64 / Raspberry Pi über die gemeinsame Runtime-Verwaltung.
+- Runtime und Modell werden nicht unnötig im Plugin-Paket gebündelt, sondern über die vorgesehene Tool-/Runtime-Verwaltung bereitgestellt.
+
 ## MediaHub AI Test Provider v1.0.0
 
 - Unveränderter AI-Node-Plugin-Stand in diesem Release.
+
+## MediaHub SmolVLM2 Vision v0.1.0
+
+- Neues AI-Node-Plugin für lokale Bild-, Vision- und Video-Frame-Analyse.
+- Unterstützt MediaHub AI Nodes und Windows Compute Nodes.
+- Verwendet SmolVLM2-500M-Video-Instruct über die gemeinsame MediaHub-Tools-Modellverwaltung.
+- Unterstützung für Video-Frame-Analyse und kontrollierte Frame-Verarbeitung ergänzt.
+- Das für die Video-Frame-Verarbeitung benötigte FFmpeg wird bewusst direkt im Plugin-Paket mitgeliefert.
+- Modellbereitstellung, Runtime-Status und Runtime-Provisionierung sind in die Plugin-Infrastruktur integriert.
+- Große Modelldateien werden nicht im Plugin-Paket gebündelt, sondern über die vorgesehene Tool-/Modellverwaltung bereitgestellt.
 
 ## MediaHub Speech-to-Text v0.1.2
 

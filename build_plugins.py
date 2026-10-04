@@ -6,6 +6,7 @@ import json
 import shutil
 import tempfile
 import zipfile
+import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -51,7 +52,7 @@ def discover_ai_node_plugins() -> dict[str, Path]:
 
 
 def read_manifest(source: Path) -> dict:
-    return json.loads((source / "plugin.json").read_text(encoding="utf-8"))
+    return json.loads((source / "plugin.json").read_text(encoding="utf-8-sig"))
 
 
 def safe_package_name(manifest: dict, fallback: str) -> str:
@@ -306,6 +307,7 @@ def copy_shared_runtime(package_root: Path, manifest: dict) -> None:
                 "*.pyc",
                 "*.pyo",
                 ".pytest_cache",
+                "*.before_*",
             ),
         )
 
@@ -347,6 +349,7 @@ def build_plugin(key: str, source: Path) -> Path:
                 "*.pyc",
                 "*.pyo",
                 ".pytest_cache",
+                "*.before_*",
             ),
         )
         copy_shared_runtime(package_root, manifest)
@@ -363,6 +366,92 @@ def build_plugin(key: str, source: Path) -> Path:
     create_sha256(output)
     print(f"MediaHub-Plugin erstellt: {output}")
     return output
+
+
+
+SMOLVLM2_FFMPEG_URLS = (
+    "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/"
+    "ffmpeg-master-latest-win64-gpl.zip",
+    "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip",
+)
+
+
+def _prepare_smolvlm2_windows_ffmpeg(package_dir: Path) -> None:
+    """Packt FFmpeg/FFprobe nur in das Windows-fähige SmolVLM2-Paket."""
+
+    tools_dir = package_dir / "tools" / "ffmpeg"
+    tools_dir.mkdir(parents=True, exist_ok=True)
+
+    ffmpeg_target = tools_dir / "ffmpeg.exe"
+    ffprobe_target = tools_dir / "ffprobe.exe"
+
+    if ffmpeg_target.exists() and ffprobe_target.exists():
+        print("  SmolVLM2: FFmpeg/FFprobe bereits vorhanden.")
+        return
+
+    work_dir = package_dir / ".build_ffmpeg"
+    archive = work_dir / "ffmpeg.zip"
+    extract_dir = work_dir / "extract"
+
+    if work_dir.exists():
+        shutil.rmtree(work_dir)
+
+    work_dir.mkdir(parents=True, exist_ok=True)
+
+    last_error = None
+
+    try:
+        for url in SMOLVLM2_FFMPEG_URLS:
+            try:
+                print(f"  SmolVLM2: Lade FFmpeg von {url}")
+
+                if archive.exists():
+                    archive.unlink()
+                if extract_dir.exists():
+                    shutil.rmtree(extract_dir)
+
+                request = urllib.request.Request(
+                    url,
+                    headers={"User-Agent": "MediaHub-Plugins-Build/1.0"},
+                )
+
+                with urllib.request.urlopen(request, timeout=120) as response:
+                    with archive.open("wb") as output:
+                        shutil.copyfileobj(response, output)
+
+                if not zipfile.is_zipfile(archive):
+                    raise RuntimeError("Download ist keine gültige ZIP-Datei.")
+
+                extract_dir.mkdir(parents=True, exist_ok=True)
+
+                with zipfile.ZipFile(archive, "r") as zip_ref:
+                    zip_ref.extractall(extract_dir)
+
+                ffmpeg_found = next(extract_dir.rglob("ffmpeg.exe"), None)
+                ffprobe_found = next(extract_dir.rglob("ffprobe.exe"), None)
+
+                if ffmpeg_found is None or ffprobe_found is None:
+                    raise RuntimeError(
+                        "ffmpeg.exe oder ffprobe.exe wurde im Archiv nicht gefunden."
+                    )
+
+                shutil.copy2(ffmpeg_found, ffmpeg_target)
+                shutil.copy2(ffprobe_found, ffprobe_target)
+
+                print("  SmolVLM2: ffmpeg.exe eingebunden.")
+                print("  SmolVLM2: ffprobe.exe eingebunden.")
+                return
+
+            except Exception as exc:
+                last_error = exc
+                print(f"  SmolVLM2: FFmpeg-Quelle fehlgeschlagen: {exc}")
+
+        raise RuntimeError(
+            f"FFmpeg konnte für SmolVLM2 nicht bereitgestellt werden: {last_error}"
+        )
+
+    finally:
+        shutil.rmtree(work_dir, ignore_errors=True)
 
 
 def build_ai_node_plugin(key: str, source: Path) -> Path:
@@ -402,8 +491,13 @@ def build_ai_node_plugin(key: str, source: Path) -> Path:
                 "*.pyc",
                 "*.pyo",
                 ".pytest_cache",
+                "*.before_*",
             ),
         )
+
+        # Windows-FFmpeg nur in SmolVLM2 einbetten.
+        if source.name.lower() == "smolvlm2":
+            _prepare_smolvlm2_windows_ffmpeg(package_root)
 
         with zipfile.ZipFile(
             output,
@@ -445,8 +539,6 @@ def main() -> int:
         print("FEHLER: Keine Plugin-Quellen gefunden.")
         return 1
 
-    update_catalog(mediahub_plugins)
-    update_ai_node_catalog(ai_plugins)
 
     selectors = _selector_maps(mediahub_plugins, ai_plugins)
 
@@ -472,6 +564,9 @@ def main() -> int:
         help="Leert vor dem Build den release-Ordner.",
     )
     args = parser.parse_args()
+
+    update_catalog(mediahub_plugins)
+    update_ai_node_catalog(ai_plugins)
 
     if args.clean:
         clean_release_directory()
@@ -509,3 +604,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

@@ -5,6 +5,28 @@
   "package_extension": ".mhaiplugin",
   "plugins": [
     {
+      "id": "mediahub.gliner",
+      "name": "MediaHub GLiNER",
+      "version": "0.1.0",
+      "type": "worker",
+      "api_version": "1",
+      "description": "Lokale semantische Entitaets- und Identitaetserkennung fuer den MediaHub-KI-Assistenten.",
+      "visible": true,
+      "project_page": "https://github.com/Master0701/MediaHub_Plugins/tree/main/ai_node_plugins/gliner",
+      "package_asset": "MediaHub_GLiNER_v0.1.0.mhaiplugin",
+      "release_asset": "MediaHub_GLiNER_v0.1.0.mhaiplugin",
+      "sha256_asset": "MediaHub_GLiNER_v0.1.0.mhaiplugin.sha256",
+      "targets": [
+        "raspberry_pi",
+        "windows_compute"
+      ],
+      "platforms": [
+        "linux-aarch64",
+        "windows-amd64"
+      ],
+      "required_capabilities": []
+    },
+    {
       "id": "provider.mediahub_test",
       "name": "MediaHub AI Test Provider",
       "version": "1.0.0",
@@ -16,6 +38,28 @@
       "package_asset": "MediaHub_AITestProvider_v1.0.0.mhaiplugin",
       "release_asset": "MediaHub_AITestProvider_v1.0.0.mhaiplugin",
       "sha256_asset": "MediaHub_AITestProvider_v1.0.0.mhaiplugin.sha256",
+      "targets": [
+        "raspberry_pi",
+        "windows_compute"
+      ],
+      "platforms": [
+        "linux-aarch64",
+        "windows-amd64"
+      ],
+      "required_capabilities": []
+    },
+    {
+      "id": "mediahub.smolvlm2",
+      "name": "MediaHub SmolVLM2 Vision",
+      "version": "0.1.0",
+      "type": "model",
+      "api_version": "1",
+      "description": "Lokale SmolVLM2 Vision- und Video-Frame-Analyse fuer MediaHub AI Nodes und Windows Compute Nodes.",
+      "visible": true,
+      "project_page": "https://github.com/Master0701/MediaHub_Plugins/tree/main/ai_node_plugins/smolvlm2",
+      "package_asset": "MediaHub_SmolVLM2Vision_v0.1.0.mhaiplugin",
+      "release_asset": "MediaHub_SmolVLM2Vision_v0.1.0.mhaiplugin",
+      "sha256_asset": "MediaHub_SmolVLM2Vision_v0.1.0.mhaiplugin.sha256",
       "targets": [
         "raspberry_pi",
         "windows_compute"
