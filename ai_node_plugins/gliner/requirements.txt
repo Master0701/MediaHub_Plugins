@@ -1,0 +1,1 @@
+# GLiNER runtime dependencies are installed in the plugin's isolated runtime.
