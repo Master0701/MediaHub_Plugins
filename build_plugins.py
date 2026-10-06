@@ -454,7 +454,35 @@ def _prepare_smolvlm2_windows_ffmpeg(package_dir: Path) -> None:
         shutil.rmtree(work_dir, ignore_errors=True)
 
 
+AI_NODE_REQUIRED_FILES = (
+    "plugin.json",
+    "README.md",
+    "CHANGELOG.md",
+    "requirements.txt",
+)
+
+
+def _validate_ai_node_package_source(source: Path) -> None:
+    missing = [
+        name for name in AI_NODE_REQUIRED_FILES
+        if not (source / name).is_file()
+    ]
+    if missing:
+        raise ValueError(
+            f"AI-Node-Plugin {source.name!r}: Pflichtdateien fehlen: "
+            + ", ".join(missing)
+        )
+
+    for name in AI_NODE_REQUIRED_FILES:
+        path = source / name
+        if path.read_bytes().startswith(b"\xef\xbb\xbf"):
+            raise ValueError(
+                f"AI-Node-Plugin {source.name!r}: UTF-8-BOM nicht erlaubt: {name}"
+            )
+
+
 def build_ai_node_plugin(key: str, source: Path) -> Path:
+    _validate_ai_node_package_source(source)
     manifest = read_manifest(source)
     for required in (
         "id",
