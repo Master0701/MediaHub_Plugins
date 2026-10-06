@@ -1,4 +1,4 @@
-﻿# SmolVLM2 runtime dependencies are managed externally
+# SmolVLM2 runtime dependencies are managed externally
 # by the MediaHub runtime/tool management.
 #
 # Model files are not bundled with this plugin.
