@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -274,47 +276,67 @@ def analyze_image(
     return result
 
 
-def _bundled_ffmpeg() -> Path:
-    """Return the FFmpeg executable bundled with the plugin."""
-    ffmpeg = (
-        Path(__file__).resolve().parent
-        / "tools"
-        / "ffmpeg"
-        / "ffmpeg.exe"
-    )
-
-    if not ffmpeg.is_file():
-        raise SmolVLM2EngineError(
-            "Eingebettetes FFmpeg wurde nicht gefunden: "
-            f"{ffmpeg}"
+def _ffmpeg_executable() -> Path:
+    """Resolve the platform-appropriate FFmpeg executable."""
+    if os.name == "nt":
+        ffmpeg = (
+            Path(__file__).resolve().parent
+            / "tools"
+            / "ffmpeg"
+            / "ffmpeg.exe"
         )
 
-    return ffmpeg
+        if not ffmpeg.is_file():
+            raise SmolVLM2EngineError(
+                "Eingebettetes FFmpeg wurde nicht gefunden: "
+                f"{ffmpeg}"
+            )
 
+        return ffmpeg
 
-def _bundled_ffprobe() -> Path:
-    """Return the FFprobe executable bundled with the plugin."""
-    ffprobe = (
-        Path(__file__).resolve().parent
-        / "tools"
-        / "ffmpeg"
-        / "ffprobe.exe"
-    )
-
-    if not ffprobe.is_file():
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
         raise SmolVLM2EngineError(
-            "Eingebettetes FFprobe wurde nicht gefunden: "
-            f"{ffprobe}"
+            "FFmpeg wurde auf diesem Linux-System nicht gefunden. "
+            "Erwartet wird ein verfuegbares 'ffmpeg' im PATH."
         )
 
-    return ffprobe
+    return Path(ffmpeg)
+
+
+def _ffprobe_executable() -> Path:
+    """Resolve the platform-appropriate FFprobe executable."""
+    if os.name == "nt":
+        ffprobe = (
+            Path(__file__).resolve().parent
+            / "tools"
+            / "ffmpeg"
+            / "ffprobe.exe"
+        )
+
+        if not ffprobe.is_file():
+            raise SmolVLM2EngineError(
+                "Eingebettetes FFprobe wurde nicht gefunden: "
+                f"{ffprobe}"
+            )
+
+        return ffprobe
+
+    ffprobe = shutil.which("ffprobe")
+    if not ffprobe:
+        raise SmolVLM2EngineError(
+            "FFprobe wurde auf diesem Linux-System nicht gefunden. "
+            "Erwartet wird ein verfuegbares 'ffprobe' im PATH."
+        )
+
+    return Path(ffprobe)
 
 
 def _video_duration(path: Path) -> float:
-    """Read video duration using the bundled FFprobe."""
+    """Read video duration using the platform FFprobe."""
     completed = subprocess.run(
         [
-            str(_bundled_ffprobe()),
+            str(_ffprobe_executable()),
             "-v",
             "error",
             "-show_entries",
@@ -358,10 +380,10 @@ def _extract_video_frame(
     output_path: Path,
     timestamp: float,
 ) -> None:
-    """Extract one frame using the bundled FFmpeg."""
+    """Extract one frame using the platform FFmpeg."""
     completed = subprocess.run(
         [
-            str(_bundled_ffmpeg()),
+            str(_ffmpeg_executable()),
             "-hide_banner",
             "-loglevel",
             "error",
