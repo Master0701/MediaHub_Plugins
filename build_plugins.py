@@ -473,12 +473,11 @@ def _validate_ai_node_package_source(source: Path) -> None:
             + ", ".join(missing)
         )
 
-    for name in AI_NODE_REQUIRED_FILES:
-        path = source / name
-        if path.read_bytes().startswith(b"\xef\xbb\xbf"):
-            raise ValueError(
-                f"AI-Node-Plugin {source.name!r}: UTF-8-BOM nicht erlaubt: {name}"
-            )
+    requirements_path = source / "requirements.txt"
+    if requirements_path.read_bytes().startswith(b"\xef\xbb\xbf"):
+        raise ValueError(
+            f"AI-Node-Plugin {source.name!r}: UTF-8-BOM nicht erlaubt: requirements.txt"
+        )
 
 
 def build_ai_node_plugin(key: str, source: Path) -> Path:
