@@ -1,7 +1,7 @@
 {
   "id": "mediahub.gliner",
   "name": "MediaHub GLiNER",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "worker",
   "entrypoint": "plugin:MediaHubGLiNERPlugin",
   "api_version": "1",
@@ -46,4 +46,4 @@
     "models_directory": "models",
     "cache_directory": "cache"
   }
-}
+}

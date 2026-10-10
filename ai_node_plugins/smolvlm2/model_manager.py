@@ -262,9 +262,37 @@ def install_model(
                 archive_path,
                 "r",
             ) as archive:
-                archive.extractall(
-                    staging
-                )
+                seen = set()
+                for entry in archive.infolist():
+                    normalized = entry.filename.replace("\\", "/")
+                    parts = normalized.rstrip("/").split("/")
+
+                    if (
+                        normalized.startswith("/")
+                        or not parts[0]
+                        or any(part in ("", ".", "..") for part in parts)
+                        or ":" in parts[0]
+                        or parts[0] != MODEL_DIRECTORY_NAME
+                        or normalized.rstrip("/") in seen
+                    ):
+                        raise RuntimeError(
+                            f"Unsicherer oder doppelter ZIP-Pfad: {entry.filename!r}"
+                        )
+
+                    seen.add(normalized.rstrip("/"))
+                    target = staging.joinpath(*parts)
+
+                    if entry.is_dir() or normalized.endswith("/"):
+                        target.mkdir(parents=True, exist_ok=True)
+                        continue
+
+                    target.parent.mkdir(parents=True, exist_ok=True)
+
+                    with (
+                        archive.open(entry) as source,
+                        target.open("wb") as destination,
+                    ):
+                        shutil.copyfileobj(source, destination)
 
         extracted_package = (
             staging / MODEL_DIRECTORY_NAME

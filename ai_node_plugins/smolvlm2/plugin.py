@@ -73,6 +73,7 @@ select_execution = _EXECUTION.select_execution
 resolve_model_path = _MODEL_MANAGER.resolve_model_path
 models_root = _RUNTIME.models_root
 private_python = _RUNTIME.private_python
+install_dependencies = _RUNTIME.install_dependencies
 
 SmolVLM2RuntimeBridgeError = (
     _RUNTIME_BRIDGE.SmolVLM2RuntimeBridgeError
@@ -233,18 +234,40 @@ def _handle_job(
     )
 
     if not status.get("ready", False):
+        try:
+            install_dependencies(
+                requested_backend,
+            )
+            runtime_python = private_python()
+            status = runtime_status(
+                runtime_python,
+                requested_backend,
+            )
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "status": "runtime_install_failed",
+                "job_type": job_type,
+                "runtime_python": str(runtime_python),
+                "requested_backend": requested_backend,
+                "runtime_status": status,
+                "message": (
+                    "Die SmolVLM2-Runtime konnte nicht "
+                    f"automatisch installiert werden: {exc}"
+                ),
+            }
+
+    if not status.get("ready", False):
         return {
-            "status": "runtime_not_installed",
+            "status": "runtime_not_ready",
             "job_type": job_type,
             "runtime_python": str(runtime_python),
             "requested_backend": requested_backend,
             "runtime_status": status,
             "message": (
-                "Die SmolVLM2-Runtime ist nicht "
-                "installiert oder nicht bereit."
+                "Die SmolVLM2-Runtime wurde installiert, "
+                "ist aber nicht bereit."
             ),
         }
-
     try:
         model_path = resolve_model_path(
             models_root()
@@ -343,4 +366,3 @@ class SmolVLM2Plugin:
 
     def register(self, context):
         return register(context)
-

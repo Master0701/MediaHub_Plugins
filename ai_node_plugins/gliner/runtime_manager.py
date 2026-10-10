@@ -1,4 +1,4 @@
-﻿"""Managed isolated runtime for the GLiNER plugin."""
+"""Managed isolated runtime for the GLiNER plugin."""
 
 from __future__ import annotations
 
@@ -37,8 +37,66 @@ def _load_python_runtime_provider():
     return python_runtime
 
 def runtime_base_python():
-    provider = _load_python_runtime_provider()
-    return Path(provider.require_python())
+    """Find a compatible Python interpreter for GLiNER."""
+    if os.name == "nt":
+        provider = _load_python_runtime_provider()
+        return Path(provider.require_python())
+
+    import sys
+    import struct
+
+    candidates = [
+        sys.executable,
+        shutil.which("python3"),
+        shutil.which("python"),
+    ]
+
+    for candidate in candidates:
+        if not candidate:
+            continue
+
+        path = Path(candidate).resolve()
+
+        try:
+            result = subprocess.run(
+                [
+                    str(path),
+                    "-c",
+                    (
+                        "import sys, struct;"
+                        "print(sys.version_info.major,"
+                        "sys.version_info.minor,"
+                        "struct.calcsize('P') * 8)"
+                    ),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=True,
+            )
+
+            major, minor, bits = map(
+                int, result.stdout.split()
+            )
+
+            if (
+                major == 3
+                and minor in (11, 12, 13)
+                and bits == 64
+            ):
+                return path
+
+        except (
+            OSError,
+            subprocess.SubprocessError,
+            ValueError,
+        ):
+            continue
+
+    raise RuntimeError(
+        "Keine kompatible Python-Runtime fuer GLiNER "
+        "gefunden (Python 3.11 bis 3.13, 64 Bit)."
+    )
 
 
 def default_runtime_root():
@@ -464,6 +522,110 @@ def _download_windows_runtime(
         }
 
 
+def _use_linux_arm64_runtime() -> bool:
+    """Use the published CPU runtime on Linux ARM64 nodes."""
+    return (
+        os.name == "posix"
+        and platform.system().lower() == "linux"
+        and platform.machine().lower() in {"aarch64", "arm64"}
+    )
+
+
+def _download_linux_arm64_runtime(
+    *,
+    profile: str,
+    staging: Path,
+) -> dict[str, Any]:
+    """Download and validate the MediaHub Tools ARM64 CPU runtime."""
+    selected = normalize_install_profile(profile)
+    if selected != "cpu":
+        raise ValueError(
+            "GLiNER Linux ARM64 bietet nur das CPU-Runtime-Paket."
+        )
+
+    with tempfile.TemporaryDirectory(
+        prefix="mediahub-gliner-arm64-"
+    ) as temporary:
+        download_root = Path(temporary)
+        manifest = _load_tools_gliner_manifest(download_root)
+        packages = manifest.get("packages")
+        package = (
+            packages.get("pi")
+            if isinstance(packages, dict)
+            else None
+        )
+        if not isinstance(package, dict):
+            raise RuntimeError(
+                "GLiNER-Manifest enthaelt kein Linux-ARM64-Paket "
+                "(packages.pi)."
+            )
+
+        if (
+            str(package.get("platform", "")).lower() != "linux"
+            or str(package.get("architecture", "")).lower()
+            not in {"arm64", "aarch64"}
+            or str(package.get("acceleration", "")).lower() != "cpu"
+            or package.get("multipart", False)
+        ):
+            raise RuntimeError(
+                "GLiNER-Pi-Runtime hat ungueltige Plattform- "
+                "oder Beschleunigungsangaben."
+            )
+
+        asset_name = package.get("package")
+        expected_hash = package.get("sha256")
+        if (
+            not isinstance(asset_name, str)
+            or not asset_name
+            or Path(asset_name).name != asset_name
+            or not isinstance(expected_hash, str)
+            or len(expected_hash) != 64
+            or any(c not in "0123456789abcdefABCDEF" for c in expected_hash)
+        ):
+            raise RuntimeError(
+                "GLiNER-Pi-Manifest enthaelt ungueltige Asset-Daten."
+            )
+
+        archive_path = _download_release_asset(
+            asset_name,
+            download_root / asset_name,
+        )
+        expected_size = int(package["size"])
+        if expected_size <= 0 or archive_path.stat().st_size != expected_size:
+            raise RuntimeError(
+                "GLiNER-Pi-Runtime hat eine falsche Dateigroesse."
+            )
+        _verify_runtime_asset(archive_path, expected_hash)
+
+        with zipfile.ZipFile(archive_path, "r") as archive:
+            # Never let a release archive write outside the staging root.
+            destination = staging.resolve()
+            for member in archive.infolist():
+                target = (destination / member.filename).resolve()
+                if not target.is_relative_to(destination):
+                    raise RuntimeError(
+                        "Unsicherer Pfad im GLiNER-Pi-Runtime-ZIP."
+                    )
+                # ZIP Unix symlinks must not be extracted as regular files.
+                if (member.external_attr >> 16) & 0o170000 == 0o120000:
+                    raise RuntimeError(
+                        "Symbolischer Link im GLiNER-Pi-Runtime-ZIP."
+                    )
+            archive.extractall(staging)
+
+        return {
+            "source": "mediahub-tools",
+            "release": MEDIAHUB_TOOLS_RELEASE,
+            "repository": MEDIAHUB_TOOLS_REPOSITORY,
+            "runtime_version": manifest.get("version"),
+            "profile": selected,
+            "platform": "linux",
+            "architecture": "arm64",
+            "multipart": False,
+            "package": asset_name,
+        }
+
+
 def _use_mediahub_tools_runtime() -> bool:
     return (
         os.name == "nt"
@@ -511,6 +673,11 @@ def install_dependencies(
 
     if _use_mediahub_tools_runtime():
         runtime_source = _download_windows_runtime(
+            profile=selected_profile,
+            staging=staging,
+        )
+    elif _use_linux_arm64_runtime():
+        runtime_source = _download_linux_arm64_runtime(
             profile=selected_profile,
             staging=staging,
         )
@@ -1286,64 +1453,49 @@ def dependency_install_commands(
     python_path: str | Path,
     packages_path: str | Path,
 ) -> list[list[str]]:
-    """Build pip commands for the selected GLiNER profile."""
+    """Build one dependency-resolved GLiNER installation command."""
 
-    plan = package_install_plan(
-        profile=profile
-    )
+    plan = package_install_plan(profile=profile)
 
-    python_path = Path(python_path)
-    packages_path = Path(packages_path)
-
-    torch_command = [
-        str(python_path),
+    command = [
+        str(Path(python_path)),
         "-m",
         "pip",
         "install",
         "--upgrade",
         "--target",
-        str(packages_path),
-        "--index-url",
-        str(plan["torch_index_url"]),
-        "torch",
+        str(Path(packages_path)),
     ]
 
-    gliner_command = [
-        str(python_path),
-        "-m",
-        "pip",
-        "install",
-        "--upgrade",
-        "--target",
-        str(packages_path),
-        "--no-deps",
-        "gliner",
-    ]
+    if profile == "cpu":
+        torch_package = "torch"
 
-    gliner_dependencies_command = [
-        str(python_path),
-        "-m",
-        "pip",
-        "install",
-        "--upgrade",
-        "--target",
-        str(packages_path),
+        if (
+            os.name == "posix"
+            and platform.machine().lower() in {"aarch64", "arm64"}
+        ):
+            torch_package = "torch==2.14.1+cpu"
+
+        command.extend([
+            "--extra-index-url",
+            str(plan["torch_index_url"]),
+            torch_package,
+        ])
+    else:
+        command.extend([
+            "--extra-index-url",
+            str(plan["torch_index_url"]),
+            "torch",
+        ])
+
+    command.extend([
+        "gliner==0.2.29",
         "transformers>=4.51.3,<5.17.0",
-        "huggingface_hub>=0.21.4",
-        "numpy",
-        "packaging",
-        "safetensors",
-        "tqdm",
-        "sentencepiece",
         "tiktoken",
         "protobuf",
-    ]
+    ])
 
-    return [
-        torch_command,
-        gliner_command,
-        gliner_dependencies_command,
-    ]
+    return [command]
 
 
 

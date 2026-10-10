@@ -1,7 +1,7 @@
 {
     "id":  "mediahub.smolvlm2",
     "name":  "MediaHub SmolVLM2 Vision",
-    "version":  "0.1.0",
+    "version":  "0.1.1",
     "type":  "model",
     "entrypoint":  "plugin:SmolVLM2Plugin",
     "api_version":  "1",
