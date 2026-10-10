@@ -11,12 +11,12 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - **MediaHub Mobile Dashboard 0.1.7**
 - **MediaHub Smart Renamer 0.5.18**
 - **MediaHub WebRemote 0.13.7**
-- **MediaHub GLiNER 0.1.0**
+- **MediaHub GLiNER 0.1.1**
 - **MediaHub AI Test Provider 1.0.0**
-- **MediaHub SmolVLM2 Vision 0.1.0**
+- **MediaHub SmolVLM2 Vision 0.1.1**
 - **MediaHub Speech-to-Text 0.1.2**
 
-# MediaHub Plugins v0.5.19 – vollständiges Release
+# MediaHub Plugins v0.5.20 – vollständiges Release
 
 ## MediaHub KI-Assistent v7.0.11
 
@@ -42,7 +42,13 @@ Offizielles Erweiterungs-Repository für MediaHub.
 
 - Unveränderter Plugin-Stand in diesem Release.
 
-## MediaHub GLiNER v0.1.0
+## MediaHub GLiNER v0.1.1
+
+- Automatische Bereitstellung der Linux-ARM64-CPU-Runtime aus MediaHub_Tools ergänzt.
+- Runtime-Download, Paketprüfung und sichere Entpackung integriert.
+- Kontrollierte Runtime-Aktivierung mit Backup-/Rollback-Vorbereitung ergänzt.
+- Automatische Installation auf Raspberry Pi 5 mit Python 3.13 erfolgreich getestet.
+- GLiNER und PyTorch nach automatischer Installation erfolgreich geprüft.
 
 - Neues AI-Node-Plugin für lokale semantische Entitäts- und Identitätserkennung.
 - Stellt die Capability `semantic_text_analysis` für den MediaHub-KI-Assistenten bereit.
@@ -54,7 +60,12 @@ Offizielles Erweiterungs-Repository für MediaHub.
 
 - Unveränderter AI-Node-Plugin-Stand in diesem Release.
 
-## MediaHub SmolVLM2 Vision v0.1.0
+## MediaHub SmolVLM2 Vision v0.1.1
+
+- Runtime-Verwaltung und automatische Python-Bereitstellung erweitert.
+- Python-Bootstrap und isolierte Runtime-Provisionierung ergänzt.
+- Modellverwaltung und Runtime-Profile überarbeitet.
+- Modellpaket-Version 0.1.0 bleibt unverändert.
 
 - Neues AI-Node-Plugin für lokale Bild-, Vision- und Video-Frame-Analyse.
 - Unterstützt MediaHub AI Nodes und Windows Compute Nodes.
@@ -84,9 +95,9 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - **MediaHub Mobile Dashboard 0.1.7** – mindestens MediaHub v1.0.5
 - **MediaHub Smart Renamer 0.5.18** – mindestens MediaHub v1.0.18
 - **MediaHub WebRemote 0.13.7** – mindestens MediaHub v1.0.5
-- **MediaHub GLiNER 0.1.0** – AI-Node API 1
+- **MediaHub GLiNER 0.1.1** – AI-Node API 1
 - **MediaHub AI Test Provider 1.0.0** – AI-Node API 1
-- **MediaHub SmolVLM2 Vision 0.1.0** – AI-Node API 1
+- **MediaHub SmolVLM2 Vision 0.1.1** – AI-Node API 1
 - **MediaHub Speech-to-Text 0.1.2** – AI-Node API 1
 
 ## Projektaufbau
