@@ -38,7 +38,7 @@ def test_plugin_manifest():
     )
 
     assert manifest["id"] == "mediahub.smolvlm2"
-    assert manifest["version"] == "0.1.0"
+    assert manifest["version"] == "0.1.1"
     assert manifest["type"] == "model"
 
     assert "raspberry_pi" in manifest["targets"]
