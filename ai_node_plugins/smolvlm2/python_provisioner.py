@@ -1,10 +1,11 @@
-﻿"""Private CPython provisioning for SmolVLM2."""
+"""Private CPython provisioning for SmolVLM2."""
 
 from __future__ import annotations
 
 import hashlib
 import os
 import shutil
+import subprocess
 import tempfile
 import urllib.parse
 import urllib.request
@@ -17,27 +18,25 @@ PYTHON_VERSION = "3.12.10"
 PYTHON_ARCH = "amd64"
 
 PYTHON_FILENAME = (
-    "python-3.12.10-embed-amd64.zip"
+    "python-3.12.10-amd64.exe"
 )
 
 PYTHON_URL = (
     "https://www.python.org/"
     "ftp/python/3.12.10/"
-    "python-3.12.10-embed-amd64.zip"
+    "python-3.12.10-amd64.exe"
 )
 
-# Offiziell auf python.org fuer dieses
-# Windows-Embeddable-Paket veroeffentlicht.
-PYTHON_MD5 = (
-    "fe8ef205f2e9c3ba44d0cf9954e1abd3"
-)
+# Fuer den vollstaendigen Windows-Installer
+# wird ausschliesslich SHA256 verifiziert.
+PYTHON_MD5 = None
 
 # Wird spaeter im Release-Prozess
 # zusaetzlich mit einem von uns
 # verifizierten SHA256 belegt.
 PYTHON_SHA256: str | None = (
-    "4acbed6dd1c744b0376e3b1cf57ce906"
-    "f9dc9e95e68824584c8099a63025a3c3"
+    "67b5635e80ea51072b87941312d00ec8"
+    "927c4db9ba18938f7ad2d27b328b95fb"
 )
 
 
@@ -48,25 +47,10 @@ class PythonProvisionError(
 
 
 def default_private_root() -> Path:
-    override = os.environ.get(
-        "MEDIAHUB_COMPUTE_RUNTIME"
-    )
-
-    if override:
-        base = Path(override)
-    else:
-        base = (
-            Path.home()
-            / ".mediahub"
-            / "compute_node"
-        )
-
-    return (
-        base
-        / "private_python"
-        / f"cpython-{PYTHON_VERSION}-x64"
-    )
-
+    """Use persistent user data, not the Compute Node executable runtime."""
+    override = os.environ.get("MEDIAHUB_COMPUTE_DATA_ROOT")
+    base = Path(override).expanduser() if override else Path.home() / ".mediahub" / "compute_node"
+    return base / "private_python" / f"cpython-{PYTHON_VERSION}-x64"
 
 def python_executable(
     root: Path | None = None,
@@ -89,7 +73,7 @@ def package_metadata() -> dict[str, Any]:
         "source": "python.org",
         "private": True,
         "changes_system_path": False,
-        "changes_registry": False,
+        "changes_registry": True,
     }
 
 
@@ -159,20 +143,13 @@ def verify_package(
             "Python-Paket nicht gefunden."
         )
 
-    md5 = file_hash(
-        path,
-        "md5",
-    )
-
-    if md5.lower() != PYTHON_MD5.lower():
-        raise PythonProvisionError(
-            "MD5-Pruefung des offiziellen "
-            "Python-Pakets fehlgeschlagen."
-        )
-
     sha256 = file_hash(
         path,
         "sha256",
+    )
+    md5 = file_hash(
+        path,
+        "md5",
     )
 
     if (
@@ -184,11 +161,6 @@ def verify_package(
             "SHA256-Pruefung fehlgeschlagen."
         )
 
-    if not zipfile.is_zipfile(path):
-        raise PythonProvisionError(
-            "Python-Paket ist kein "
-            "gueltiges ZIP-Archiv."
-        )
 
     return {
         "verified": True,
@@ -377,9 +349,9 @@ def extract_package(
             stage
         )
 
-        if target_root.exists():
-            shutil.rmtree(
-                target_root
+        if target_root.exists() or target_root.is_symlink():
+            raise FileExistsError(
+                f"Python-Zielordner existiert bereits: {target_root}"
             )
 
         shutil.move(
@@ -446,6 +418,30 @@ def _enable_import_site(
     )
 
 
+def _python_supports_venv(executable: Path) -> bool:
+    """Check that managed Python supports isolated environments."""
+    if not executable.is_file():
+        return False
+
+    try:
+        result = subprocess.run(
+            [
+                str(executable),
+                "-c",
+                (
+                    "import sys, venv, ensurepip; "
+                    "assert sys.version_info[:2] == (3, 12)"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+        return result.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
 def inspect_private_python(
     root: Path | None = None,
 ) -> dict[str, Any]:
@@ -465,55 +461,24 @@ def inspect_private_python(
         ),
         "installed": (
             executable.is_file()
+            and _python_supports_venv(executable)
         ),
     }
 
-def provision_private_python(
-    root: Path | None = None,
-) -> dict[str, Any]:
-    """Ensure that the managed private Python runtime exists."""
-    target_root = Path(
-        root or default_private_root()
-    )
+def provision_private_python(root: Path | None = None) -> dict[str, Any]:
+    """Never run the legacy python.org EXE installer automatically.
 
-    current = inspect_private_python(
-        target_root
+    Portable runtime installation is a separate confirmed operation.
+    """
+    target_root = Path(root) if root is not None else (
+        default_private_root().parent / "cpython-3.12.10-x64-astral-20250409"
     )
-
+    current = inspect_private_python(target_root)
     if current["installed"]:
         return current
-
-    target_root.parent.mkdir(
-        parents=True,
-        exist_ok=True,
+    raise PythonProvisionError(
+        "Keine funktionsfaehige portable Python-Runtime vorhanden. "
+        "Bitte MediaHub Python Runtime separat mit bestaetigter "
+        "Installation und SHA256-Pruefung einrichten. "
+        "Der alte python.org-EXE-Installer wird nicht gestartet."
     )
-
-    package_path = (
-        target_root.parent
-        / PYTHON_FILENAME
-    )
-
-    download_package(
-        package_path
-    )
-
-    try:
-        extract_package(
-            package_path,
-            target_root,
-            verify=True,
-        )
-    finally:
-        if package_path.exists():
-            package_path.unlink()
-
-    result = inspect_private_python(
-        target_root
-    )
-
-    if not result["installed"]:
-        raise PythonProvisionError(
-            "Private Python-Runtime wurde nicht korrekt installiert."
-        )
-
-    return result

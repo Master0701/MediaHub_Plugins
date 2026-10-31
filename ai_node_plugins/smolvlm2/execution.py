@@ -1,4 +1,4 @@
-﻿"""Execution backend selection for SmolVLM2."""
+"""Execution backend selection for SmolVLM2."""
 
 from __future__ import annotations
 
@@ -26,14 +26,20 @@ def select_execution(
         "auto",
         "cpu",
         "cuda",
+        "gpu",
     }:
         raise ValueError(
             "Unbekanntes SmolVLM2-Backend: "
             f"{backend}"
         )
 
+    if backend == "gpu":
+        selected_backend = "cuda"
+    else:
+        selected_backend = backend
+
     return {
         "requested_backend": backend,
-        "backend": backend,
+        "backend": selected_backend,
         "cpu_threads": cpu_thread_count(),
     }

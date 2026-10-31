@@ -1,4 +1,4 @@
-﻿"""MediaHub SmolVLM2 Compute-Node plugin."""
+"""MediaHub SmolVLM2 Compute-Node plugin."""
 
 from __future__ import annotations
 
@@ -73,7 +73,6 @@ select_execution = _EXECUTION.select_execution
 resolve_model_path = _MODEL_MANAGER.resolve_model_path
 models_root = _RUNTIME.models_root
 private_python = _RUNTIME.private_python
-install_dependencies = _RUNTIME.install_dependencies
 
 SmolVLM2RuntimeBridgeError = (
     _RUNTIME_BRIDGE.SmolVLM2RuntimeBridgeError
@@ -128,6 +127,7 @@ def _job_input_path(
             payload.get("input_path"),
             payload.get("path"),
             payload.get("file_path"),
+            payload.get("input"),
         )
 
     for candidate in candidates:
@@ -163,8 +163,23 @@ def _requested_backend(
 ) -> str:
     options = _job_options(job)
 
+    payload = job.get("payload")
+    payload_backend = (
+        payload.get("backend")
+        if isinstance(payload, dict)
+        else None
+    )
+    execution = job.get("execution")
+    execution_backend = (
+        execution.get("backend")
+        if isinstance(execution, dict)
+        else None
+    )
+
     backend = (
-        options.get("backend")
+        execution_backend
+        or options.get("backend")
+        or payload_backend
         or job.get("backend")
         or "auto"
     )
@@ -230,31 +245,8 @@ def _handle_job(
 
     status = runtime_status(
         runtime_python,
-        requested_backend,
+        execution["backend"],
     )
-
-    if not status.get("ready", False):
-        try:
-            install_dependencies(
-                requested_backend,
-            )
-            runtime_python = private_python()
-            status = runtime_status(
-                runtime_python,
-                requested_backend,
-            )
-        except Exception as exc:  # noqa: BLE001
-            return {
-                "status": "runtime_install_failed",
-                "job_type": job_type,
-                "runtime_python": str(runtime_python),
-                "requested_backend": requested_backend,
-                "runtime_status": status,
-                "message": (
-                    "Die SmolVLM2-Runtime konnte nicht "
-                    f"automatisch installiert werden: {exc}"
-                ),
-            }
 
     if not status.get("ready", False):
         return {
@@ -264,8 +256,11 @@ def _handle_job(
             "requested_backend": requested_backend,
             "runtime_status": status,
             "message": (
-                "Die SmolVLM2-Runtime wurde installiert, "
-                "ist aber nicht bereit."
+                "Die SmolVLM2-Runtime ist nicht bereit. "
+                "Python-Runtime und Plugin-Abhaengigkeiten muessen "
+                "zuerst ueber den bestaetigten Installationsablauf "
+                "eingerichtet werden. Ein Analyseauftrag installiert "
+                "keine Software automatisch."
             ),
         }
     try:

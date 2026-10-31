@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import zipfile
 import importlib.util
 import json
 import re
@@ -21,6 +22,8 @@ CATALOG = ROOT / "catalog" / "plugin_catalog.json"
 AI_CATALOG = ROOT / "catalog" / "ai_plugin_catalog.json"
 RELEASE_DIR = ROOT / "release"
 BUILD_SCRIPT = ROOT / "build_plugins.py"
+NULLTEST_SOURCE = ROOT / "tools" / "dev" / "plugin_nulltest"
+NULLTEST_ASSET = "MediaHub_Plugin_Nulltest_v1.0.0.zip"
 
 
 @dataclass(frozen=True)
@@ -380,11 +383,13 @@ def build_release_notes(source: str, plugins: list[Plugin], tag: str) -> str:
     lines = [f"# MediaHub Plugins {tag} – vollständiges Release", ""]
 
     for plugin in plugins:
-        if not plugin.publishable:
-            continue
         lines.append(f"## {plugin.name} v{plugin.version}")
         lines.append("")
-        lines.append(bodies.get(plugin.key) or generic_body(plugin))
+        body = bodies.get(plugin.key) or generic_body(plugin)
+        if not plugin.publishable:
+            if "nicht als GitHub-Release-Plugin" not in body and "nicht veröffentlicht" not in body:
+                body += "\n- Entwicklungsstand: kein veröffentlichtes Plugin-Paket."
+        lines.append(body)
         lines.append("")
 
     placeholders = [plugin for plugin in plugins if not plugin.publishable]
@@ -397,6 +402,29 @@ def build_release_notes(source: str, plugins: list[Plugin], tag: str) -> str:
         lines.append("- Geplante Plugins mit Version 0.0.0 bleiben im Katalog sichtbar, werden aber nicht als veröffentlichte Release-Pakete geprüft.")
         lines.append("")
 
+    # Den dokumentierten Build- und Teststand aus den Pending-Notizen übernehmen.
+    section = re.search(
+        r"^## Gemeinsamer Build- und Teststand\s*\n(.*?)(?=^## |\Z)",
+        source,
+        re.MULTILINE | re.DOTALL,
+    )
+    if section:
+        lines.extend([
+            "## Gemeinsamer Build- und Teststand",
+            "",
+            section.group(1).strip(),
+            "",
+        ])
+
+    lines.extend([
+        "## Zusatzwerkzeug: MediaHub Plugin-Nulltest v1.0.0",
+        "",
+        "- Separates ZIP-Asset `MediaHub_Plugin_Nulltest_v1.0.0.zip` mit SHA256-Prüfsumme.",
+        "- GLiNER, SmolVLM2 und Speech-to-Text: CPU- und CUDA-Nullinstallationen mit echten API-/Inferenztests.",
+        "- Windows PowerShell 5.1, Internetzugang und für GPU-Tests eine NVIDIA-GPU erforderlich.",
+        "- Dieses Diagnosewerkzeug ist kein installierbares Plugin.",
+        "",
+    ])
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -691,6 +719,27 @@ def verify_ai_catalog(plugins: list[Plugin]) -> None:
                 f"AI-Katalog-Prüfsummenpaket falsch für "
                 f"{plugin.name}"
             )
+
+
+def build_plugin_nulltest_release_asset() -> None:
+    # Gleiche Build-Funktion wie bei `python build_plugins.py nulltest`.
+    build = load_build_helpers()
+    build.build_plugin_nulltest_release_asset()
+
+
+def verify_plugin_nulltest_release_asset() -> None:
+    artifact = RELEASE_DIR / NULLTEST_ASSET
+    checksum_file = RELEASE_DIR / (NULLTEST_ASSET + ".sha256")
+    if not artifact.is_file() or not checksum_file.is_file():
+        raise RuntimeError("Nulltest-Asset oder SHA256 fehlt.")
+    digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+    if checksum_file.read_text(encoding="utf-8").split()[0].lower() != digest:
+        raise RuntimeError("Nulltest-Asset SHA256 stimmt nicht.")
+    with zipfile.ZipFile(artifact) as archive:
+        expected = {"MediaHub_Gemeinsamer_Nulltest_v1.0.0.ps1", "README.md"}
+        if set(archive.namelist()) != expected or archive.testzip() is not None:
+            raise RuntimeError("Nulltest-Asset ZIP-Inhalt fehlerhaft.")
+    print("[OK] Nulltest-Asset und SHA256 geprüft.")
 
 
 def verify_artifacts(plugins: list[Plugin]) -> None:
@@ -1152,6 +1201,7 @@ def main() -> int:
     # Plugin-Manifesten neu erzeugen. Dadurch prüfen die Katalogtests
     # immer die Versionen des aktuellen Release-Stands.
     run(sys.executable, "build_plugins.py", "all", "--clean")
+    build_plugin_nulltest_release_asset()
 
     if not args.skip_tests:
         run(sys.executable, "-m", "pytest", "-q")
@@ -1177,6 +1227,7 @@ def main() -> int:
     verify_catalog(plugins)
     verify_ai_catalog(plugins)
     verify_artifacts(plugins)
+    verify_plugin_nulltest_release_asset()
 
     commit_release_changes(tag)
     ensure_clean_before_publish()

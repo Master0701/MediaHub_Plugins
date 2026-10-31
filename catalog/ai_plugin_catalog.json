@@ -7,15 +7,15 @@
     {
       "id": "mediahub.gliner",
       "name": "MediaHub GLiNER",
-      "version": "0.1.1",
+      "version": "0.1.3",
       "type": "worker",
       "api_version": "1",
       "description": "Lokale semantische Entitaets- und Identitaetserkennung fuer den MediaHub-KI-Assistenten.",
       "visible": true,
       "project_page": "https://github.com/Master0701/MediaHub_Plugins/tree/main/ai_node_plugins/gliner",
-      "package_asset": "MediaHub_GLiNER_v0.1.1.mhaiplugin",
-      "release_asset": "MediaHub_GLiNER_v0.1.1.mhaiplugin",
-      "sha256_asset": "MediaHub_GLiNER_v0.1.1.mhaiplugin.sha256",
+      "package_asset": "MediaHub_GLiNER_v0.1.3.mhaiplugin",
+      "release_asset": "MediaHub_GLiNER_v0.1.3.mhaiplugin",
+      "sha256_asset": "MediaHub_GLiNER_v0.1.3.mhaiplugin.sha256",
       "targets": [
         "raspberry_pi",
         "windows_compute"
@@ -49,17 +49,37 @@
       "required_capabilities": []
     },
     {
+      "id": "mediahub.python_runtime",
+      "name": "MediaHub Python Runtime",
+      "version": "0.1.3",
+      "type": "utility",
+      "api_version": "1",
+      "description": "Gemeinsame portable Python-Runtime fuer Windows Compute Nodes.",
+      "visible": true,
+      "project_page": "https://github.com/Master0701/MediaHub_Plugins/tree/main/ai_node_plugins/python_runtime",
+      "package_asset": "MediaHub_PythonRuntime_v0.1.3.mhaiplugin",
+      "release_asset": "MediaHub_PythonRuntime_v0.1.3.mhaiplugin",
+      "sha256_asset": "MediaHub_PythonRuntime_v0.1.3.mhaiplugin.sha256",
+      "targets": [
+        "windows_compute"
+      ],
+      "platforms": [
+        "windows-amd64"
+      ],
+      "required_capabilities": []
+    },
+    {
       "id": "mediahub.smolvlm2",
       "name": "MediaHub SmolVLM2 Vision",
-      "version": "0.1.1",
+      "version": "0.1.3",
       "type": "model",
       "api_version": "1",
       "description": "Lokale SmolVLM2 Vision- und Video-Frame-Analyse fuer MediaHub AI Nodes und Windows Compute Nodes.",
       "visible": true,
       "project_page": "https://github.com/Master0701/MediaHub_Plugins/tree/main/ai_node_plugins/smolvlm2",
-      "package_asset": "MediaHub_SmolVLM2Vision_v0.1.1.mhaiplugin",
-      "release_asset": "MediaHub_SmolVLM2Vision_v0.1.1.mhaiplugin",
-      "sha256_asset": "MediaHub_SmolVLM2Vision_v0.1.1.mhaiplugin.sha256",
+      "package_asset": "MediaHub_SmolVLM2Vision_v0.1.3.mhaiplugin",
+      "release_asset": "MediaHub_SmolVLM2Vision_v0.1.3.mhaiplugin",
+      "sha256_asset": "MediaHub_SmolVLM2Vision_v0.1.3.mhaiplugin.sha256",
       "targets": [
         "raspberry_pi",
         "windows_compute"
@@ -73,15 +93,15 @@
     {
       "id": "mediahub.speech_to_text",
       "name": "MediaHub Speech-to-Text",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "type": "worker",
       "api_version": "1",
       "description": "Lokale Speech-to-Text-Ausführung für MediaHub AI- und Compute-Nodes.",
       "visible": true,
       "project_page": "https://github.com/Master0701/MediaHub_Plugins/tree/main/ai_node_plugins/speech_to_text",
-      "package_asset": "MediaHub_Speech-to-Text_v0.1.2.mhaiplugin",
-      "release_asset": "MediaHub_Speech-to-Text_v0.1.2.mhaiplugin",
-      "sha256_asset": "MediaHub_Speech-to-Text_v0.1.2.mhaiplugin.sha256",
+      "package_asset": "MediaHub_Speech-to-Text_v0.1.3.mhaiplugin",
+      "release_asset": "MediaHub_Speech-to-Text_v0.1.3.mhaiplugin",
+      "sha256_asset": "MediaHub_Speech-to-Text_v0.1.3.mhaiplugin.sha256",
       "targets": [
         "raspberry_pi",
         "windows_compute"

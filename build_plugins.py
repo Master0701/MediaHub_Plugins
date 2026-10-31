@@ -308,6 +308,9 @@ def copy_shared_runtime(package_root: Path, manifest: dict) -> None:
                 "*.pyo",
                 ".pytest_cache",
                 "*.before_*",
+                "*.bak",
+                "*.bak-*",
+                "*.backup",
             ),
         )
 
@@ -350,6 +353,9 @@ def build_plugin(key: str, source: Path) -> Path:
                 "*.pyo",
                 ".pytest_cache",
                 "*.before_*",
+                "*.bak",
+                "*.bak-*",
+                "*.backup",
             ),
         )
         copy_shared_runtime(package_root, manifest)
@@ -519,6 +525,9 @@ def build_ai_node_plugin(key: str, source: Path) -> Path:
                 "*.pyo",
                 ".pytest_cache",
                 "*.before_*",
+                "*.bak",
+                "*.bak-*",
+                "*.backup",
             ),
         )
 
@@ -538,6 +547,30 @@ def build_ai_node_plugin(key: str, source: Path) -> Path:
     create_sha256(output)
     print(f"AI-Node-Plugin erstellt: {output}")
     return output
+
+
+NULLTEST_SOURCE = ROOT / "tools" / "dev" / "plugin_nulltest"
+NULLTEST_ASSET = "MediaHub_Plugin_Nulltest_v1.0.0.zip"
+
+
+def build_plugin_nulltest_release_asset() -> Path:
+    """Build the standalone diagnostic ZIP, independently of plugin packages."""
+    required = (
+        "MediaHub_Gemeinsamer_Nulltest_v1.0.0.ps1",
+        "README.md",
+    )
+    missing = [name for name in required if not (NULLTEST_SOURCE / name).is_file()]
+    if missing:
+        raise FileNotFoundError("Nulltest-Quelldateien fehlen: " + ", ".join(missing))
+
+    RELEASE_DIR.mkdir(parents=True, exist_ok=True)
+    artifact = RELEASE_DIR / NULLTEST_ASSET
+    with zipfile.ZipFile(artifact, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for name in required:
+            archive.write(NULLTEST_SOURCE / name, arcname=name)
+    create_sha256(artifact)
+    print(f"Nulltest-Asset erstellt: {artifact}")
+    return artifact
 
 
 def _selector_maps(
@@ -579,9 +612,9 @@ def main() -> int:
         "plugin",
         nargs="?",
         default="all",
-        choices=[*selectors, "all", "mediahub", "ai_node"],
+        choices=[*selectors, "all", "mediahub", "ai_node", "nulltest"],
         help=(
-            "Plugin-Ordnername, 'mediahub', 'ai_node' oder 'all'. "
+            "Plugin-Ordnername, 'mediahub', 'ai_node', 'nulltest' oder 'all'. "
             "Bei Namenskollisionen AI-Plugin als 'ai:<name>' wählen."
         ),
     )
@@ -612,13 +645,16 @@ def main() -> int:
             build_ai_node_plugin(key, source)
             built += 1
 
-    if args.plugin not in ("all", "mediahub", "ai_node"):
+    if args.plugin not in ("all", "mediahub", "ai_node", "nulltest"):
         kind, key, source = selectors[args.plugin]
         if kind == "mediahub":
             build_plugin(key, source)
         else:
             build_ai_node_plugin(key, source)
         built += 1
+
+    if args.plugin in ("all", "nulltest"):
+        build_plugin_nulltest_release_asset()
 
     print(
         "Build abgeschlossen: "

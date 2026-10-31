@@ -19,6 +19,7 @@ RUNTIME_NAME = "gliner"
 
 REQUIRED_PACKAGES = {
     "gliner": "gliner",
+    "protobuf": "google.protobuf",
 }
 
 
@@ -40,7 +41,15 @@ def runtime_base_python():
     """Find a compatible Python interpreter for GLiNER."""
     if os.name == "nt":
         provider = _load_python_runtime_provider()
-        return Path(provider.require_python())
+        # GLiNER must use the managed interpreter of this Compute Node.
+        # Never fall back to a configured or launcher-provided Python.
+        status = provider.inspect_managed_python()
+        if not status.get("ready"):
+            raise RuntimeError(
+                "GLiNER benoetigt die eigene verwaltete MediaHub-Python-Runtime. "
+                "Externe Python-Installationen sind nicht zugelassen."
+            )
+        return Path(status["executable"])
 
     import sys
     import struct
@@ -213,6 +222,38 @@ def inspect_runtime(
     root: Path | None = None,
 ) -> dict[str, Any]:
     paths = runtime_paths(root)
+
+    # The Compute Node installer installs Windows plugin dependencies into
+    # an isolated venv. Prefer that verified environment without changing
+    # the existing packages-based runtime used by other installation paths.
+    if os.name == "nt":
+        venv_python = (
+            paths["root"] / "venv" / "Scripts" / "python.exe"
+        )
+        venv_packages = (
+            paths["root"] / "venv" / "Lib" / "site-packages"
+        )
+        if venv_python.is_file() and venv_packages.is_dir():
+            venv_modules = {
+                package: _python_has_module(
+                    venv_python, module, packages=venv_packages
+                )
+                for package, module in REQUIRED_PACKAGES.items()
+            }
+            if all(venv_modules.values()):
+                return {
+                    "runtime": RUNTIME_NAME,
+                    "mode": "isolated_venv",
+                    "root": str(paths["root"]),
+                    "python": str(venv_python),
+                    "python_exists": True,
+                    "packages_path": str(venv_packages),
+                    "models": str(paths["models"]),
+                    "cache": str(paths["cache"]),
+                    "packages": venv_modules,
+                    "ready": True,
+                    "error": None,
+                }
 
     try:
         python_path = runtime_base_python()
@@ -507,6 +548,31 @@ def _download_windows_runtime(
         ) as archive:
             archive.extractall(staging)
 
+        # The published runtime archives can lack protobuf although the
+        # GLiNER tokenizer requires it. Add it only to the private staging
+        # directory; never install into system Python or an existing runtime.
+        protobuf_present = (
+            (staging / "google" / "protobuf" / "__init__.py").is_file()
+            and any(staging.glob("protobuf-*.dist-info/METADATA"))
+        )
+        if not protobuf_present:
+            python = runtime_base_python()
+            command = [
+                str(python), "-I", "-m", "pip", "install",
+                "--disable-pip-version-check", "--no-input", "--no-deps",
+                "--target", str(staging), "protobuf>=5,<8",
+            ]
+            completed = subprocess.run(
+                command, capture_output=True, text=True, check=False,
+                timeout=300,
+            )
+            if completed.returncode != 0:
+                raise RuntimeError(
+                    "protobuf konnte nicht in der isolierten GLiNER-Runtime "
+                    "installiert werden: "
+                    + (completed.stderr or completed.stdout)[-1200:]
+                )
+
         return {
             "source": "mediahub-tools",
             "release": MEDIAHUB_TOOLS_RELEASE,
@@ -698,6 +764,15 @@ def install_dependencies(
             "source": "pip",
             "profile": selected_profile,
         }
+    # Prevent a global protobuf installation from masking a broken archive.
+    if not (
+        (staging / "google" / "protobuf" / "__init__.py").is_file()
+        and any(staging.glob("protobuf-*.dist-info/METADATA"))
+    ):
+        raise RuntimeError(
+            "GLiNER-Staging enthaelt kein eigenes protobuf-Paket."
+        )
+
     staging_status = inspect_package_runtime(
         staging
     )
@@ -821,9 +896,22 @@ def activate_staged_runtime(
                 backup
             )
 
-        staging.replace(
-            active
-        )
+        # Windows may briefly hold directory handles after pip/AV scanning.
+        # Retry only access/sharing errors; never delete a validated staging
+        # directory merely because activation failed.
+        import time
+        for attempt in range(8):
+            try:
+                staging.replace(active)
+                break
+            except OSError as exc:
+                if os.name != "nt" or getattr(exc, "winerror", None) not in (5, 32, 33) or attempt == 7:
+                    raise RuntimeError(
+                        "GLiNER-Runtime-Aktivierung fehlgeschlagen: "
+                        f"{exc}; active={active.exists()}, "
+                        f"staging={staging.exists()}, backup={backup.exists()}"
+                    ) from exc
+                time.sleep(min(0.3 * (attempt + 1), 2.0))
 
         activated_status = inspect_package_runtime(
             active
@@ -999,6 +1087,25 @@ try:
     import torch
 
     result["torch_available"] = True
+    # GLINER_PACKAGE_ORIGIN_CHECK: No imports from other environments.
+    from pathlib import Path
+
+    expected_root = Path(packages_path).resolve()
+    for module_name, imported_module in (
+        ("gliner", gliner),
+        ("torch", torch),
+    ):
+        module_file = getattr(imported_module, "__file__", None)
+        if not module_file:
+            raise RuntimeError(
+                module_name + " hat keinen nachweisbaren Paketpfad."
+            )
+        actual_file = Path(module_file).resolve()
+        if not actual_file.is_relative_to(expected_root):
+            raise RuntimeError(
+                module_name + " wurde ausserhalb der GLiNER-Pakete geladen: "
+                + str(actual_file)
+            )
     result["torch_version"] = str(
         torch.__version__
     )

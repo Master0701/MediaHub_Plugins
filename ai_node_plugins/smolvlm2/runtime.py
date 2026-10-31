@@ -1,4 +1,4 @@
-﻿"""Managed isolated runtime for SmolVLM2."""
+"""Managed isolated runtime for SmolVLM2."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import importlib.util
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -38,7 +39,15 @@ def _load_local_module(name: str, filename: str):
         )
 
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    plugin_dir = str(module_path.parent)
+    added = plugin_dir not in sys.path
+    if added:
+        sys.path.insert(0, plugin_dir)
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        if added:
+            sys.path.remove(plugin_dir)
 
     return module
 
@@ -72,30 +81,21 @@ def _load_runtime_provisioner():
 
 
 def mediahub_compute_root() -> Path:
-    return (
-        Path.home()
-        / ".mediahub"
-        / "compute_node"
-    )
+    """Persistent SmolVLM2 data, not the Compute Node executable runtime."""
+    override = os.environ.get("MEDIAHUB_COMPUTE_DATA_ROOT")
+    return Path(override).expanduser() if override else Path.home() / ".mediahub" / "compute_node"
 
 
 def runtime_root() -> Path:
-    override = os.environ.get(
-        "MEDIAHUB_COMPUTE_RUNTIME"
-    )
+    """Use the explicitly selected Node runtime; legacy only without override.
 
-    if override:
-        return (
-            Path(override)
-            / "plugin_runtimes"
-            / RUNTIME_NAME
-        )
-
-    return (
-        mediahub_compute_root()
-        / "plugin_runtimes"
-        / RUNTIME_NAME
-    )
+    In particular, never silently reuse a legacy venv during an isolated
+    CPU/GPU installation with MEDIAHUB_COMPUTE_RUNTIME configured.
+    """
+    managed = os.environ.get("MEDIAHUB_COMPUTE_RUNTIME")
+    if managed:
+        return Path(managed).expanduser() / "plugin_runtimes" / RUNTIME_NAME
+    return mediahub_compute_root() / "plugin_runtimes" / RUNTIME_NAME
 
 
 def runtime_paths() -> dict[str, Path]:
@@ -111,27 +111,8 @@ def runtime_paths() -> dict[str, Path]:
 
 
 def models_root() -> Path:
-    """Return the centrally managed SmolVLM2 model root."""
-
-    override = os.environ.get(
-        "MEDIAHUB_COMPUTE_RUNTIME"
-    )
-
-    if override:
-        return (
-            Path(override)
-            / "runtimes"
-            / RUNTIME_NAME
-            / "models"
-        )
-
-    return (
-        mediahub_compute_root()
-        / "runtimes"
-        / RUNTIME_NAME
-        / "models"
-    )
-
+    """Centrally managed SmolVLM2 model root."""
+    return runtime_root() / "models"
 
 def cache_root() -> Path:
     return runtime_paths()["cache"]
@@ -348,53 +329,40 @@ def create_runtime() -> dict[str, Any]:
         exist_ok=True,
     )
 
+    traditional_venv_python = _venv_python_path()
+    existing_status = inspect_runtime() if traditional_venv_python.is_file() else None
+
+    if existing_status is not None and existing_status.get("ready"):
+        # A validated, working venv does not depend on the current availability
+        # of the managed base Python. Do not rewrite its existing state file.
+        return existing_status
+
     try:
         base_python = runtime_base_python()
-    except RuntimeError:
-        provisioner = _load_python_provisioner()
-        provisioned = (
-            provisioner.provision_private_python()
-        )
-        base_python = Path(
-            provisioned["python"]
-        )
+    except RuntimeError as exc:
+        raise RuntimeError(
+            "Die gemeinsame MediaHub Python Runtime ist nicht "
+            "verfuegbar. Bitte zuerst das Python-Runtime-Plugin "
+            "und die portable Python-Basis einrichten."
+        ) from exc
 
     if not base_python.is_file():
-        raise RuntimeError(
-            "Kein kompatibles SmolVLM2-Runtime-Python vorhanden."
-        )
-
-    traditional_venv_python = (
-        _venv_python_path()
-    )
+        raise RuntimeError("Kein kompatibles SmolVLM2-Runtime-Python vorhanden.")
 
     if traditional_venv_python.is_file():
+        # Existing incomplete environments are never replaced implicitly.
         python_path = traditional_venv_python
         runtime_mode = "venv"
-
-    elif _python_has_module(
-        base_python,
-        "venv",
-    ):
+    elif _python_has_module(base_python, "venv"):
         subprocess.run(
-            [
-                str(base_python),
-                "-m",
-                "venv",
-                str(paths["venv"]),
-            ],
+            [str(base_python), "-m", "venv", str(paths["venv"])],
             check=True,
         )
-
         python_path = traditional_venv_python
         runtime_mode = "venv"
-
     else:
         raise RuntimeError(
-            "Das gefundene Python unterstuetzt keine "
-            "isolierte venv-Runtime. Die SmolVLM2-"
-            "Abhaengigkeiten werden nicht in das "
-            "System-Python installiert."
+            "Das gefundene Python unterstuetzt keine isolierte venv-Runtime."
         )
 
     if not python_path.is_file():

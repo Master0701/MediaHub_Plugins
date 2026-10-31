@@ -1,4 +1,4 @@
-﻿"""Subprocess runner for SmolVLM2."""
+"""Subprocess runner for SmolVLM2."""
 
 from __future__ import annotations
 
@@ -40,83 +40,48 @@ def load_engine():
     return module
 
 
-def main() -> int:
+def handle_request(request: dict, engine) -> dict:
     try:
-        request = json.loads(
-            sys.stdin.read()
-        )
-
-        engine = load_engine()
-
-        job_type = str(
-            request.get("job_type")
-            or "vision_analysis"
-        )
-
-        if job_type not in {
-            "vision_analysis",
-            "video_frame_analysis",
-        }:
-            raise RuntimeError(
-                f"Nicht unterstuetzter Runtime-Jobtyp: {job_type}"
-            )
-
-        execution = dict(
-            request.get("execution")
-            or {}
-        )
-
-        options = dict(
-            request.get("options")
-            or {}
-        )
-
+        job_type = str(request.get("job_type") or "vision_analysis")
+        if job_type not in {"vision_analysis", "video_frame_analysis"}:
+            raise RuntimeError(f"Nicht unterstuetzter Runtime-Jobtyp: {job_type}")
+        execution = dict(request.get("execution") or {})
+        options = dict(request.get("options") or {})
         if job_type == "video_frame_analysis":
             result = engine.analyze_video_frames(
-                input_path=request["input_path"],
-                execution=execution,
-                options=options,
+                input_path=request["input_path"], execution=execution, options=options,
             )
         else:
             result = engine.analyze_image(
-                input_path=request["input_path"],
-                execution=execution,
-                options=options,
+                input_path=request["input_path"], execution=execution, options=options,
             )
+        return {"ok": True, "result": result}
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "error": {
+            "type": type(exc).__name__, "message": str(exc),
+        }}
 
-        response = {
-            "ok": True,
-            "result": result,
-        }
 
-        sys.stdout.write(
-            json.dumps(
-                response,
-                ensure_ascii=False,
-            )
-        )
-
+def main() -> int:
+    persistent = "--persistent" in sys.argv
+    engine = load_engine()
+    if persistent:
+        # Line-delimited JSON; no protocol diagnostics on stdout.
+        for line in sys.stdin:
+            try:
+                response = handle_request(json.loads(line), engine)
+            except Exception as exc:  # noqa: BLE001
+                response = {"ok": False, "error": {
+                    "type": type(exc).__name__, "message": str(exc),
+                }}
+            sys.stdout.write(json.dumps(response, ensure_ascii=False) + "\n")
+            sys.stdout.flush()
         return 0
 
-    except Exception as exc:  # noqa: BLE001
-        sys.stdout.write(
-            json.dumps(
-                {
-                    "ok": False,
-                    "error": {
-                        "type": (
-                            type(exc).__name__
-                        ),
-                        "message": str(exc),
-                    },
-                },
-                ensure_ascii=False,
-            )
-        )
-
-        return 1
+    response = handle_request(json.loads(sys.stdin.read()), engine)
+    sys.stdout.write(json.dumps(response, ensure_ascii=False))
+    return 0 if response.get("ok") else 1
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

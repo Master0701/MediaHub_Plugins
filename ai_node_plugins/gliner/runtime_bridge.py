@@ -24,6 +24,8 @@ def _subprocess_environment(
 
     environment["PYTHONIOENCODING"] = "utf-8"
     environment["PYTHONUTF8"] = "1"
+    environment["HF_HUB_OFFLINE"] = "1"
+    environment["TRANSFORMERS_OFFLINE"] = "1"
     environment["MEDIAHUB_GLINER_PACKAGES"] = str(
         packages_path
     )

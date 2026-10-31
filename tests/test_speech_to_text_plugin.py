@@ -22,7 +22,6 @@ EXPECTED_SOURCE_FILES = {
     "pip_bootstrap.py",
     "plugin.json",
     "plugin.py",
-    "python_provisioner.py",
     "python_runtime.py",
     "runtime.py",
     "runtime_bridge.py",

@@ -1,4 +1,4 @@
-﻿"""Python runtime selection for Speech-to-Text."""
+"""Python runtime selection for Speech-to-Text."""
 
 from __future__ import annotations
 
@@ -118,17 +118,43 @@ def private_python() -> Path | None:
             / "compute_node"
         )
 
-    executable = (
-        base
-        / "private_python"
-        / "cpython-3.12.10-x64"
-        / "python.exe"
-    )
+    # Prefer the shared, venv-capable Windows Compute Node runtime.
+    # Keep the legacy location only as a compatibility fallback.
+    for directory in (
+        "cpython-3.12.10-x64-astral-20250409",
+        "cpython-3.12.10-x64",
+    ):
+        executable = (
+            base
+            / "private_python"
+            / directory
+            / "python.exe"
+        )
 
-    if not executable.is_file():
-        return None
+        if not executable.is_file():
+            continue
 
-    return executable
+        status = inspect_python(executable)
+
+        if not status.get("supported"):
+            continue
+
+        # A Speech virtual environment requires venv and ensurepip.
+        completed = subprocess.run(
+            [
+                str(executable),
+                "-I",
+                "-c",
+                "import venv, ensurepip",
+            ],
+            capture_output=True,
+            check=False,
+        )
+
+        if completed.returncode == 0:
+            return executable
+
+    return None
 
 
 def launcher_candidates() -> list[Path]:

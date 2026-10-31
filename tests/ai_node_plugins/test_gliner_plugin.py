@@ -53,7 +53,13 @@ def _disable_runtime_installation(module):
             "installation_required": False,
         }
 
-    module._ensure_runtime = ensure_runtime
+    # The current worker checks runtime status before executing mock jobs.
+    # Simulate a ready runtime without installing anything.
+    def runtime_status():
+        calls.append({"check": "runtime_status"})
+        return {"ready": True, "mode": "isolated_target"}
+
+    module._runtime_status = runtime_status
 
     return calls
 
@@ -360,7 +366,7 @@ def test_gliner_worker_registers_and_executes_mock_job():
     assert entities[0]["label"] == "title"
     assert entities[1]["text"] == "Leroy Jethro Gibbs"
     assert entities[1]["label"] == "person"
-    assert len(ensure_calls) == 1
+    assert any(call.get("check") == "runtime_status" for call in ensure_calls)
 
 
 def test_gliner_cuda_node_with_cpu_runtime_uses_cpu():
@@ -422,7 +428,7 @@ def test_gliner_cuda_node_with_cpu_runtime_uses_cpu():
     assert result["status"] == "completed"
     assert result["execution"]["backend"] == "cpu"
     assert result["execution"]["cpu_threads"] == 4
-    assert len(ensure_calls) == 1
+    assert any(call.get("check") == "runtime_status" for call in ensure_calls)
 
 
 def test_gliner_auto_execution_falls_back_to_cpu():
@@ -464,7 +470,7 @@ def test_gliner_auto_execution_falls_back_to_cpu():
     assert result["status"] == "completed"
     assert result["execution"]["backend"] == "cpu"
     assert result["execution"]["cpu_threads"] == 2
-    assert len(ensure_calls) == 1
+    assert any(call.get("check") == "runtime_status" for call in ensure_calls)
 
 
 def test_runtime_runner_requires_packages_path():

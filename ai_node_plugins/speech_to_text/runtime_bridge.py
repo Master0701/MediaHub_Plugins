@@ -22,11 +22,12 @@ def _runtime_site_packages(
 ) -> Path:
     """Return site-packages of managed Python."""
 
-    return (
-        runtime_python.parent
-        / "Lib"
-        / "site-packages"
-    )
+    # Windows venv python is <venv>/Scripts/python.exe.
+    # site-packages is at <venv>/Lib/site-packages, not Scripts/Lib.
+    venv_root = runtime_python.parent
+    if venv_root.name.lower() == "scripts":
+        venv_root = venv_root.parent
+    return venv_root / "Lib" / "site-packages"
 
 
 def _cuda_runtime_directories(

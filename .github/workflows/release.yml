@@ -42,6 +42,8 @@ jobs:
 
       - name: MediaHub- und AI-Node-Plugins sauber bauen
         run: python build_plugins.py all --clean
+      - name: Build plugin nulltest asset
+        run: python -c "import release_plugins; release_plugins.build_plugin_nulltest_release_asset(); release_plugins.verify_plugin_nulltest_release_asset()"
 
       - name: Quellpaket erstellen
         shell: pwsh
@@ -58,6 +60,7 @@ jobs:
             release/*.mhaiplugin
             release/*.sha256
             release/MediaHub_Plugins_Source_*.zip
+            release/MediaHub_Plugin_Nulltest_v1.0.0.zip
             catalog/plugin_catalog.json
             catalog/ai_plugin_catalog.json
             RELEASE_NOTES.md
@@ -166,6 +169,7 @@ jobs:
             release/*.mhaiplugin
             release/*.sha256
             release/MediaHub_Plugins_Source_*.zip
+            release/MediaHub_Plugin_Nulltest_v1.0.0.zip
 
       - name: Release abschließend prüfen
         uses: actions/github-script@v8
@@ -256,6 +260,9 @@ jobs:
               expected.add(String(plugin.sha256_asset || `${base}.sha256`));
             }
 
+            expected.add("MediaHub_Plugin_Nulltest_v1.0.0.zip");
+            expected.add("MediaHub_Plugin_Nulltest_v1.0.0.zip.sha256");
+
             const actual = assets
               .map((asset) => asset.name)
               .filter(
@@ -263,7 +270,9 @@ jobs:
                   name.endsWith(".mhplugin") ||
                   name.endsWith(".mhplugin.sha256") ||
                   name.endsWith(".mhaiplugin") ||
-                  name.endsWith(".mhaiplugin.sha256")
+                  name.endsWith(".mhaiplugin.sha256") ||
+                  name === "MediaHub_Plugin_Nulltest_v1.0.0.zip" ||
+                  name === "MediaHub_Plugin_Nulltest_v1.0.0.zip.sha256"
               );
 
             const missing = [...expected].filter(

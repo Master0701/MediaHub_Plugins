@@ -1,8 +1,10 @@
-﻿"""Provisioning plan for the isolated SmolVLM2 runtime."""
+"""Provisioning plan for the isolated SmolVLM2 runtime."""
 
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -162,6 +164,31 @@ print(json.dumps(data))
         }
 
 
+def detect_nvidia_gpu() -> bool:
+    """Detect a usable NVIDIA driver without depending on preinstalled torch.
+
+    This only selects the CUDA install candidate. The installed runtime is
+    checked separately for actual torch.cuda availability.
+    """
+    if os.name != "nt":
+        return False
+    executable = shutil.which("nvidia-smi")
+    if not executable:
+        candidate = Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "NVIDIA Corporation" / "NVSMI" / "nvidia-smi.exe"
+        if candidate.is_file():
+            executable = str(candidate)
+    if not executable:
+        return False
+    try:
+        result = subprocess.run(
+            [executable, "--query-gpu=name", "--format=csv,noheader"],
+            capture_output=True, text=True, timeout=15, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0 and bool(result.stdout.strip())
+
+
 def resolve_backend(
     python_executable: str | Path,
     requested: str = "auto",
@@ -199,17 +226,7 @@ def resolve_backend(
 
         return "cuda"
 
-    cuda = inspect_cuda(
-        python_executable
-    )
-
-    if (
-        profile["cuda"]["supported"]
-        and cuda.get(
-            "cuda_available",
-            False,
-        )
-    ):
+    if profile["cuda"]["supported"] and detect_nvidia_gpu():
         return "cuda"
 
     return "cpu"

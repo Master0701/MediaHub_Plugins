@@ -1,4 +1,4 @@
-﻿"""SmolVLM2 inference engine."""
+"""SmolVLM2 inference engine."""
 
 from __future__ import annotations
 
@@ -10,6 +10,9 @@ import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any
+
+# One model per (source, backend, dtype, offline mode) within a worker.
+_MODEL_CACHE: dict[tuple[str, str, str, bool], tuple[Any, Any]] = {}
 
 
 class SmolVLM2EngineError(RuntimeError):
@@ -164,24 +167,21 @@ def analyze_image(
         )
     )
 
-    processor = (
-        AutoProcessor.from_pretrained(
-            model_source,
-            local_files_only=local_files_only,
+    cache_key = (model_source, backend, str(dtype), local_files_only)
+    cached = _MODEL_CACHE.get(cache_key)
+    if cached is None:
+        processor = AutoProcessor.from_pretrained(
+            model_source, local_files_only=local_files_only,
         )
-    )
-
-    model = (
-        AutoModelForImageTextToText
-        .from_pretrained(
-            model_source,
-            dtype=dtype,
-            local_files_only=local_files_only,
-        )
-        .to(backend)
-    )
-
-    model.eval()
+        model = AutoModelForImageTextToText.from_pretrained(
+            model_source, dtype=dtype, local_files_only=local_files_only,
+        ).to(backend)
+        model.eval()
+        # Keep only one model to avoid accumulating VRAM on backend changes.
+        _MODEL_CACHE.clear()
+        _MODEL_CACHE[cache_key] = (processor, model)
+    else:
+        processor, model = cached
 
     prompt = str(
         options.get(

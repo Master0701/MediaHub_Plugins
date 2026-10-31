@@ -38,7 +38,7 @@ def test_plugin_manifest():
     )
 
     assert manifest["id"] == "mediahub.smolvlm2"
-    assert manifest["version"] == "0.1.1"
+    assert manifest["version"] == "0.1.3"
     assert manifest["type"] == "model"
 
     assert "raspberry_pi" in manifest["targets"]
@@ -207,3 +207,38 @@ def test_runtime_runner_rejects_unknown_job_type(monkeypatch):
     assert response["ok"] is False
     assert response["error"]["type"] == "RuntimeError"
     assert "Nicht unterstuetzter Runtime-Jobtyp" in response["error"]["message"]
+
+
+def test_job_input_path_accepts_compute_node_upload(tmp_path):
+    module = _load_module(
+        "test_smolvlm2_plugin_upload_path",
+        "plugin.py",
+    )
+
+    video = tmp_path / "76nj57.mkv"
+    video.write_bytes(b"test")
+
+    job = {
+        "job_type": "video_frame_analysis",
+        "payload": {
+            "input": str(video),
+            "options": {
+                "frame_count": 12,
+            },
+        },
+    }
+
+    assert module._job_input_path(job) == str(video)
+    assert module._job_options(job)["frame_count"] == 12
+
+def test_missing_runtime_never_triggers_installation(tmp_path, monkeypatch):
+    module = _load_module("test_smolvlm2_no_silent_install", "plugin.py")
+    video = tmp_path / "frame.png"
+    video.write_bytes(b"test")
+    monkeypatch.setattr(module, "private_python", lambda: tmp_path / "missing-python.exe")
+    monkeypatch.setattr(module, "runtime_status", lambda *_: {"ready": False})
+    monkeypatch.setattr(module, "select_execution", lambda _: {"backend": "cpu"})
+    monkeypatch.setattr(module, "resolve_model_path", lambda *_: pytest.fail("model access before runtime ready"))
+    result = module._handle_job({"job_type": "vision_analysis", "input_path": str(video)})
+    assert result["status"] == "runtime_not_ready"
+    assert "installiert keine Software automatisch" in result["message"]

@@ -206,8 +206,14 @@ def create_handler(
 
         runtime_status = inspect_runtime()
 
-        if not runtime_status["ready"]:
-            runtime_status = install_dependencies()
+        if not runtime_status.get("ready"):
+            raise RuntimeError(
+                "Speech-to-Text-Runtime ist nicht bereit. "
+                "Bitte zuerst den bestaetigten "
+                "Installationsablauf ausfuehren; "
+                "Analyseauftraege installieren keine Software. "
+                f"Status: {runtime_status}"
+            )
 
         backend = str(
             selected.get(
@@ -219,8 +225,13 @@ def create_handler(
         if backend == "cuda":
             cuda_status = inspect_cuda_runtime()
 
-            if not cuda_status["ready"]:
-                cuda_status = install_cuda_dependencies()
+            if not cuda_status.get("ready"):
+                raise RuntimeError(
+                    "Speech-to-Text-CUDA-Runtime ist nicht bereit. "
+                    "CUDA-Abhaengigkeiten muessen vor dem Auftrag "
+                    "bestaetigt installiert werden. "
+                    f"Status: {cuda_status}"
+                )
 
         runtime_python = venv_python()
 

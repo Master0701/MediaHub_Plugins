@@ -11,73 +11,80 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - **MediaHub Mobile Dashboard 0.1.7**
 - **MediaHub Smart Renamer 0.5.18**
 - **MediaHub WebRemote 0.13.7**
-- **MediaHub GLiNER 0.1.1**
+- **MediaHub GLiNER 0.1.3**
 - **MediaHub AI Test Provider 1.0.0**
-- **MediaHub SmolVLM2 Vision 0.1.1**
-- **MediaHub Speech-to-Text 0.1.2**
+- **MediaHub Python Runtime 0.1.3**
+- **MediaHub SmolVLM2 Vision 0.1.3**
+- **MediaHub Speech-to-Text 0.1.3**
 
-# MediaHub Plugins v0.5.20 – vollständiges Release
+# MediaHub Plugins v0.5.30 – vollständiges Release
 
 ## MediaHub KI-Assistent v7.0.11
 
-- Unveränderter Plugin-Stand in diesem Release.
+- Lokaler MediaHub-KI-Assistent mit intelligenter Medienerkennung, In-Video- und Speech-Analyse, Semantic Identity Pipeline, Knowledge Graph, bestätigtem Lernen und neuer Lernroutine mit Review, manueller Korrektur, Lernhistorie und fallgenauem Rückgängig-System.
+- Plugin-Version unverändert; im aktuellen Windows-Gesamtbuild erfolgreich paketiert.
 
 ## MediaHub Audio Metadata Editor v0.0.1
 
-- Unveränderter Plugin-Stand in diesem Release.
+- Audio-Metadaten-Editor für allgemeine Audiodateien und Hörbücher. Der allgemeine Audio-Bereich und der spezialisierte Hörbuch-Bereich verwenden dieselbe Audio-Metadaten-Engine, Tool-Infrastruktur und Sicherheitslogik.
+- Plugin-Version unverändert; im aktuellen Windows-Gesamtbuild erfolgreich paketiert.
+
+## MediaHub Listen & Export v0.0.0
+
+- Entwicklungsstand 0.0.0: im Katalog geführt, nicht als GitHub-Release-Plugin veröffentlicht.
 
 ## MediaHub Metadata Editor v0.4.5
 
-- Unveränderter Plugin-Stand in diesem Release.
+- Lokaler Medienbrowser mit Metadaten-, NFO- und Bildeditor, Ordnerauswahl und integrierter Poster-Vorschau.
+- Plugin-Version unverändert; im aktuellen Windows-Gesamtbuild erfolgreich paketiert.
 
 ## MediaHub Mobile Dashboard v0.1.7
 
-- Unveränderter Plugin-Stand in diesem Release.
+- Mobile MediaHub-Oberfläche für Handy und Tablet mit einklappbarer linker Sidebar, QR-Code und Geräte-Kopplung.
+- Plugin-Version unverändert; im aktuellen Windows-Gesamtbuild erfolgreich paketiert.
 
 ## MediaHub Smart Renamer v0.5.18
 
-- Unveränderter Plugin-Stand in diesem Release.
+- Smart Renamer mit Review-Priorisierung, Konfliktgewichtung und prioritätsbasierter Sortierung in Web/Desktop.
+- Plugin-Version unverändert; im aktuellen Windows-Gesamtbuild erfolgreich paketiert.
 
 ## MediaHub WebRemote v0.13.7
 
-- Unveränderter Plugin-Stand in diesem Release.
+- Lokales MediaHub Desktop-Control-Center für PC und Notebook mit vollständigem Web-Assistenten und Live-Downloads.
+- Plugin-Version unverändert; im aktuellen Windows-Gesamtbuild erfolgreich paketiert.
 
-## MediaHub GLiNER v0.1.1
+## MediaHub GLiNER v0.1.3
 
-- Automatische Bereitstellung der Linux-ARM64-CPU-Runtime aus MediaHub_Tools ergänzt.
-- Runtime-Download, Paketprüfung und sichere Entpackung integriert.
-- Kontrollierte Runtime-Aktivierung mit Backup-/Rollback-Vorbereitung ergänzt.
-- Automatische Installation auf Raspberry Pi 5 mit Python 3.13 erfolgreich getestet.
-- GLiNER und PyTorch nach automatischer Installation erfolgreich geprüft.
-
-- Neues AI-Node-Plugin für lokale semantische Entitäts- und Identitätserkennung.
-- Stellt die Capability `semantic_text_analysis` für den MediaHub-KI-Assistenten bereit.
-- Unterstützt die gemeinsame GLiNER-Runtime aus dem MediaHub-Tools-Repository.
-- Unterstützt Windows Compute Node sowie Linux ARM64 / Raspberry Pi über die gemeinsame Runtime-Verwaltung.
-- Runtime und Modell werden nicht unnötig im Plugin-Paket gebündelt, sondern über die vorgesehene Tool-/Runtime-Verwaltung bereitgestellt.
+- GLiNER für Windows Compute Node und Raspberry Pi mit isolierter Runtime und kontrollierter Bereitstellung.
+- Frische CPU- und CUDA-Nullinstallationen unter Windows mit echter GLiNER-Modellinferenz getestet.
+- Private Python-3.12.10-Laufzeit und CPU-/CUDA-PyTorch-Profile geprüft.
+- Runtime-Bereitschaft wird vor Analyseaufträgen geprüft; keine stillschweigende Installation durch Worker.
 
 ## MediaHub AI Test Provider v1.0.0
 
-- Unveränderter AI-Node-Plugin-Stand in diesem Release.
+- Test-Plugin für die komplette MediaHub-AI-Node-Installationskette.
+- Plugin-Version unverändert; im aktuellen Windows-Gesamtbuild erfolgreich paketiert.
 
-## MediaHub SmolVLM2 Vision v0.1.1
+## MediaHub Python Runtime v0.1.3
 
-- Runtime-Verwaltung und automatische Python-Bereitstellung erweitert.
-- Python-Bootstrap und isolierte Runtime-Provisionierung ergänzt.
-- Modellverwaltung und Runtime-Profile überarbeitet.
-- Modellpaket-Version 0.1.0 bleibt unverändert.
+- Gemeinsame portable Python-Runtime v0.1.3 als eigenständiges Windows-Compute-Node-Plugin.
+- Kontrollierte Python-Bereitstellung mit SHA256-/Manifestprüfung, sicherer Entpackung und Schutz vorhandener Installationen.
+- Pluginübergreifende Runtime-Nutzung für GLiNER, SmolVLM2 und Speech-to-Text vorbereitet.
+- Kein automatischer Download allein beim Plugin-Start.
 
-- Neues AI-Node-Plugin für lokale Bild-, Vision- und Video-Frame-Analyse.
-- Unterstützt MediaHub AI Nodes und Windows Compute Nodes.
-- Verwendet SmolVLM2-500M-Video-Instruct über die gemeinsame MediaHub-Tools-Modellverwaltung.
-- Unterstützung für Video-Frame-Analyse und kontrollierte Frame-Verarbeitung ergänzt.
-- Das für die Video-Frame-Verarbeitung benötigte FFmpeg wird bewusst direkt im Plugin-Paket mitgeliefert.
-- Modellbereitstellung, Runtime-Status und Runtime-Provisionierung sind in die Plugin-Infrastruktur integriert.
-- Große Modelldateien werden nicht im Plugin-Paket gebündelt, sondern über die vorgesehene Tool-/Modellverwaltung bereitgestellt.
+## MediaHub SmolVLM2 Vision v0.1.3
 
-## MediaHub Speech-to-Text v0.1.2
+- SmolVLM2 v0.1.3 mit korrigierter CPU-/CUDA-Erkennung und isolierten Runtime-Pfaden.
+- Echte CPU- und CUDA-Modellinferenz in separaten Nullinstallationen getestet.
+- FFmpeg und FFprobe werden für die Video-Frame-Verarbeitung im Plugin-Paket mitgeliefert.
+- Gemeinsame Python-Runtime und getrennte Plugin-Abhängigkeiten berücksichtigt.
 
-- Unveränderter AI-Node-Plugin-Stand in diesem Release.
+## MediaHub Speech-to-Text v0.1.3
+
+- Speech-to-Text v0.1.3 mit isolierter faster-whisper-Laufzeit.
+- Runtime-Anbindung für den gemeinsamen Python-Runtime-Provider und getrennte Plugin-Umgebung weiterentwickelt.
+- Paketbau und Windows-Tests erfolgreich; frühere echte CPU-Transkription auf Raspberry Pi dokumentiert.
+- Keine unbelegte Aussage über eine erneute vollständige Windows-Nullinstallation.
 
 ## Gemeinsamer Release-Stand
 
@@ -85,6 +92,21 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - Für jedes veröffentlichte Plugin stehen eine `.mhplugin`- oder `.mhaiplugin`-Datei und eine `.sha256`-Prüfsumme bereit.
 - Die MediaHub- und AI-Node-Plugin-Kataloge wurden aus den aktuellen Manifesten erzeugt.
 - Geplante Plugins mit Version 0.0.0 bleiben im Katalog sichtbar, werden aber nicht als veröffentlichte Release-Pakete geprüft.
+
+## Gemeinsamer Build- und Teststand
+
+- 102 Python-Haupttests bestanden; fünf zusätzliche Plugin-Testsuiten erfolgreich (Windows, 31.10.2026).
+- Zwölf Plugin-Pakete gebaut (sieben MediaHub, fünf AI-Node), einschließlich Entwicklungs-Paket Listen & Export v0.0.0.
+- Veröffentlichbare Plugins erhalten `.mhplugin`- bzw. `.mhaiplugin`-Pakete mit SHA256-Dateien.
+- Listen & Export v0.0.0 bleibt im Katalog und Gesamtbuild, wird aber gemäß Release-Regel nicht als GitHub-Plugin-Asset hochgeladen.
+- Beide Plugin-Kataloge wurden im Gesamtbuild aktualisiert.
+
+## Zusatzwerkzeug: MediaHub Plugin-Nulltest v1.0.0
+
+- Separates ZIP-Asset `MediaHub_Plugin_Nulltest_v1.0.0.zip` mit SHA256-Prüfsumme.
+- GLiNER, SmolVLM2 und Speech-to-Text: CPU- und CUDA-Nullinstallationen mit echten API-/Inferenztests.
+- Windows PowerShell 5.1, Internetzugang und für GPU-Tests eine NVIDIA-GPU erforderlich.
+- Dieses Diagnosewerkzeug ist kein installierbares Plugin.
 
 ## Kompatibilität
 
@@ -95,10 +117,11 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - **MediaHub Mobile Dashboard 0.1.7** – mindestens MediaHub v1.0.5
 - **MediaHub Smart Renamer 0.5.18** – mindestens MediaHub v1.0.18
 - **MediaHub WebRemote 0.13.7** – mindestens MediaHub v1.0.5
-- **MediaHub GLiNER 0.1.1** – AI-Node API 1
+- **MediaHub GLiNER 0.1.3** – AI-Node API 1
 - **MediaHub AI Test Provider 1.0.0** – AI-Node API 1
-- **MediaHub SmolVLM2 Vision 0.1.1** – AI-Node API 1
-- **MediaHub Speech-to-Text 0.1.2** – AI-Node API 1
+- **MediaHub Python Runtime 0.1.3** – AI-Node API 1
+- **MediaHub SmolVLM2 Vision 0.1.3** – AI-Node API 1
+- **MediaHub Speech-to-Text 0.1.3** – AI-Node API 1
 
 ## Projektaufbau
 

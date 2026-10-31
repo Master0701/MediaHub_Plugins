@@ -268,6 +268,12 @@ def _run_analysis(
             f"Status: {status}"
         )
 
+    # The Compute Node installs this model under the same isolated runtime root.
+    model_path = Path(status["models"]) / "gliner_multi-v2.1"
+    if not model_path.is_dir():
+        raise RuntimeError(f"Lokales GLiNER-Modell fehlt: {model_path}")
+    options = {**options, "model": str(model_path)}
+
     return _RUNTIME_BRIDGE.run_analysis(
         runtime_python=status["python"],
         packages_path=status["packages_path"],
@@ -307,9 +313,15 @@ def create_handler(
             context
         )
 
-        _ensure_runtime(
-            capabilities=capabilities,
-        )
+        runtime_status = _runtime_status()
+        if not runtime_status.get("ready"):
+            raise RuntimeError(
+                "GLiNER-Runtime ist nicht bereit. "
+                "Abhaengigkeiten muessen ueber den bestaetigten "
+                "Installationsablauf eingerichtet werden; "
+                "Analyseauftraege installieren keine Software. "
+                f"Status: {runtime_status}"
+            )
 
         execution = _choose_execution(
             request,

@@ -1,0 +1,25 @@
+{
+  "id": "mediahub.python_runtime",
+  "name": "MediaHub Python Runtime",
+  "version": "0.1.3",
+  "type": "utility",
+  "entrypoint": "plugin:MediaHubPythonRuntimePlugin",
+  "api_version": "1",
+  "description": "Gemeinsame portable Python-Runtime fuer Windows Compute Nodes.",
+  "author": "Master0701",
+  "license": "MIT",
+  "enabled_by_default": true,
+  "permissions": [],
+  "capabilities": [
+    "python_runtime"
+  ],
+  "dependencies": [],
+  "required_tools": [],
+  "targets": [
+    "windows_compute"
+  ],
+  "platforms": [
+    "windows-amd64"
+  ],
+  "required_capabilities": []
+}

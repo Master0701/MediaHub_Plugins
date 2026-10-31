@@ -1,7 +1,7 @@
 {
   "id": "mediahub.speech_to_text",
   "name": "MediaHub Speech-to-Text",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "type": "worker",
   "entrypoint": "plugin:MediaHubSpeechToTextPlugin",
   "api_version": "1",
@@ -16,7 +16,15 @@
   "job_types": [
     "speech_to_text"
   ],
-  "dependencies": [],
+  "dependencies": [
+    {
+      "id": "mediahub.python_runtime",
+      "minimum_version": "0.1.0",
+      "targets": [
+        "windows_compute"
+      ]
+    }
+  ],
   "required_tools": [],
   "targets": [
     "raspberry_pi",
@@ -40,9 +48,15 @@
     "isolated": true,
     "engine": "faster-whisper",
     "dependencies": [
-      "faster-whisper"
+      "faster-whisper==1.2.1",
+      "av==16.0.1"
     ],
     "models_directory": "models",
-    "cache_directory": "cache"
+    "cache_directory": "cache",
+    "cuda_dependencies": [
+      "nvidia-cublas-cu12==12.6.4.1",
+      "nvidia-cudnn-cu12==9.10.2.21",
+      "nvidia-cuda-runtime-cu12==12.6.77"
+    ]
   }
 }

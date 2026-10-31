@@ -1,4 +1,4 @@
-﻿"""Python runtime selection for SmolVLM2."""
+"""Python runtime selection for SmolVLM2."""
 
 from __future__ import annotations
 
@@ -102,33 +102,27 @@ def configured_python() -> Path | None:
     return Path(value)
 
 
+def mediahub_data_root() -> Path:
+    """Persistent user data, independent of the Compute Node executable runtime."""
+    override = os.environ.get("MEDIAHUB_COMPUTE_RUNTIME") or os.environ.get("MEDIAHUB_COMPUTE_DATA_ROOT")
+    return Path(override).expanduser() if override else Path.home() / ".mediahub" / "compute_node"
+
+
+def managed_python_candidates() -> list[Path]:
+    """Prefer a verified portable Astral runtime; retain legacy candidate."""
+    parent = mediahub_data_root() / "private_python"
+    return [
+        parent / "cpython-3.12.10-x64-astral-20250409" / "python.exe",
+        parent / "cpython-3.12.10-x64" / "python.exe",
+    ]
+
 def private_python() -> Path | None:
     """Return the managed private SmolVLM2 Python."""
 
-    runtime_base = os.environ.get(
-        "MEDIAHUB_COMPUTE_RUNTIME"
-    )
-
-    if runtime_base:
-        base = Path(runtime_base)
-    else:
-        base = (
-            Path.home()
-            / ".mediahub"
-            / "compute_node"
-        )
-
-    executable = (
-        base
-        / "private_python"
-        / "cpython-3.12.10-x64"
-        / "python.exe"
-    )
-
-    if not executable.is_file():
-        return None
-
-    return executable
+    for executable in managed_python_candidates():
+        if executable.is_file():
+            return executable
+    return None
 
 
 def launcher_candidates() -> list[Path]:
@@ -191,6 +185,52 @@ def launcher_candidates() -> list[Path]:
 
 
 def discover_python() -> dict[str, Any]:
+    if os.name == "nt":
+        checked = []
+        for private in managed_python_candidates():
+            if not private.is_file():
+                continue
+            status = inspect_python(private)
+            status["managed"] = True
+            version_ok = (
+                status.get("major") == 3
+                and status.get("minor") == 12
+                and status.get("micro") == 10
+                and status.get("bits") == "64bit"
+            )
+            modules_ok = False
+            if version_ok:
+                try:
+                    check = subprocess.run(
+                        [str(private), "-I", "-c", "import venv, ensurepip"],
+                        capture_output=True, text=True, timeout=15, check=False,
+                    )
+                    modules_ok = check.returncode == 0
+                except (OSError, subprocess.TimeoutExpired):
+                    pass
+            status["supported"] = version_ok and modules_ok
+            checked.append(status)
+            if status["supported"]:
+                return {
+                    "found": True,
+                    "source": "mediahub_astral" if "-astral-" in str(private) else "mediahub_private",
+                    "python": status,
+                    "checked": checked,
+                }
+
+        return {
+            "found": False,
+            "source": None,
+            "python": None,
+            "checked": checked,
+            "required": {
+                "major": 3,
+                "preferred_minor": 12,
+                "architecture": "64bit",
+                "managed": True,
+            },
+        }
+
     configured = configured_python()
 
     checked = []

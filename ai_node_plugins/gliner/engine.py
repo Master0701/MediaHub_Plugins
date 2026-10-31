@@ -1,4 +1,4 @@
-﻿"""GLiNER semantic text analysis engine."""
+"""GLiNER semantic text analysis engine."""
 
 from __future__ import annotations
 
@@ -148,8 +148,15 @@ def _gliner_analyze(
                 "verfuegbar."
             )
 
+    from pathlib import Path
+
+    if not Path(model_name).is_dir():
+        raise GLiNEREngineError(
+            "Lokales GLiNER-Modell nicht gefunden: " + model_name
+        )
     model = GLiNER.from_pretrained(
-        model_name
+        model_name,
+        local_files_only=True,
     )
 
     model = model.to(

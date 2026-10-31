@@ -47,36 +47,6 @@ def _load_python_runtime_provider():
     return module
 
 
-def _load_python_provisioner():
-    provider_file = (
-        Path(__file__).resolve().parent
-        / "python_provisioner.py"
-    )
-
-    spec = importlib.util.spec_from_file_location(
-        "mediahub_speech_python_provisioner",
-        provider_file,
-    )
-
-    if (
-        spec is None
-        or spec.loader is None
-    ):
-        raise RuntimeError(
-            "Speech Python-Provisioner "
-            "konnte nicht geladen werden."
-        )
-
-    module = importlib.util.module_from_spec(
-        spec
-    )
-
-    spec.loader.exec_module(
-        module
-    )
-
-    return module
-
 
 def _load_pip_bootstrap():
     provider_file = (
@@ -125,11 +95,14 @@ def default_runtime_root() -> Path:
     )
 
     if override:
-        return (
-            Path(override)
-            / "plugin_runtimes"
-            / RUNTIME_NAME
+        # Reuse the original Windows Compute Node Speech runtime when present.
+        legacy_root = Path(override) / RUNTIME_NAME
+        legacy_python = legacy_root / "venv" / (
+            "Scripts/python.exe" if os.name == "nt" else "bin/python"
         )
+        if legacy_python.is_file():
+            return legacy_root
+        return Path(override) / "plugin_runtimes" / RUNTIME_NAME
 
     return (
         Path.home()
@@ -205,33 +178,10 @@ def _venv_python_path(
     )
 
 
-def venv_python(
-    root: Path | None = None,
-) -> Path:
-    """Return the interpreter used by the Speech runtime.
+def venv_python(root: Path | None = None) -> Path:
+    """Always return the dedicated Speech virtualenv interpreter."""
+    return _venv_python_path(root)
 
-    A traditional per-plugin venv remains preferred when it
-    already exists.  MediaHub's managed private Python can be
-    used directly when it intentionally has no venv module.
-    """
-
-    venv_path = _venv_python_path(root)
-
-    if venv_path.is_file():
-        return venv_path
-
-    base_python = runtime_base_python()
-
-    if (
-        base_python.is_file()
-        and not _python_has_module(
-            base_python,
-            "venv",
-        )
-    ):
-        return base_python
-
-    return venv_path
 
 def inspect_runtime(
     root: Path | None = None,
@@ -310,12 +260,15 @@ def create_runtime(
 
     try:
         base_python = runtime_base_python()
-    except RuntimeError:
-        provisioner = _load_python_provisioner()
-        provisioned = provisioner.provision_private_python()
-        base_python = Path(
-            provisioned["python"]
-        )
+    except RuntimeError as exc:
+        raise RuntimeError(
+            "Keine kompatible Python-Runtime fuer Speech-to-Text "
+            "vorhanden. Unter Windows muss die gemeinsame "
+            "MediaHub-Python-Runtime ueber den vorgesehenen "
+            "Runtime-Manager bereitgestellt werden. "
+            "Auf Linux wird eine kompatible Python-Installation "
+            "benoetigt."
+        ) from exc
 
     if not base_python.is_file():
         raise RuntimeError(
@@ -350,12 +303,10 @@ def create_runtime(
         runtime_mode = "venv"
 
     else:
-        # MediaHub managed/private Python distributions may
-        # intentionally omit the stdlib venv package.
-        # They are already isolated from the host Python and
-        # can therefore act as the plugin runtime directly.
-        python_path = base_python
-        runtime_mode = "managed_private_python"
+        raise RuntimeError(
+            "Speech-to-Text benoetigt eine eigene virtuelle Python-Umgebung. "
+            "Die gemeinsame Python-Basis darf nicht fuer Plugin-Pakete verwendet werden."
+        )
 
     if not python_path.is_file():
         raise RuntimeError(
@@ -390,6 +341,13 @@ def install_dependencies(
     python_path = Path(
         status["python"]
     )
+
+    isolation_check = subprocess.run(
+        [str(python_path), "-c", "import sys; assert sys.prefix != sys.base_prefix"],
+        capture_output=True, text=True, check=False,
+    )
+    if isolation_check.returncode != 0:
+        raise RuntimeError("Python-Runtime ist nicht isoliert; Paketinstallation verweigert.")
 
     pip_bootstrap = _load_pip_bootstrap()
     pip_status = pip_bootstrap.inspect_pip(
@@ -433,7 +391,8 @@ def install_dependencies(
             "-m",
             "pip",
             "install",
-            "faster-whisper",
+            "faster-whisper==1.2.1",
+            "av==16.0.1",
         ],
         check=True,
     )
@@ -649,6 +608,7 @@ def install_cuda_dependencies(
             "-m",
             "pip",
             "install",
+            "--disable-pip-version-check",
             *CUDA_RUNTIME_PACKAGES,
         ],
         check=True,
