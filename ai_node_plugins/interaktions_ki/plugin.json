@@ -1,0 +1,51 @@
+{
+  "id": "mediahub.interaktions_ki",
+  "name": "MediaHub Interaktions-KI",
+  "version": "0.1.12",
+  "type": "worker",
+  "entrypoint": "plugin:MediaHubInteraktionsKIPlugin",
+  "api_version": "1",
+  "description": "Lokale Interaktions-KI; bestaetigte Installation von llama.cpp-Runtime und GGUF-Modell aus lokalen SHA256-geprueften ZIPs",
+  "author": "Master0701",
+  "license": "MIT",
+  "enabled_by_default": true,
+  "permissions": [],
+  "capabilities": [
+    "chat",
+    "text_generation"
+  ],
+  "job_types": [
+    "chat",
+    "text_generation"
+  ],
+  "targets": [
+    "windows_compute"
+  ],
+  "platforms": [
+    "windows-amd64"
+  ],
+  "required_capabilities": [],
+  "dependencies": [],
+  "required_tools": [],
+  "execution": {
+    "modes": [
+      "auto",
+      "cpu",
+      "gpu"
+    ],
+    "accelerator_selection": true
+  },
+  "runtime": {
+    "isolated": true,
+    "engine": "llama.cpp",
+    "models_bundled": false,
+    "installation_managed": true,
+    "launch_plan_available": true,
+    "local_install_helper_available": true,
+    "foreground_server_control": true
+  },
+  "catalog": {
+    "visible": true,
+    "auto_install": false
+  }
+}

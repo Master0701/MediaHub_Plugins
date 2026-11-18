@@ -41,6 +41,10 @@
 - Private Python-3.12.10-Laufzeit und CPU-/CUDA-PyTorch-Profile geprüft.
 - Runtime-Bereitschaft wird vor Analyseaufträgen geprüft; keine stillschweigende Installation durch Worker.
 
+## MediaHub Interaktions-KI v0.1.12
+
+- Lokale Interaktions-KI; bestaetigte Installation von llama.cpp-Runtime und GGUF-Modell aus lokalen SHA256-geprueften ZIPs
+
 ## MediaHub AI Test Provider v1.0.0
 
 - Test-Plugin für die komplette MediaHub-AI-Node-Installationskette.

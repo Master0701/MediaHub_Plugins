@@ -84,3 +84,17 @@ retain their respective vendor licenses and terms.
 See also:
 
 `ai_node_plugins/smolvlm2/THIRD_PARTY_NOTICES.md`
+
+## MediaHub Interaktions-KI (`ai_node_plugins/interaktions_ki`)
+
+| Fremdkomponente | Zweck | Lizenz-/Verteilhinweis |
+|---|---|---|
+| llama.cpp / llama-server | lokale GGUF-Chat-Inferenz | MIT; Original-Lizenz und Notices des tatsächlich verwendeten Builds beachten |
+| GGUF-Sprachmodell | Chat-Modell | Modellabhängige Lizenz und Nutzungsbedingungen; Herkunft vor Installation prüfen; nicht im Plugin enthalten |
+| NVIDIA CUDA | optionale GPU-Beschleunigung | separate NVIDIA-Lizenzbedingungen; abhängig vom gewählten Binary-Paket |
+
+Das Plugin bündelt laut Manifest keine Modelle und installiert keine Fremdsoftware stillschweigend. Vor Veröffentlichung die tatsächlich in den `.mhaiplugin`-Paketen und Runtime-Archiven enthaltenen Dateien und deren Original-Lizenztexte prüfen. Die vollständige Lizenzverwaltung für Windows-Node-Laufzeitkomponenten liegt zusätzlich im Repository `MediaHub-AI-Node`.
+
+## Interaktions-KI v0.1.12 (Windows Compute Node)
+
+Das optionale Plugin nutzt eine separat installierte llama.cpp-Runtime (MIT, https://github.com/ggml-org/llama.cpp). GGUF-Modelle unterliegen ihren jeweiligen Modelllizenzen. NVIDIA/CUDA-Komponenten haben gesonderte Herstellerbedingungen. Vor einem Release sind die tatsächlich ausgelieferten Runtime-Binärdateien, deren Lizenztexte und etwaige Drittanbieterhinweise zu prüfen. Modelle und Runtime werden nicht pauschal als MIT-lizenziert eingestuft.

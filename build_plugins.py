@@ -550,24 +550,35 @@ def build_ai_node_plugin(key: str, source: Path) -> Path:
 
 
 NULLTEST_SOURCE = ROOT / "tools" / "dev" / "plugin_nulltest"
-NULLTEST_ASSET = "MediaHub_Plugin_Nulltest_v1.0.0.zip"
 
 
 def build_plugin_nulltest_release_asset() -> Path:
-    """Build the standalone diagnostic ZIP, independently of plugin packages."""
-    required = (
-        "MediaHub_Gemeinsamer_Nulltest_v1.0.0.ps1",
-        "README.md",
-    )
-    missing = [name for name in required if not (NULLTEST_SOURCE / name).is_file()]
-    if missing:
-        raise FileNotFoundError("Nulltest-Quelldateien fehlen: " + ", ".join(missing))
+    """Package the newest available versioned nulltest script and README."""
+    import re
+
+    candidates = []
+    for path in NULLTEST_SOURCE.glob("MediaHub_Gemeinsamer_Nulltest_v*.ps1"):
+        match = re.fullmatch(
+            r"MediaHub_Gemeinsamer_Nulltest_v(\d+)\.(\d+)\.(\d+)(?:_.*)?\.ps1",
+            path.name,
+        )
+        if match:
+            candidates.append((tuple(map(int, match.groups())), path))
+    if not candidates:
+        raise FileNotFoundError(
+            "Kein versioniertes Nulltest-Skript gefunden unter: " + str(NULLTEST_SOURCE)
+        )
+    version, script = max(candidates, key=lambda entry: (entry[0], entry[1].name))
+    readme = NULLTEST_SOURCE / "README.md"
+    if not readme.is_file():
+        raise FileNotFoundError("Nulltest-Quelldatei fehlt: " + str(readme))
 
     RELEASE_DIR.mkdir(parents=True, exist_ok=True)
-    artifact = RELEASE_DIR / NULLTEST_ASSET
+    version_text = ".".join(map(str, version))
+    artifact = RELEASE_DIR / f"MediaHub_Plugin_Nulltest_v{version_text}.zip"
     with zipfile.ZipFile(artifact, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-        for name in required:
-            archive.write(NULLTEST_SOURCE / name, arcname=name)
+        archive.write(script, arcname=script.name)
+        archive.write(readme, arcname=readme.name)
     create_sha256(artifact)
     print(f"Nulltest-Asset erstellt: {artifact}")
     return artifact

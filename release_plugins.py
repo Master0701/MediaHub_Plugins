@@ -23,7 +23,8 @@ AI_CATALOG = ROOT / "catalog" / "ai_plugin_catalog.json"
 RELEASE_DIR = ROOT / "release"
 BUILD_SCRIPT = ROOT / "build_plugins.py"
 NULLTEST_SOURCE = ROOT / "tools" / "dev" / "plugin_nulltest"
-NULLTEST_ASSET = "MediaHub_Plugin_Nulltest_v1.0.0.zip"
+# Nulltest-Assetname wird aus dem aktuellen Build-Ergebnis ermittelt.
+NULLTEST_ASSET = None
 
 
 @dataclass(frozen=True)
@@ -728,19 +729,33 @@ def build_plugin_nulltest_release_asset() -> None:
 
 
 def verify_plugin_nulltest_release_asset() -> None:
-    artifact = RELEASE_DIR / NULLTEST_ASSET
-    checksum_file = RELEASE_DIR / (NULLTEST_ASSET + ".sha256")
+    """Verify the newest versioned nulltest asset actually built by build_plugins."""
+    import re
+
+    scripts = []
+    for script in NULLTEST_SOURCE.glob("MediaHub_Gemeinsamer_Nulltest_v*.ps1"):
+        match = re.fullmatch(
+            r"MediaHub_Gemeinsamer_Nulltest_v(\d+)\.(\d+)\.(\d+)(?:_.*)?\.ps1",
+            script.name,
+        )
+        if match:
+            scripts.append((tuple(map(int, match.groups())), script))
+    if not scripts:
+        raise RuntimeError("Kein versioniertes Nulltest-Skript gefunden.")
+    version, script = max(scripts, key=lambda item: (item[0], item[1].name))
+    version_text = ".".join(map(str, version))
+    artifact = RELEASE_DIR / f"MediaHub_Plugin_Nulltest_v{version_text}.zip"
+    checksum_file = artifact.with_name(artifact.name + ".sha256")
     if not artifact.is_file() or not checksum_file.is_file():
-        raise RuntimeError("Nulltest-Asset oder SHA256 fehlt.")
+        raise RuntimeError(f"Nulltest-Asset oder SHA256 fehlt: {artifact.name}")
     digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
     if checksum_file.read_text(encoding="utf-8").split()[0].lower() != digest:
         raise RuntimeError("Nulltest-Asset SHA256 stimmt nicht.")
     with zipfile.ZipFile(artifact) as archive:
-        expected = {"MediaHub_Gemeinsamer_Nulltest_v1.0.0.ps1", "README.md"}
+        expected = {script.name, "README.md"}
         if set(archive.namelist()) != expected or archive.testzip() is not None:
             raise RuntimeError("Nulltest-Asset ZIP-Inhalt fehlerhaft.")
-    print("[OK] Nulltest-Asset und SHA256 geprüft.")
-
+    print(f"[OK] Nulltest-Asset {artifact.name} und SHA256 geprüft.")
 
 def verify_artifacts(plugins: list[Plugin]) -> None:
     expected_names: set[str] = set()

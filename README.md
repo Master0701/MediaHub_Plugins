@@ -12,6 +12,7 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - **MediaHub Smart Renamer 0.5.18**
 - **MediaHub WebRemote 0.13.7**
 - **MediaHub GLiNER 0.1.3**
+- **MediaHub Interaktions-KI 0.1.12**
 - **MediaHub AI Test Provider 1.0.0**
 - **MediaHub Python Runtime 0.1.3**
 - **MediaHub SmolVLM2 Vision 0.1.3**
@@ -59,6 +60,10 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - Frische CPU- und CUDA-Nullinstallationen unter Windows mit echter GLiNER-Modellinferenz getestet.
 - Private Python-3.12.10-Laufzeit und CPU-/CUDA-PyTorch-Profile geprüft.
 - Runtime-Bereitschaft wird vor Analyseaufträgen geprüft; keine stillschweigende Installation durch Worker.
+
+## MediaHub Interaktions-KI v0.1.12
+
+- Lokale Interaktions-KI; bestaetigte Installation von llama.cpp-Runtime und GGUF-Modell aus lokalen SHA256-geprueften ZIPs
 
 ## MediaHub AI Test Provider v1.0.0
 
@@ -118,6 +123,7 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - **MediaHub Smart Renamer 0.5.18** – mindestens MediaHub v1.0.18
 - **MediaHub WebRemote 0.13.7** – mindestens MediaHub v1.0.5
 - **MediaHub GLiNER 0.1.3** – AI-Node API 1
+- **MediaHub Interaktions-KI 0.1.12** – AI-Node API 1
 - **MediaHub AI Test Provider 1.0.0** – AI-Node API 1
 - **MediaHub Python Runtime 0.1.3** – AI-Node API 1
 - **MediaHub SmolVLM2 Vision 0.1.3** – AI-Node API 1

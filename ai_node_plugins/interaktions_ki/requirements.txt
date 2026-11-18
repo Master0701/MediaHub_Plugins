@@ -1,0 +1,1 @@
+# Keine zusaetzlichen Python-Pakete fuer den lokalen llama.cpp-Server erforderlich.

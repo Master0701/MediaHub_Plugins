@@ -92,11 +92,20 @@ def load_plugin(
     module = importlib.util.module_from_spec(spec)
     sys.modules[import_name] = module
 
+    # Plugin-local helper modules must be importable during SDK audit.
+    # Restore sys.path after loading to avoid leaking plugin directories.
+    plugin_path = str(plugin_root)
+    added_path = plugin_path not in sys.path
+    if added_path:
+        sys.path.insert(0, plugin_path)
     try:
         spec.loader.exec_module(module)
     except Exception:
         sys.modules.pop(import_name, None)
         raise
+    finally:
+        if added_path:
+            sys.path.remove(plugin_path)
 
     target = getattr(module, object_name, None)
     if target is None:
