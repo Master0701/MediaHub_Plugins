@@ -18,7 +18,7 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - **MediaHub SmolVLM2 Vision 0.1.3**
 - **MediaHub Speech-to-Text 0.1.3**
 
-# MediaHub Plugins v0.5.30 – vollständiges Release
+# MediaHub Plugins v0.5.31 – vollständiges Release
 
 ## MediaHub KI-Assistent v7.0.11
 
