@@ -60,7 +60,7 @@ jobs:
             release/*.mhaiplugin
             release/*.sha256
             release/MediaHub_Plugins_Source_*.zip
-            release/MediaHub_Plugin_Nulltest_v1.0.0.zip
+            release/MediaHub_Plugin_Nulltest_v*.zip
             catalog/plugin_catalog.json
             catalog/ai_plugin_catalog.json
             RELEASE_NOTES.md
@@ -169,7 +169,7 @@ jobs:
             release/*.mhaiplugin
             release/*.sha256
             release/MediaHub_Plugins_Source_*.zip
-            release/MediaHub_Plugin_Nulltest_v1.0.0.zip
+            release/MediaHub_Plugin_Nulltest_v*.zip
 
       - name: Release abschließend prüfen
         uses: actions/github-script@v8
@@ -260,8 +260,21 @@ jobs:
               expected.add(String(plugin.sha256_asset || `${base}.sha256`));
             }
 
-            expected.add("MediaHub_Plugin_Nulltest_v1.0.0.zip");
-            expected.add("MediaHub_Plugin_Nulltest_v1.0.0.zip.sha256");
+            const nulltestZips = fs.readdirSync("release").filter(
+              (name) => /^MediaHub_Plugin_Nulltest_v\d+\.\d+\.\d+\.zip$/.test(name)
+            );
+            if (nulltestZips.length !== 1) {
+              throw new Error(
+                "Genau ein aktuelles Nulltest-ZIP erwartet: " + nulltestZips.join(", ")
+              );
+            }
+            const nulltestZip = nulltestZips[0];
+            const nulltestSha = `${nulltestZip}.sha256`;
+            if (!fs.existsSync(`release/${nulltestSha}`)) {
+              throw new Error("Nulltest-SHA256 fehlt: " + nulltestSha);
+            }
+            expected.add(nulltestZip);
+            expected.add(nulltestSha);
 
             const actual = assets
               .map((asset) => asset.name)
@@ -271,8 +284,8 @@ jobs:
                   name.endsWith(".mhplugin.sha256") ||
                   name.endsWith(".mhaiplugin") ||
                   name.endsWith(".mhaiplugin.sha256") ||
-                  name === "MediaHub_Plugin_Nulltest_v1.0.0.zip" ||
-                  name === "MediaHub_Plugin_Nulltest_v1.0.0.zip.sha256"
+                  name === nulltestZip ||
+                  name === nulltestSha
               );
 
             const missing = [...expected].filter(
