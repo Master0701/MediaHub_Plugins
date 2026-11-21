@@ -128,11 +128,13 @@ def create_handler(context: dict[str, Any]):
             raise ValueError("temperature muss zwischen 0 und 2 liegen")
         data = json.dumps({"messages": messages, "max_tokens": max_tokens, "temperature": temperature, "stream": False, "chat_template_kwargs": {"enable_thinking": thinking}}).encode("utf-8")
         endpoint = _endpoint()
-        if os.environ.get("MEDIAHUB_LLAMA_AUTOSTART") == "1":
-            try:
-                ensure_running(endpoint)
-            except Exception as exc:
-                raise OfflineLLMError(f"Automatischer llama-server-Start fehlgeschlagen: {exc}") from exc
+        try:
+            # plugin_path is <runtime>/plugins/<plugin-id>; no global env required.
+            plugin_path = context.get("plugin_path")
+            runtime_root = plugin_path.resolve().parent.parent if plugin_path else None
+            ensure_running(endpoint, runtime_root=runtime_root)
+        except Exception as exc:
+            raise OfflineLLMError(f"Automatischer llama-server-Start fehlgeschlagen: {exc}") from exc
         req = urllib.request.Request(endpoint + "/v1/chat/completions", data=data, headers={"Content-Type": "application/json"}, method="POST")
         try:
             with urllib.request.urlopen(req, timeout=120) as response:
@@ -162,7 +164,7 @@ def register(context: dict[str, Any]) -> None:
         name="MediaHub Interaktions-KI Worker",
         job_types=["chat", "text_generation"],
         handler=create_handler(context),
-        metadata={"plugin_id": context["plugin_id"], "plugin_version": context["plugin_version"], "engine": "llama.cpp", "phase": "external_local_server", "installation_managed": False},
+        metadata={"plugin_id": context["plugin_id"], "plugin_version": context["plugin_version"], "engine": "llama.cpp", "phase": "external_local_server", "installation_managed": True},
     )
 
 

@@ -1,6 +1,6 @@
-# MediaHub Interaktions-KI v0.1.12
+# MediaHub Interaktions-KI v0.1.13
 
-**Aktueller Stand (17.11.2026):** Lokaler Chat über llama.cpp/GGUF auf der Windows Compute Node wurde in getrennten CPU- und CUDA-Nullinstallationen erfolgreich getestet. Das Plugin bleibt ein separat installierbares `.mhaiplugin` und ist im Katalog noch nicht öffentlich freigegeben (`catalog.visible=false`, `auto_install=false`).
+**Bisheriger Nulltest (17.11.2026):** Lokaler Chat über llama.cpp/GGUF auf der Windows Compute Node wurde in getrennten CPU- und CUDA-Nullinstallationen erfolgreich getestet. Das Plugin bleibt ein separat installierbares `.mhaiplugin` und ist im Katalog sichtbar, aber nicht automatisch installierbar (`catalog.visible=true`, `auto_install=false`).
 
 Die Installation verwendet lokal bereitgestellte, SHA256-verifizierte Runtime- und GGUF-Archive mit ausdrücklicher Bestätigung über die Node-Installationsplanung. Es gibt keinen stillschweigenden Modell-Download. Die lokale Web-Bridge läuft über HTTP 127.0.0.1:8768; die Windows Node stellt zusätzlich passwortgeschütztes HTTPS auf der automatisch erkannten LAN-Adresse, Port 8769, bereit. Zertifikat und Zugangsdaten verwaltet die Node, nicht das Plugin.
 
@@ -8,9 +8,11 @@ Die Installation verwendet lokal bereitgestellte, SHA256-verifizierte Runtime- u
 
 **Drittanbieter:** llama.cpp ist MIT-lizenziert; GGUF-Modelle besitzen eigene, modellabhängige Lizenzbedingungen. NVIDIA CUDA unterliegt gesonderten Bedingungen. Details in `THIRD_PARTY_LICENSES.md` des Node- und Plugin-Repositories.
 
+**Neu in v0.1.13:** Nach ausdruecklich bestaetigter Installation speichert das Plugin das CPU-/CUDA-Profil und kann den lokalen llama.cpp-Server bei Chat-Auftraegen automatisch starten. Kein automatischer Download; entfernte Endpunkte sind ausgeschlossen.
+
 ## Historische Entwicklungsnotizen
 
-Die folgenden Phasenbeschreibungen sind historische Momentaufnahmen; Aussagen wie „Integration noch offen“ oder „CPU/CUDA-Test noch ausstehend“ beziehen sich nicht mehr auf den aktuellen Stand v0.1.12.
+Die folgenden Phasenbeschreibungen sind historische Momentaufnahmen; Aussagen wie „Integration noch offen“ oder „CPU/CUDA-Test noch ausstehend“ beziehen sich nicht mehr auf den frueheren Stand v0.1.12.
 
 # MediaHub Interaktions-KI – Phase 1
 
@@ -30,7 +32,7 @@ Voraussetzungen fuer einen echten Modelltest: llama-server lokal auf `127.0.0.1:
 
 ## Installation fuer Entwickler
 
-Ordner `ai_node_plugins/interaktions_ki` in den gleichen Pfad im `MediaHub_Plugins`-Arbeitsbaum uebernehmen. Die bestehende Build-Logik entdeckt das Manifest. **Nicht als produktionsreif freigeben**: `catalog.visible=false` und `auto_install=false`.
+Ordner `ai_node_plugins/interaktions_ki` in den gleichen Pfad im `MediaHub_Plugins`-Arbeitsbaum uebernehmen. Die bestehende Build-Logik entdeckt das Manifest. Aktueller Manifest-Stand: `catalog.visible=true` und `auto_install=false`.
 
 ## Sicherheit
 

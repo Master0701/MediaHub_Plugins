@@ -29,15 +29,15 @@
     {
       "id": "mediahub.interaktions_ki",
       "name": "MediaHub Interaktions-KI",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "type": "worker",
       "api_version": "1",
       "description": "Lokale Interaktions-KI; bestaetigte Installation von llama.cpp-Runtime und GGUF-Modell aus lokalen SHA256-geprueften ZIPs",
       "visible": true,
       "project_page": "https://github.com/Master0701/MediaHub_Plugins/tree/main/ai_node_plugins/interaktions_ki",
-      "package_asset": "MediaHub_Interaktions-KI_v0.1.12.mhaiplugin",
-      "release_asset": "MediaHub_Interaktions-KI_v0.1.12.mhaiplugin",
-      "sha256_asset": "MediaHub_Interaktions-KI_v0.1.12.mhaiplugin.sha256",
+      "package_asset": "MediaHub_Interaktions-KI_v0.1.13.mhaiplugin",
+      "release_asset": "MediaHub_Interaktions-KI_v0.1.13.mhaiplugin",
+      "sha256_asset": "MediaHub_Interaktions-KI_v0.1.13.mhaiplugin.sha256",
       "targets": [
         "windows_compute"
       ],

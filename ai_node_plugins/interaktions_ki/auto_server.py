@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import atexit
+import json
 import os
 import re
 import shutil
@@ -28,17 +29,26 @@ def _installed_runtime() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def _paths(mode: str) -> tuple[Path, Path]:
-    root = Path(os.environ.get('MEDIAHUB_COMPUTE_RUNTIME') or _installed_runtime())
+def _paths(mode: str, runtime_root: Path | None = None) -> tuple[Path, Path]:
+    root = Path(runtime_root or os.environ.get('MEDIAHUB_COMPUTE_RUNTIME') or _installed_runtime())
     base = root / 'plugin_runtimes' / 'interaktions_ki'
     binary = base / ('llama_cuda' if mode == 'cuda' else 'llama_cpu') / 'llama-server.exe'
     model = base / 'models' / 'qwen3_1_7b_q8_0' / 'Qwen3-1.7B-Q8_0.gguf'
     return binary, model
 
 
-def ensure_running(endpoint: str) -> None:
-    """Only start with explicit opt-in; never start for LAN/remote endpoints."""
-    if os.environ.get('MEDIAHUB_LLAMA_AUTOSTART') != '1':
+def ensure_running(endpoint: str, runtime_root: Path | None = None) -> None:
+    """Start only a confirmed local installation or explicit legacy opt-in."""
+    root = Path(runtime_root or os.environ.get('MEDIAHUB_COMPUTE_RUNTIME') or _installed_runtime())
+    config_file = root / 'plugin_runtimes' / 'interaktions_ki' / 'launch_config.json'
+    if config_file.is_file():
+        config = json.loads(config_file.read_text(encoding='utf-8-sig'))
+        if config.get('schema') != 1 or config.get('approved') is not True or config.get('profile') not in ('cpu', 'cuda'):
+            raise RuntimeError('Ungueltige bestaetigte llama-Konfiguration')
+        mode = config['profile']
+    elif os.environ.get('MEDIAHUB_LLAMA_AUTOSTART') == '1':
+        mode = os.environ.get('MEDIAHUB_LLAMA_MODE', 'cuda').lower()
+    else:
         return
     parsed = urlsplit(endpoint)
     if parsed.scheme != 'http' or parsed.hostname not in ('127.0.0.1', 'localhost', '::1') or not parsed.port:
@@ -49,10 +59,9 @@ def ensure_running(endpoint: str) -> None:
             return
         if _owned_process is not None and _owned_process.poll() is None:
             raise RuntimeError('Eigener llama-server laeuft, antwortet aber nicht')
-        mode = os.environ.get('MEDIAHUB_LLAMA_MODE', 'cuda').lower()
         if mode not in ('cpu', 'cuda'):
             raise ValueError('MEDIAHUB_LLAMA_MODE muss cpu oder cuda sein')
-        binary, model = _paths(mode)
+        binary, model = _paths(mode, root)
         plan = plan_launch(binary_path=str(binary), model_path=str(model),
                            mode='gpu' if mode == 'cuda' else 'cpu',
                            gpu_layers=99 if mode == 'cuda' else 0,
@@ -61,7 +70,7 @@ def ensure_running(endpoint: str) -> None:
         # Debug-Log-Level nur fuer CUDA aktivieren, um echte Offload-Meldungen zu erhalten.
         if mode == 'cuda':
             plan['command'] = [*plan['command'], '-lv', '4']
-        log_path = str(_installed_runtime() / 'logs' / ('llama-' + mode + '.log'))
+        log_path = str(root / 'logs' / ('llama-' + mode + '.log'))
         result = launch_foreground(plan, confirmed=True, startup_seconds=120, log_path=log_path)
         _owned_process = result['process']
         _owned_mode = mode

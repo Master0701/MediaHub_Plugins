@@ -5,6 +5,7 @@ No downloads, catalog assumptions, or implicit consent.
 """
 from __future__ import annotations
 import hashlib
+import json
 import importlib.util
 import os
 from pathlib import Path
@@ -169,6 +170,22 @@ def prepare_runtime(manifest: dict, package_root: Path, *, approved: bool,
                 "Runtime-Installation fehlgeschlagen; Modell vorhanden unter "
                 + str(model_status["root"]) + "; keine automatische Loeschung. Ursache: "
                 + str(exc)) from exc
+    # Persist only the explicitly approved profile after both installations pass.
+    # The worker validates the files again before allowing automatic startup.
+    binary = Path(config["TARGET"]) / "llama-server.exe"
+    model_file = Path(model_status["model"])
+    if not binary.is_file() or not model_file.is_file():
+        raise InteraktionsKIInstallError("Installierte llama-Runtime oder Modell fehlt")
+    settings_dir = target_root / "plugin_runtimes" / "interaktions_ki"
+    settings_dir.mkdir(parents=True, exist_ok=True)
+    settings_file = settings_dir / "launch_config.json"
+    staged = settings_dir / "launch_config.json.tmp"
+    try:
+        staged.write_text(json.dumps({"schema": 1, "approved": True,
+            "profile": profile}, indent=2) + "\n", encoding="utf-8")
+        staged.replace(settings_file)
+    finally:
+        staged.unlink(missing_ok=True)
     return {**runtime_status, "model_status": model_status,
             "model": model_status["model"], "model_load_verified": False,
             "requires_runtime_health_check": True}

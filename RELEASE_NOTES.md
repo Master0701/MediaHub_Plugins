@@ -1,4 +1,4 @@
-# MediaHub Plugins v0.5.31 – vollständiges Release
+# MediaHub Plugins v0.5.32 – vollständiges Release
 
 ## MediaHub KI-Assistent v7.0.11
 
@@ -41,9 +41,12 @@
 - Private Python-3.12.10-Laufzeit und CPU-/CUDA-PyTorch-Profile geprüft.
 - Runtime-Bereitschaft wird vor Analyseaufträgen geprüft; keine stillschweigende Installation durch Worker.
 
-## MediaHub Interaktions-KI v0.1.12
+## MediaHub Interaktions-KI v0.1.13
 
-- Lokale Interaktions-KI; bestaetigte Installation von llama.cpp-Runtime und GGUF-Modell aus lokalen SHA256-geprueften ZIPs
+- Bestaetigtes CPU-/CUDA-Profil wird nach erfolgreicher lokaler Runtime-/Modellinstallation gespeichert.
+- Lokaler llama.cpp-Server kann bei Chat-Auftraegen anhand der gespeicherten Freigabe automatisch gestartet werden.
+- Runtime-Pfad aus Plugin-Kontext; korrekt gekennzeichnete verwaltete Installation.
+- Keine stillschweigenden Downloads und kein Start fuer LAN-/Remote-Endpunkte.
 
 ## MediaHub AI Test Provider v1.0.0
 

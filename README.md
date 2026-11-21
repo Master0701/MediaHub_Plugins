@@ -12,13 +12,13 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - **MediaHub Smart Renamer 0.5.18**
 - **MediaHub WebRemote 0.13.7**
 - **MediaHub GLiNER 0.1.3**
-- **MediaHub Interaktions-KI 0.1.12**
+- **MediaHub Interaktions-KI 0.1.13**
 - **MediaHub AI Test Provider 1.0.0**
 - **MediaHub Python Runtime 0.1.3**
 - **MediaHub SmolVLM2 Vision 0.1.3**
 - **MediaHub Speech-to-Text 0.1.3**
 
-# MediaHub Plugins v0.5.31 – vollständiges Release
+# MediaHub Plugins v0.5.32 – vollständiges Release
 
 ## MediaHub KI-Assistent v7.0.11
 
@@ -61,9 +61,12 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - Private Python-3.12.10-Laufzeit und CPU-/CUDA-PyTorch-Profile geprüft.
 - Runtime-Bereitschaft wird vor Analyseaufträgen geprüft; keine stillschweigende Installation durch Worker.
 
-## MediaHub Interaktions-KI v0.1.12
+## MediaHub Interaktions-KI v0.1.13
 
-- Lokale Interaktions-KI; bestaetigte Installation von llama.cpp-Runtime und GGUF-Modell aus lokalen SHA256-geprueften ZIPs
+- Bestaetigtes CPU-/CUDA-Profil wird nach erfolgreicher lokaler Runtime-/Modellinstallation gespeichert.
+- Lokaler llama.cpp-Server kann bei Chat-Auftraegen anhand der gespeicherten Freigabe automatisch gestartet werden.
+- Runtime-Pfad aus Plugin-Kontext; korrekt gekennzeichnete verwaltete Installation.
+- Keine stillschweigenden Downloads und kein Start fuer LAN-/Remote-Endpunkte.
 
 ## MediaHub AI Test Provider v1.0.0
 
@@ -123,7 +126,7 @@ Offizielles Erweiterungs-Repository für MediaHub.
 - **MediaHub Smart Renamer 0.5.18** – mindestens MediaHub v1.0.18
 - **MediaHub WebRemote 0.13.7** – mindestens MediaHub v1.0.5
 - **MediaHub GLiNER 0.1.3** – AI-Node API 1
-- **MediaHub Interaktions-KI 0.1.12** – AI-Node API 1
+- **MediaHub Interaktions-KI 0.1.13** – AI-Node API 1
 - **MediaHub AI Test Provider 1.0.0** – AI-Node API 1
 - **MediaHub Python Runtime 0.1.3** – AI-Node API 1
 - **MediaHub SmolVLM2 Vision 0.1.3** – AI-Node API 1

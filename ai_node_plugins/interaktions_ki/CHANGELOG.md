@@ -1,3 +1,12 @@
+## MediaHub Interaktions-KI v0.1.13 – Windows Compute Node
+
+- Nach ausdruecklich bestaetigter Runtime- und Modellinstallation wird das gewaehlte CPU-/CUDA-Profil in `launch_config.json` gespeichert.
+- Lokaler llama.cpp-Server kann beim Chat-Auftrag anhand des bestaetigten Profils automatisch gestartet werden.
+- Runtime-Pfad wird aus dem Plugin-Kontext ermittelt; bestehender expliziter Umgebungsvariablen-Start bleibt als Fallback erhalten.
+- Vor dem Speichern der Startfreigabe werden Runtime-EXE und GGUF-Modell auf Vorhandensein geprueft.
+- Worker-Metadaten kennzeichnen die verwaltete Installation korrekt.
+- Kein stillschweigender Download und kein automatischer Start fuer entfernte Endpunkte.
+
 ## MediaHub Interaktions-KI v0.1.12 – Windows Compute Node
 
 - Eigenständiges `.mhaiplugin` für `windows_compute` / Windows x64; kein Raspberry-Pi-Plugin und keine feste Integration in den Node.
