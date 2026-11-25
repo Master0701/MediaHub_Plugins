@@ -1,3 +1,27 @@
+# MediaHub Plugin-Nulltest – naechster Release (Vorbereitung, 24.11.2026)
+
+- Automatische Auswahl der hoechsten eindeutigen Nulltest-Version ohne zusaetzliche Steuerdatei; bei gleichnamiger Version in mehreren Varianten wird der Build sicher abgebrochen.
+- `build_plugins.py` und `release_plugins.py` verwenden dieselbe Auswahl fuer ZIP, SHA256 und Verifikation.
+- Generierte GitHub-Release-Notizen enthalten dynamisch die aktuelle Nulltest-Version, den Asset-Namen und die ausgewaehlte Skriptdatei; veraltete feste Angaben v1.0.0 entfernt.
+- UTF-8-BOM-Fix und optionale `-DiagnoseAlle`-Protokollmarker dokumentiert. Interaktions-KI CPU und CUDA am 24.11.2026 erfolgreich end-to-end getestet; `-DiagnoseAlle` selbst noch nicht separat abgenommen.
+- PowerShell-5.1-Syntax und Nulltest-ZIP-Build v1.0.25 am 24.11.2026 bestanden.
+- CPU: native Node-/HTTPS-Tool-Calling-Pruefung bestanden; CUDA: drei Wiederholungen inklusive echtem CUDA-Backend-Nachweis und HTTPS bestanden.
+- Beide Testlaeufe haben Ports 8766–8769 und temporaere Zugangsdaten bereinigt.
+- Kein Release, Commit, Push oder Tag ausgefuehrt; keine Aenderungen am Raspberry-Pi-Installer.
+
+---
+
+# MediaHub Plugin-Nulltest – vorbereitete Aenderungen (24.11.2026)
+
+- UTF-8-BOM-kompatible JSON-Konfiguration fuer native HTTPS-Tool-Calling-Probe aus erfolgreich getestetem Nulltest uebernommen.
+- Optionaler Schalter `-DiagnoseAlle` mit datensparsamen, profilbezogenen Statusmarkern aus vorhandenen Logs; bestehende Testskripte und Erfolgskriterien unveraendert.
+- `-DiagnosePause` bleibt CPU-Interaktions-KI-spezifisch; normale `-Mode all`-Pruefung einschliesslich nativer Tool-Calling-Tests bleibt erhalten.
+- 24.11.2026: Interaktions-KI CPU v0.1.13 inklusive HTTPS-Tool-Calling und Bereinigung vom Benutzer als PASS bestaetigt.
+- **Noch offen:** Windows-PowerShell-5.1-Syntaxpruefung und echter Test von `-DiagnoseAlle`; keine Freigabe als getesteter Gesamtstand.
+- Kein Build, Commit, Push, Tag oder GitHub-Release.
+
+---
+
 # Nulltest v1.0.20 - aktuelle Uebernahme
 
 - Aktuelle Skriptdatei: `MediaHub_Gemeinsamer_Nulltest_v1.0.20_Node_Auswahl.ps1`.

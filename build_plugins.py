@@ -552,23 +552,34 @@ def build_ai_node_plugin(key: str, source: Path) -> Path:
 NULLTEST_SOURCE = ROOT / "tools" / "dev" / "plugin_nulltest"
 
 
-def build_plugin_nulltest_release_asset() -> Path:
-    """Package the newest available versioned nulltest script and README."""
+def select_plugin_nulltest_source() -> tuple[tuple[int, int, int], Path]:
+    """Select the single highest-version nulltest; reject ambiguous variants."""
     import re
 
+    pattern = re.compile(
+        r"MediaHub_Gemeinsamer_Nulltest_v(\d+)\.(\d+)\.(\d+)(?:_.*)?\.ps1"
+    )
     candidates = []
     for path in NULLTEST_SOURCE.glob("MediaHub_Gemeinsamer_Nulltest_v*.ps1"):
-        match = re.fullmatch(
-            r"MediaHub_Gemeinsamer_Nulltest_v(\d+)\.(\d+)\.(\d+)(?:_.*)?\.ps1",
-            path.name,
-        )
+        match = pattern.fullmatch(path.name)
         if match:
             candidates.append((tuple(map(int, match.groups())), path))
     if not candidates:
-        raise FileNotFoundError(
-            "Kein versioniertes Nulltest-Skript gefunden unter: " + str(NULLTEST_SOURCE)
+        raise FileNotFoundError("Kein versioniertes Nulltest-Skript: " + str(NULLTEST_SOURCE))
+
+    highest = max(version for version, _ in candidates)
+    newest = [(version, path) for version, path in candidates if version == highest]
+    if len(newest) != 1:
+        raise RuntimeError(
+            "Mehrere Nulltest-Skripte mit Version " + ".".join(map(str, highest))
+            + "; bitte nur die aktuelle Variante dieser Version im Nulltest-Ordner belassen."
         )
-    version, script = max(candidates, key=lambda entry: (entry[0], entry[1].name))
+    return newest[0]
+
+
+def build_plugin_nulltest_release_asset() -> Path:
+    """Package the selected nulltest and README using the versioned asset name."""
+    version, script = select_plugin_nulltest_source()
     readme = NULLTEST_SOURCE / "README.md"
     if not readme.is_file():
         raise FileNotFoundError("Nulltest-Quelldatei fehlt: " + str(readme))
@@ -580,7 +591,7 @@ def build_plugin_nulltest_release_asset() -> Path:
         archive.write(script, arcname=script.name)
         archive.write(readme, arcname=readme.name)
     create_sha256(artifact)
-    print(f"Nulltest-Asset erstellt: {artifact}")
+    print(f"Nulltest-Asset erstellt ({script.name}): {artifact}")
     return artifact
 
 

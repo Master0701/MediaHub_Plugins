@@ -10,6 +10,7 @@ from typing import Any
 # Der Compute-Node stellt den Plugin-Pfad nur waehrend des Ladens bereit.
 # Daher Hilfsmodule jetzt laden, nicht erst beim ersten Chat-Auftrag.
 from auto_server import ensure_running, backend_evidence, stop_owned
+import tool_protocol
 
 
 class OfflineLLMError(RuntimeError):
@@ -67,24 +68,14 @@ def _endpoint() -> str:
     return value
 
 
-def _messages(payload: dict[str, Any]) -> list[dict[str, str]]:
+def _messages(payload: dict[str, Any]) -> list[dict[str, Any]]:
     messages = payload.get("messages")
     if messages is None:
         prompt = payload.get("prompt")
         if not isinstance(prompt, str) or not prompt.strip():
             raise ValueError("payload.prompt oder payload.messages erforderlich")
         messages = [{"role": "user", "content": prompt}]
-    if not isinstance(messages, list) or not messages or len(messages) > 40:
-        raise ValueError("payload.messages muss 1 bis 40 Nachrichten enthalten")
-    result = []
-    for item in messages:
-        if not isinstance(item, dict) or item.get("role") not in {"system", "user", "assistant"}:
-            raise ValueError("Ungueltige Nachrichtenrolle")
-        content = item.get("content")
-        if not isinstance(content, str) or not content.strip() or len(content) > 50000:
-            raise ValueError("Nachrichteninhalt ungueltig oder zu lang")
-        result.append({"role": item["role"], "content": content})
-    return result
+    return tool_protocol.messages(messages)
 
 
 def create_handler(context: dict[str, Any]):
@@ -94,7 +85,10 @@ def create_handler(context: dict[str, Any]):
         payload = request.get("payload") or {}
         if not isinstance(payload, dict):
             raise ValueError("payload muss ein Objekt sein")
+        mode, tools, definitions, choice, forced = tool_protocol.options(payload)
         messages = _messages(payload)
+        tool_context = bool(tools) or any(m.get("tool_calls") or m["role"] == "tool" for m in messages)
+        native_tools = mode == "native" and (tool_context or "tool_choice" in payload)
 
         if not any(item["role"] == "system" for item in messages):
             messages.insert(0, {
@@ -114,7 +108,7 @@ def create_handler(context: dict[str, Any]):
         if not isinstance(thinking, bool):
             raise ValueError("payload.thinking muss boolesch sein")
 
-        if not thinking:
+        if not thinking and not (mode == "native" and tool_context):
             for item in reversed(messages):
                 if item["role"] == "user":
                     if "/no_think" not in item["content"]:
@@ -126,7 +120,13 @@ def create_handler(context: dict[str, Any]):
         temperature = float(payload.get("temperature", 0.7))
         if not 0 <= temperature <= 2:
             raise ValueError("temperature muss zwischen 0 und 2 liegen")
-        data = json.dumps({"messages": messages, "max_tokens": max_tokens, "temperature": temperature, "stream": False, "chat_template_kwargs": {"enable_thinking": thinking}}).encode("utf-8")
+        body = {"messages": messages, "max_tokens": max_tokens, "temperature": temperature,
+                "stream": False, "chat_template_kwargs": {"enable_thinking": thinking}}
+        if native_tools:
+            # b12125 accepts string choices; constrain a named choice to one tool.
+            body.update(tools=[t for t in tools if not forced or t["function"]["name"] == forced],
+                        tool_choice="required" if forced else choice, parallel_tool_calls=False)
+        data = json.dumps(body, allow_nan=False).encode("utf-8")
         endpoint = _endpoint()
         try:
             # plugin_path is <runtime>/plugins/<plugin-id>; no global env required.
@@ -144,15 +144,19 @@ def create_handler(context: dict[str, Any]):
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             raise OfflineLLMError(f"Lokaler llama-server nicht erreichbar: {exc}") from exc
         try:
-            answer = result["choices"][0]["message"]["content"]
-            if not isinstance(answer, str):
-                raise TypeError("Antwort kein Text")
-            if not answer.strip():
-                raise OfflineLLMError("llama-server lieferte keinen Antworttext; moeglicherweise wurde das Tokenlimit im Thinking-Modus verbraucht")
-        except (KeyError, IndexError, TypeError) as exc:
-            raise OfflineLLMError("Ungueltige llama-server-Antwort") from exc
+            first = result["choices"][0]
+            finish_reason = first.get("finish_reason", "stop")
+            message = tool_protocol.response(first["message"], finish_reason,
+                                             definitions if native_tools else {},
+                                             choice if native_tools else "none", forced if native_tools else None)
+            message.setdefault("role", "assistant")
+            answer = message.get("content") or ""
+        except (ValueError, KeyError, IndexError, TypeError) as exc:
+            raise OfflineLLMError("Ungueltige llama-server-Antwort: " + str(exc)) from exc
         evidence = backend_evidence(endpoint)
         return {"status": "completed", "engine": "llama.cpp", "text": answer,
+                "message": message, "tool_calls": message.get("tool_calls", []),
+                "finish_reason": finish_reason,
                 "usage": result.get("usage", {}), "provider": "local_llama_server",
                 **evidence}
     return handler

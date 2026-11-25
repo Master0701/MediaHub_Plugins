@@ -50,3 +50,41 @@ Keine Dateisystem-Schreiboperationen, kein Modell-Download, keine Shell-Ausfuehr
 
 ## Entwicklungsstand v0.1.6-dev
 Bestehender Code v0.1.5 erhalten. Plugin-ID, sichtbarer Name, Worker-ID und Entrypoint konsistent umbenannt. Runtime-Paket und GGUF-Modell werden weiterhin NICHT automatisch heruntergeladen. Die Integration mit dem tatsaechlichen Windows-Compute-Node-Installer und MediaHub_Tools ist noch offen. Keine produktive Installation oder Veroeffentlichung.
+# Native Werkzeugaufrufe (Entwicklungsstand, noch kein Release)
+
+Die externe `/v1/chat/completions`-API verwendet standardmaessig den nativen
+llama.cpp-Weg. `tools`, `assistant.tool_calls` und `role: tool` bleiben strukturiert.
+Der Worker liefert neben dem bisherigen `text` auch `message`, `tool_calls` und
+den tatsaechlichen `finish_reason`. Ein reiner Werkzeugaufruf darf `content: null`
+haben. Es werden keine Werkzeuge ausgefuehrt.
+
+Unterstuetzt: `tool_choice: "none"`, `"auto"`, `"required"` und die Objektform
+`{"type":"function","function":{"name":"..."}}`. Fuer b12125 wird eine benannte
+Wahl intern auf ein angebotenes Werkzeug plus `required` abgebildet.
+`parallel_tool_calls` ist standardmaessig `false`; `true` wird mit HTTP 400
+abgewiesen. Historische Aufrufe duerfen mehrere bereits beantwortete Tools
+enthalten. Ihre IDs und Argumentstrings bleiben erhalten.
+
+Der bisherige JSON-Promptweg ist ueber das zusaetzliche Requestfeld
+`"tool_calling_mode": "json_compat"` ausdruecklich waehlbar. Fehler im Standardweg
+loesen niemals einen Fallback aus. Fehlende verpflichtende Aufrufe, falsche
+Argumente und abgeschnittene Werkzeugantworten werden als Fehler behandelt.
+Ein normales, durch das Tokenlimit beendetes Textergebnis behaelt `finish_reason: "length"`.
+
+Die gemeinsame Validierung benoetigt keine neuen Abhaengigkeiten. Sie unterstuetzt
+Objekte, Arrays, Strings, Zahlen, Integer, Boolean, Null, Typunionen, `properties`,
+`required`, `additionalProperties`, `items`, `enum`, `const`, `anyOf`, `oneOf`,
+`allOf`, Zahlen-, Stringlaengen- und Arraylaengengrenzen. Beschreibende Felder
+`description`, `title`, `default`, `examples` sind erlaubt. Andere Schema-Keywords
+(z.B. `$ref`, `pattern`, `format`) werden mit HTTP 400 abgewiesen und nicht ignoriert.
+Dies ist ausdruecklich keine vollstaendige JSON-Schema-Implementierung.
+
+CPU-/CUDA-Startparameter, Backend-Nachweise, TLS und Schluesselverwaltung bleiben
+unveraendert. Das vorhandene Qwen3-Q8_0-Paket enthaelt das Werkzeugtemplate;
+die vorhandenen Runtimepakete sind b12125. Kein Template-Override erforderlich.
+Die laufende Installation muss vor der Abnahme gesondert abgeglichen werden.
+
+Tests: `python -B -m unittest discover -s ai_node_plugins/interaktions_ki/tests -v`
+(Pluginordner gegebenenfalls in `PYTHONPATH` aufnehmen). Neue Testfaelle stehen in
+`tests/test_native_tools.py`; den echten Inferenztest beschreibt die README unter
+`tools/dev/plugin_nulltest`.

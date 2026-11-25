@@ -1,4 +1,4 @@
-# MediaHub Plugins v0.5.32 – vollständiges Release
+# MediaHub Plugins v0.5.33 – vollständiges Release
 
 ## MediaHub KI-Assistent v7.0.11
 
@@ -47,6 +47,7 @@
 - Lokaler llama.cpp-Server kann bei Chat-Auftraegen anhand der gespeicherten Freigabe automatisch gestartet werden.
 - Runtime-Pfad aus Plugin-Kontext; korrekt gekennzeichnete verwaltete Installation.
 - Keine stillschweigenden Downloads und kein Start fuer LAN-/Remote-Endpunkte.
+- CPU- und CUDA-Nulltest mit echter Inferenz sowie nativem Node-/HTTPS-Tool-Calling am 24.11.2026 bestanden.
 
 ## MediaHub AI Test Provider v1.0.0
 
@@ -83,15 +84,24 @@
 
 ## Gemeinsamer Build- und Teststand
 
-- 102 Python-Haupttests bestanden; fünf zusätzliche Plugin-Testsuiten erfolgreich (Windows, 31.10.2026).
-- Zwölf Plugin-Pakete gebaut (sieben MediaHub, fünf AI-Node), einschließlich Entwicklungs-Paket Listen & Export v0.0.0.
-- Veröffentlichbare Plugins erhalten `.mhplugin`- bzw. `.mhaiplugin`-Pakete mit SHA256-Dateien.
-- Listen & Export v0.0.0 bleibt im Katalog und Gesamtbuild, wird aber gemäß Release-Regel nicht als GitHub-Plugin-Asset hochgeladen.
-- Beide Plugin-Kataloge wurden im Gesamtbuild aktualisiert.
+- Aktueller Gesamtbuild vom 25.11.2026: `python -B build_plugins.py all` erfolgreich abgeschlossen; 13 Plugin-Pakete erstellt (7 MediaHub, 6 AI-Node), jeweils mit SHA256-Datei.
+- Beide Plugin-Kataloge wurden im aktuellen Gesamtbuild aktualisiert.
+- Zusätzlich `MediaHub_Plugin_Nulltest_v1.0.25.zip` mit SHA256-Datei erstellt.
+- Python-Syntaxprüfung von `build_plugins.py` und `release_plugins.py` erfolgreich; `git diff --check` ohne Fehler (nur Zeilenenden-Warnungen).
+- Release-Assistent `--dry-run --tag v0.5.33` erfolgreich: generierte GitHub-Release-Beschreibung, bestehende Artefakte und Nulltest-Prüfsumme geprüft; kein Commit, Tag, Push oder Release.
+- Historischer Teststand vom 31.10.2026: 102 Python-Haupttests bestanden; fünf zusätzliche Plugin-Testsuiten erfolgreich.
+- Historischer Gesamtbuild vom 31.10.2026: zwölf Plugin-Pakete (7 MediaHub, 5 AI-Node), einschließlich Listen & Export v0.0.0.
+- Listen & Export v0.0.0 bleibt Entwicklungsstand und darf nicht als GitHub-Plugin-Asset hochgeladen werden.
+- Ein vollständiger erneuter Mehrplugin-Nulltest sowie die gesonderte Abnahme von `-DiagnoseAlle` stehen weiterhin aus.
 
-## Zusatzwerkzeug: MediaHub Plugin-Nulltest v1.0.0
+## Zusatzwerkzeug: MediaHub Plugin-Nulltest v1.0.25
 
-- Separates ZIP-Asset `MediaHub_Plugin_Nulltest_v1.0.0.zip` mit SHA256-Prüfsumme.
-- GLiNER, SmolVLM2 und Speech-to-Text: CPU- und CUDA-Nullinstallationen mit echten API-/Inferenztests.
-- Windows PowerShell 5.1, Internetzugang und für GPU-Tests eine NVIDIA-GPU erforderlich.
+- Separates ZIP-Asset `MediaHub_Plugin_Nulltest_v1.0.25.zip` mit SHA256-Pruefsumme.
+- Enthaltenes Testskript: `MediaHub_Gemeinsamer_Nulltest_v1.0.25_BOM_DiagnoseAlle.ps1`.
+- GLiNER, SmolVLM2, Speech-to-Text und Interaktions-KI: CPU-/CUDA-Testprofile.
+- Interaktions-KI: native Node-/HTTPS-Tool-Calling-Pruefung mit simuliertem Werkzeug; keine echten ioBroker-Geraete.
+- `-DiagnosePause` fuer isolierte Interaktions-KI CPU; `-DiagnoseAlle` fuer zusaetzliche Protokollmarker (noch separat abzunehmen).
+- Interaktions-KI v0.1.13: CPU und CUDA am 24.11.2026 mit echter Inferenz sowie nativem Node-/HTTPS-Tool-Calling bestanden (CPU einmal, CUDA drei Wiederholungen).
+- Windows-PowerShell-5.1-Syntax und Nulltest-ZIP-Build v1.0.25 am 24.11.2026 bestanden; vollstaendiger Mehrplugin-Test noch offen.
+- Windows PowerShell 5.1, Internetzugang und fuer GPU-Tests eine NVIDIA-GPU erforderlich.
 - Dieses Diagnosewerkzeug ist kein installierbares Plugin.

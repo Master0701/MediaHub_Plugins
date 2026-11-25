@@ -417,19 +417,28 @@ def build_release_notes(source: str, plugins: list[Plugin], tag: str) -> str:
             "",
         ])
 
+    build = load_build_helpers()
+    nulltest_version, nulltest_script = build.select_plugin_nulltest_source()
+    nulltest_version_text = ".".join(map(str, nulltest_version))
+    nulltest_asset_name = f"MediaHub_Plugin_Nulltest_v{nulltest_version_text}.zip"
     lines.extend([
-        "## Zusatzwerkzeug: MediaHub Plugin-Nulltest v1.0.0",
+        f"## Zusatzwerkzeug: MediaHub Plugin-Nulltest v{nulltest_version_text}",
         "",
-        "- Separates ZIP-Asset `MediaHub_Plugin_Nulltest_v1.0.0.zip` mit SHA256-Prüfsumme.",
-        "- GLiNER, SmolVLM2 und Speech-to-Text: CPU- und CUDA-Nullinstallationen mit echten API-/Inferenztests.",
-        "- Windows PowerShell 5.1, Internetzugang und für GPU-Tests eine NVIDIA-GPU erforderlich.",
+        f"- Separates ZIP-Asset `{nulltest_asset_name}` mit SHA256-Pruefsumme.",
+        f"- Enthaltenes Testskript: `{nulltest_script.name}`.",
+        "- GLiNER, SmolVLM2, Speech-to-Text und Interaktions-KI: CPU-/CUDA-Testprofile.",
+        "- Interaktions-KI: native Node-/HTTPS-Tool-Calling-Pruefung mit simuliertem Werkzeug; keine echten ioBroker-Geraete.",
+        "- `-DiagnosePause` fuer isolierte Interaktions-KI CPU; `-DiagnoseAlle` fuer zusaetzliche Protokollmarker (noch separat abzunehmen).",
+        "- Interaktions-KI v0.1.13: CPU und CUDA am 24.11.2026 mit echter Inferenz sowie nativem Node-/HTTPS-Tool-Calling bestanden (CPU einmal, CUDA drei Wiederholungen).",
+        "- Windows-PowerShell-5.1-Syntax und Nulltest-ZIP-Build v1.0.25 am 24.11.2026 bestanden; vollstaendiger Mehrplugin-Test noch offen.",
+        "- Windows PowerShell 5.1, Internetzugang und fuer GPU-Tests eine NVIDIA-GPU erforderlich.",
         "- Dieses Diagnosewerkzeug ist kein installierbares Plugin.",
         "",
     ])
     return "\n".join(lines).rstrip() + "\n"
 
 
-def build_readme(notes: str, plugins: list[Plugin]) -> str:
+def build_readme(notes: str, plugins: list[Plugin], tag: str) -> str:
     version_lines = "\n".join(
         f"- **{plugin.name} {plugin.version}**" for plugin in plugins
     )
@@ -469,13 +478,13 @@ Jedes Plugin bleibt optional und kann einzeln installiert, aktualisiert und entf
 Lokaler Prüflauf ohne Veröffentlichung:
 
 ```powershell
-release_plugins.cmd -Tag v0.5.5 -NoPush
+release_plugins.cmd -Tag {tag} -NoPush
 ```
 
 Vollständiges Release:
 
 ```powershell
-release_plugins.cmd -Tag v0.5.5
+release_plugins.cmd -Tag {tag}
 ```
 
 Alle Versions- und Paketnamen werden automatisch aus den jeweiligen
@@ -729,20 +738,9 @@ def build_plugin_nulltest_release_asset() -> None:
 
 
 def verify_plugin_nulltest_release_asset() -> None:
-    """Verify the newest versioned nulltest asset actually built by build_plugins."""
-    import re
-
-    scripts = []
-    for script in NULLTEST_SOURCE.glob("MediaHub_Gemeinsamer_Nulltest_v*.ps1"):
-        match = re.fullmatch(
-            r"MediaHub_Gemeinsamer_Nulltest_v(\d+)\.(\d+)\.(\d+)(?:_.*)?\.ps1",
-            script.name,
-        )
-        if match:
-            scripts.append((tuple(map(int, match.groups())), script))
-    if not scripts:
-        raise RuntimeError("Kein versioniertes Nulltest-Skript gefunden.")
-    version, script = max(scripts, key=lambda item: (item[0], item[1].name))
+    """Verify the same newest unambiguous nulltest used by the build."""
+    build = load_build_helpers()
+    version, script = build.select_plugin_nulltest_source()
     version_text = ".".join(map(str, version))
     artifact = RELEASE_DIR / f"MediaHub_Plugin_Nulltest_v{version_text}.zip"
     checksum_file = artifact.with_name(artifact.name + ".sha256")
@@ -755,7 +753,10 @@ def verify_plugin_nulltest_release_asset() -> None:
         expected = {script.name, "README.md"}
         if set(archive.namelist()) != expected or archive.testzip() is not None:
             raise RuntimeError("Nulltest-Asset ZIP-Inhalt fehlerhaft.")
-    print(f"[OK] Nulltest-Asset {artifact.name} und SHA256 geprüft.")
+        if archive.read(script.name) != script.read_bytes():
+            raise RuntimeError("Nulltest-Asset enthaelt nicht die ausgewaehlte Skriptversion.")
+    print(f"[OK] Nulltest-Asset {artifact.name}, Quelle und SHA256 geprueft.")
+
 
 def verify_artifacts(plugins: list[Plugin]) -> None:
     expected_names: set[str] = set()
@@ -957,6 +958,9 @@ ALLOWED_RELEASE_FILES = {
     "pyproject.toml",
     "CHANGELOG.md",
     "RELEASE_NOTES.md",
+    "RELEASE_NOTES_PENDING.md",
+    "GIT_COMMIT_VORSCHLAG.txt",
+    "GIT_TEXTE_FUER_RELEASE_NOTES_PENDING.md",
     "THIRD_PARTY_LICENSES.md",
     "build_plugins.py",
     "prepare_plugin_release.py",
@@ -1020,8 +1024,8 @@ def validate_release_worktree() -> list[tuple[str, str]]:
     if unexpected:
         raise RuntimeError(
             "Unerwartete Dateien im Arbeitsbaum. "
-            "Release wurde gestoppt:\\n"
-            + "\\n".join(unexpected)
+            "Release wurde gestoppt:\n"
+            + "\n".join(unexpected)
         )
 
     if entries:
@@ -1035,18 +1039,49 @@ def validate_release_worktree() -> list[tuple[str, str]]:
     return entries
 
 
-def stage_release_changes() -> list[str]:
-    candidates = [
-        *ALLOWED_RELEASE_ROOTS,
-        *sorted(ALLOWED_RELEASE_FILES),
-    ]
-    existing = [
-        item
-        for item in candidates
-        if (ROOT / item.rstrip("/")).exists()
-    ]
+def planned_release_paths(explicit_paths: list[str]) -> list[str]:
+    """Select changed files only; reject unexpected paths and directories."""
+    entries = validate_release_worktree()
+    changed = {path for _, path in entries}
+    if explicit_paths:
+        selected = [normalize_status_path(path) for path in explicit_paths]
+        missing = sorted(changed.difference(selected))
+        if missing:
+            raise RuntimeError(
+                "Nicht freigegebene Aenderungen vorhanden; Release abgebrochen:\n"
+                + "\n".join(missing)
+            )
+    else:
+        selected = sorted(changed)
+    for path in selected:
+        if not path or path.startswith("/") or ".." in path.split("/"):
+            raise RuntimeError(f"Ungueltiger Release-Pfad: {path!r}")
+        if not is_allowed_release_path(path):
+            raise RuntimeError(f"Release-Pfad nicht erlaubt: {path!r}")
+        if (ROOT / path).is_dir():
+            raise RuntimeError(f"Ordner statt Datei ausgewaehlt: {path!r}")
+    return selected
 
-    run("git", "add", "-A", "--", *existing)
+
+def stage_release_changes(selected_paths: list[str]) -> list[str]:
+    """Stage only explicitly selected files, never whole plugin directories."""
+    if not selected_paths:
+        raise RuntimeError(
+            "Keine Release-Dateien gewaehlt. --release-path fuer jede "
+            "freigegebene Datei angeben; parallele Aenderungen bleiben unangetastet."
+        )
+    existing_staged = git("diff", "--cached", "--name-only", capture=True)
+    if existing_staged.strip():
+        raise RuntimeError("Git-Index ist bereits belegt; keine automatische Uebernahme.")
+    for item in selected_paths:
+        normalized = item.replace("\\", "/").strip("/")
+        if not normalized or normalized in (".", "..") or ".." in normalized.split("/"):
+            raise RuntimeError(f"Ungueltiger Release-Pfad: {item!r}")
+        if not is_allowed_release_path(normalized):
+            raise RuntimeError(f"Release-Pfad nicht erlaubt: {item!r}")
+        if (ROOT / normalized).is_dir():
+            raise RuntimeError(f"Nur einzelne Dateien freigeben, keine Ordner: {item!r}")
+    run("git", "add", "-A", "--", *selected_paths)
 
     staged = git(
         "diff",
@@ -1070,14 +1105,14 @@ def stage_release_changes() -> list[str]:
         run("git", "reset", "--", *unexpected)
         raise RuntimeError(
             "Unerwartete Dateien wurden aus dem Release-Commit entfernt:\\n"
-            + "\\n".join(unexpected)
+            + "\n".join(unexpected)
         )
 
     return paths
 
 
-def commit_release_changes(tag: str) -> None:
-    staged = stage_release_changes()
+def commit_release_changes(tag: str, selected_paths: list[str]) -> None:
+    staged = stage_release_changes(selected_paths)
 
     if not staged:
         print("Keine Quellcode- oder Release-Aenderungen zu committen.")
@@ -1170,7 +1205,6 @@ def cleanup_mediahub_ai_archives() -> int:
 
 
 def main() -> int:
-    cleanup_mediahub_ai_archives()
     parser = argparse.ArgumentParser(
         description="Universeller MediaHub-Plugin-Release-Assistent v3"
     )
@@ -1178,10 +1212,15 @@ def main() -> int:
     parser.add_argument("--skip-tests", action="store_true")
     parser.add_argument("--no-push", action="store_true")
     parser.add_argument("--yes", action="store_true")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Nur lesen und pruefen; kein Build, Cleanup, Git oder Upload")
+    parser.add_argument("--release-path", action="append", default=[],
+                        help="Optional: einzelne Dateien explizit freigeben; Standard: alle erwarteten Aenderungen")
     args = parser.parse_args()
 
-    cleanup_preflight(assume_yes=args.yes)
-    validate_release_worktree()
+    # Keine automatische Bereinigung: sie konnte Dateien loeschen und
+    # eigene Commits ausloesen, noch vor der Freigabe.
+    selected_before_build = planned_release_paths(args.release_path)
     validate_repository_text_encoding()
     plugins = load_plugins()
 
@@ -1201,9 +1240,39 @@ def main() -> int:
         "generierte Release Notes",
     )
 
+    if args.dry_run:
+        print(f"[DRY-RUN] Release {tag}; keine Dateien werden veraendert.")
+        print(f"[DRY-RUN] GitHub-Titel: MediaHub Plugins {tag} – vollstaendiges Release")
+        print("[DRY-RUN] GitHub-Beschreibung (generiert):")
+        print(notes)
+        print("[DRY-RUN] Freigegebene Commit-Dateien:")
+        for path in selected_before_build:
+            print(f"  - {path}")
+        if not selected_before_build:
+            print("  (keine offenen Aenderungen)")
+        print("[DRY-RUN] Bestehende Artefakte und SHA256 werden geprueft.")
+        verify_artifacts(plugins)
+        verify_plugin_nulltest_release_asset()
+        print("[DRY-RUN] OK. Kein Cleanup, Build, Commit, Tag, Push oder Release.")
+        return 0
+
+    # Explicit approval BEFORE any file writes, builds, commits or pushes.
+    print("\nVorgesehene Release-Dateien vor dem Build:")
+    for path in selected_before_build:
+        print(f"  - {path}")
+    if not args.yes:
+        answer = input(
+            f"Release {tag} (Dateien schreiben, Build, Commit"
+            + (", Push und Tag" if not args.no_push else ", ohne Push/Tag")
+            + ") "
+            "jetzt starten? Zum Bestaetigen RELEASE eingeben: "
+        )
+        if answer.strip() != "RELEASE":
+            raise RuntimeError("Release-Vorbereitung wurde nicht bestaetigt.")
+
     PENDING.write_text(notes, encoding="utf-8")
     RELEASE_NOTES.write_text(notes, encoding="utf-8")
-    README.write_text(build_readme(notes, plugins), encoding="utf-8")
+    README.write_text(build_readme(notes, plugins, tag), encoding="utf-8")
 
     print(f"Release: {tag}")
     for plugin in plugins:
@@ -1244,21 +1313,20 @@ def main() -> int:
     verify_artifacts(plugins)
     verify_plugin_nulltest_release_asset()
 
-    commit_release_changes(tag)
+    # Include generated notes/catalogs/build-script changes only if Git reports
+    # them as changed; never stage an entire directory.
+    selected_after_build = planned_release_paths(args.release_path)
+    print("\nTatsaechliche Release-Commit-Dateien nach dem Build:")
+    for path in selected_after_build:
+        print(f"  - {path}")
+    commit_release_changes(tag, selected_after_build)
     ensure_clean_before_publish()
 
     if args.no_push:
         print("Lokaler Release-Lauf abgeschlossen (--no-push).")
         return 0
 
-    if not args.yes:
-        answer = input(
-            f"Release {tag} jetzt vollständig neu veröffentlichen? "
-            "Zum Bestätigen RELEASE eingeben: "
-        )
-        if answer.strip() != "RELEASE":
-            raise RuntimeError("Veröffentlichung wurde nicht bestätigt.")
-
+    # Approval was obtained before any mutating step above.
     run("git", "push", "origin", "main")
     update_tag(tag)
 

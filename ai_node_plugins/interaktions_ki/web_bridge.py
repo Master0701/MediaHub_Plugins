@@ -17,6 +17,14 @@ import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+# Load beside this installed bridge: the service uses spec_from_file_location
+# after the plugin loader has removed its temporary sys.path entry.
+import importlib.util
+_protocol_spec = importlib.util.spec_from_file_location(
+    "mediahub_interaktions_ki_tool_protocol", Path(__file__).with_name("tool_protocol.py"))
+tool_protocol = importlib.util.module_from_spec(_protocol_spec)
+_protocol_spec.loader.exec_module(tool_protocol)
+
 MAX_BODY = 128 * 1024
 
 class Bridge:
@@ -44,7 +52,7 @@ class Bridge:
         with urllib.request.urlopen(req, timeout=180) as resp:
             return json.load(resp)
 
-    def handler(self, lan_host=None, lan_password=None, lan_credentials=None):
+    def handler(self, lan_host=None, lan_password=None, lan_credentials=None, api_key=None):
         bridge = self
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, fmt, *args):
@@ -77,7 +85,17 @@ class Bridge:
                     valid_origins = ("https://%s:%d" % (lan_host, self.server.server_port),)
                 if origin and origin not in valid_origins:
                     return self.reply(403, {"error": "Ungueltiger Origin"})
-                if lan_password is not None or lan_credentials is not None:
+                api_path = urllib.parse.urlsplit(self.path).path.startswith("/v1/")
+                if api_path:
+                    # API endpoints are LAN/HTTPS only; never expose on loopback HTTP.
+                    if not lan_host:
+                        return self.reply(404, {"error": "API nicht verfuegbar"})
+                    if api_key is None or not api_key.enabled():
+                        return self.reply(503, {"error": "Externe API deaktiviert"})
+                    auth = self.headers.get("Authorization", "")
+                    if not (auth.startswith("Bearer ") and api_key.verify(auth[7:])):
+                        return self.reply(401, {"error": "Ungueltiger API-Schluessel"})
+                elif lan_password is not None or lan_credentials is not None:
                     auth = self.headers.get("Authorization", "")
                     authorized = False
                     if auth.startswith("Basic "):
@@ -122,6 +140,145 @@ class Bridge:
                     return self.reply(502, {"error": "Compute Node nicht erreichbar: " + str(e)})
             def dispatch(self, method, path, body):
                 parts = [urllib.parse.unquote(x) for x in path.strip("/").split("/")]
+                if path == "/v1/models" and method == "GET":
+                    return self.reply(200, {"object": "list", "data": [{
+                        "id": "mediahub-interaktions-ki", "object": "model", "created": 0,
+                        "owned_by": "mediahub"}]})
+                if path == "/v1/chat/completions" and method == "POST":
+                    messages = body.get("messages")
+                    if not isinstance(messages, list) or not messages or len(messages) > 40:
+                        return self.reply(400, {"error": {"message": "messages muss 1 bis 40 Eintraege enthalten", "type": "invalid_request_error"}})
+                    if body.get("model") != "mediahub-interaktions-ki":
+                        return self.reply(400, {"error": {"message": "Unbekanntes Modell", "type": "invalid_request_error"}})
+                    if body.get("stream", False) is not False:
+                        return self.reply(400, {"error": {"message": "Streaming noch nicht unterstuetzt", "type": "invalid_request_error"}})
+                    try:
+                        mode, tools, definitions, choice, forced = tool_protocol.options(body)
+                        clean = tool_protocol.messages(messages)
+                    except ValueError as exc:
+                        return self.reply(400, {"error": {"message": str(exc), "type": "invalid_request_error"}})
+                    if mode == "json_compat":
+                        # Explicit legacy protocol only; never retry native failures here.
+                        converted = []
+                        pending = {}
+                        for item in clean:
+                            if item.get("tool_calls"):
+                                for call in item["tool_calls"]:
+                                    fn = call["function"]
+                                    pending[call["id"]] = fn["name"]
+                                    converted.append({"role": "assistant", "content":
+                                        "Tool-Aufruf: " + fn["name"] + " " + fn["arguments"]})
+                            elif item["role"] == "tool":
+                                converted.append({"role": "user", "content": "Ergebnis des Tools "
+                                    + pending.pop(item["tool_call_id"]) + ": " + item["content"]})
+                            else:
+                                converted.append(item)
+                        clean = converted
+                    using_tools = bool(definitions) and choice != "none"
+                    if using_tools and mode == "json_compat":
+                        catalog = [{"name": name, "description": fn.get("description", ""),
+                                    "parameters": fn.get("parameters", {"type": "object"})}
+                                   for name, fn in definitions.items()]
+                        instructions = (
+                            "Du bist ein Assistent mit optionalen Werkzeugen. Entscheide anhand der "
+                            "Benutzerfrage, ob ein Werkzeug wirklich gebraucht wird. Antworte mit GENAU "
+                            "einem JSON-Objekt, ohne Markdown. Fuer einen Werkzeugaufruf: "
+                            '{"action":"tool","name":"EXAKTER_NAME","arguments":{...}}. '
+                            'Fuer eine direkte Antwort: {"action":"answer","content":"Antworttext"}. '
+                            "Erfinde keine Werkzeuge oder Argumente. Fuehre niemals selbst Aktionen aus. "
+                            "Werkzeugliste: " + json.dumps(catalog, ensure_ascii=False)
+                        )
+                        if forced:
+                            instructions += " Du MUSST das Werkzeug " + json.dumps(forced) + " waehlen."
+                        elif choice == "required":
+                            instructions += " Du MUSST eines der angebotenen Werkzeuge waehlen."
+                        if clean[0]["role"] == "system":
+                            clean[0]["content"] = instructions + "\n\n" + clean[0]["content"]
+                        else:
+                            clean.insert(0, {"role": "system", "content": instructions})
+                    if len(clean) > 40:
+                        return self.reply(400, {"error": {"message": "Zu viele Nachrichten nach JSON-Kompatibilitaetsumwandlung", "type": "invalid_request_error"}})
+                    payload = {"messages": clean, "tool_calling_mode": mode}
+                    if mode == "native":
+                        payload.update(tools=tools, tool_choice=choice, parallel_tool_calls=False)
+                    for field in ("max_tokens", "temperature"):
+                        if field in body:
+                            payload[field] = body[field]
+                    created = bridge.node("/jobs", "POST", {"job_type": "chat", "payload": payload, "execution": {}})
+                    job_id = created.get("id") or created.get("job_id")
+                    if not job_id:
+                        return self.reply(502, {"error": {"message": "Compute Node lieferte keine Job-ID", "type": "server_error"}})
+                    finished = bridge.node("/jobs/" + urllib.parse.quote(str(job_id), safe="") + "/execute", "POST", {})
+                    if finished.get("status") != "completed":
+                        return self.reply(502, {"error": {"message": "KI-Auftrag fehlgeschlagen", "type": "server_error"}})
+                    result = finished.get("result") or {}
+                    if result.get("worker_id") != "mediahub.interaktions_ki.worker":
+                        return self.reply(502, {"error": {"message": "Falscher KI-Worker", "type": "server_error"}})
+                    output = result.get("output") or {}
+                    if mode == "native":
+                        try:
+                            finish_reason = output.get("finish_reason")
+                            message = tool_protocol.response(output.get("message"), finish_reason,
+                                                             definitions, choice, forced)
+                        except ValueError as exc:
+                            return self.reply(502, {"error": {"message": str(exc), "type": "server_error"}})
+                    else:
+                        answer = output.get("text")
+                        if not isinstance(answer, str) or not answer.strip():
+                            return self.reply(502, {"error": {"message": "Keine KI-Antwort", "type": "server_error"}})
+                        message = {"role": "assistant", "content": answer}
+                        finish_reason = output.get("finish_reason", "stop")
+                        if using_tools:
+                            import re
+                            candidate = answer.strip()
+                            if candidate.startswith("```"):
+                                candidate = re.sub(r"^```(?:json)?\s*|\s*```$", "", candidate).strip()
+                            try:
+                                decision = tool_protocol.loads(candidate)
+                            except (ValueError, TypeError):
+                                decision = None
+                            if isinstance(decision, dict) and decision.get("action") == "tool":
+                                name = decision.get("name")
+                                args = decision.get("arguments")
+                                if not isinstance(name, str) or name not in definitions or not isinstance(args, dict) or (forced and name != forced):
+                                    return self.reply(502, {"error": {"message": "KI lieferte ungueltigen Tool-Aufruf", "type": "server_error"}})
+                                try:
+                                    if finish_reason != "stop":
+                                        raise ValueError("Unvollstaendige JSON-Werkzeugentscheidung")
+                                    tool_protocol.validate(args, definitions[name].get("parameters", {"type": "object"}))
+                                except ValueError as exc:
+                                    return self.reply(502, {"error": {"message": str(exc), "type": "server_error"}})
+                                message = {"role": "assistant", "content": None, "tool_calls": [{
+                                    "id": "call_" + uuid.uuid4().hex, "type": "function",
+                                    "function": {"name": name, "arguments": json.dumps(args, ensure_ascii=False)}
+                                }]}
+                                finish_reason = "tool_calls"
+                            elif (forced or choice == "required"):
+                                return self.reply(502, {"error": {"message": "KI hat keinen gueltigen verpflichtenden Tool-Aufruf erzeugt", "type": "server_error"}})
+                            elif isinstance(decision, dict) and decision.get("action") == "answer" and isinstance(decision.get("content"), str):
+                                message["content"] = decision["content"]
+                            elif forced or choice == "required":
+                                return self.reply(502, {"error": {"message": "KI hat keinen gueltigen verpflichtenden Tool-Aufruf erzeugt", "type": "server_error"}})
+                            # For auto, a plain text answer is a valid direct response.
+                    import time
+                    return self.reply(200, {"id": "chatcmpl-" + uuid.uuid4().hex,
+                        "object": "chat.completion", "created": int(time.time()),
+                        "model": "mediahub-interaktions-ki",
+                        "choices": [{"index": 0, "message": message, "finish_reason": finish_reason}],
+                        "usage": output.get("usage") if isinstance(output.get("usage"), dict) else {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}})
+                if path == "/api/external-api" and lan_host and api_key is not None:
+                    if method == "GET":
+                        return self.reply(200, {"model": "mediahub-interaktions-ki",
+                            "base_url": "https://%s:%d/v1" % (lan_host, self.server.server_port),
+                            "enabled": api_key.enabled()})
+                    if method == "POST" and body.get("action") == "reveal":
+                        return self.reply(200, {"api_key": api_key.get()})
+                    if method == "POST" and body.get("action") == "rotate":
+                        return self.reply(200, {"api_key": api_key.rotate(),
+                            "message": "Alter API-Schluessel sofort ungueltig"})
+                    if method == "POST" and body.get("action") == "enable" and type(body.get("enabled")) is bool:
+                        return self.reply(200, {"enabled": api_key.set_enabled(body["enabled"])})
+                    return self.reply(400, {"error": "Ungueltige Verwaltungsaktion"})
                 if path == "/api/status" and method == "GET":
                     try:
                         health = bridge.node("/health")
